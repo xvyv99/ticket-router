@@ -35,8 +35,8 @@ src/ticket_router/
     __init__.py
     features.py          # TF-IDF / tokenizer 管道
     train_traditional.py # LR, XGBoost 训练器
-    train_mbert.py       # mBERT/XLM-R 多任务微调
-    train_t5.py          # 可选的 T5 seq2seq
+    train_mbert.py       # rembert/XLM-R 多任务微调
+    train_t5.py          # 可选的 mt0 seq2seq
     inference.py         # 所有 Supervised 模型的统一推理入口
 
   goal_based/
@@ -988,7 +988,7 @@ git commit -m "feat: add traditional ML training pipeline for queue, priority, t
 
 ---
 
-## Task 11: mBERT 微调脚本
+## Task 11: rembert 微调脚本
 
 **Files:**
 - Create: `src/ticket_router/supervised/train_mbert.py`
@@ -1052,7 +1052,7 @@ def tokenize_function(examples, tokenizer, max_length=256):
 
 # 为简化, 先训练独立的单任务模型(queue 和 priority). 若时间允许可扩展为多任务.
 
-def train_mbert_queue(train_ds, val_ds, model_name="bert-base-multilingual-cased", epochs=3):
+def train_mbert_queue(train_ds, val_ds, model_name="google/rembert", epochs=3):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name, num_labels=len(QUEUE2ID)
@@ -1084,7 +1084,7 @@ def train_mbert_queue(train_ds, val_ds, model_name="bert-base-multilingual-cased
     tokenizer.save_pretrained(MODEL_DIR / "queue_best")
     return trainer
 
-def train_mbert_priority(train_ds, val_ds, model_name="bert-base-multilingual-cased", epochs=3):
+def train_mbert_priority(train_ds, val_ds, model_name="google/rembert", epochs=3):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name, num_labels=len(PRIORITY2ID)
@@ -1126,7 +1126,7 @@ Expected: PASS (smoke test, 不实际训练)
 
 ```bash
 git add src/ticket_router/supervised/train_mbert.py tests/test_train_mbert.py
-git commit -m "feat: add mBERT fine-tuning scripts for queue and priority"
+git commit -m "feat: add rembert fine-tuning scripts for queue and priority"
 ```
 
 ---
@@ -1206,7 +1206,7 @@ def run_supervised_batch(test_records: list, model_queue, model_priority, model_
     pool = build_template_pool()
     queue_preds = predict_traditional(model_queue, texts) if model_type == "traditional" else predict_mbert(model_queue, texts, "queue")
     priority_preds = predict_traditional(model_priority, texts) if model_type == "traditional" else predict_mbert(model_priority, texts, "priority")
-    # tag 默认空列表(mBERT 模式下若未训练 tag 模型)
+    # tag 默认空列表(rembert/XLM-R 模式下若未训练 tag 模型)
     tag_preds = predict_traditional(model_tags, texts) if model_tags and model_type == "traditional" else [{"prediction": []} for _ in texts]
 
     outputs = []
@@ -2257,7 +2257,7 @@ python scripts/06_run_llm_judge.py
 ## Project Structure
 
 - `src/ticket_router/rule_based/`: 基于关键词的规则系统
-- `src/ticket_router/supervised/`: 传统 ML + mBERT 分类器
+- `src/ticket_router/supervised/`: 传统 ML + rembert/XLM-R 分类器
 - `src/ticket_router/goal_based/`: LLM scaling 实验, 含 RAG 和 Tool
 - `src/ticket_router/evaluation/`: 指标, LLM-as-judge, 报告生成
 - `outputs/`: 所有预测结果和评估报告
@@ -2286,7 +2286,7 @@ git commit -m "docs: update README with usage instructions and project overview"
 |---|---|
 | Rule-Based 多语言规则 | 6, 7, 8 |
 | Supervised 传统 ML | 9, 10, 12 |
-| Supervised mBERT | 11, 12 |
+| Supervised rembert/XLM-R | 11, 12 |
 | Goal-Based API 客户端 | 13, 14, 15, 16, 17 |
 | Goal-Based scaling & 消融 (Base/RAG/Tool) | 14, 15, 16, 17 |
 | 统一测试集与困难案例 | 5 |
