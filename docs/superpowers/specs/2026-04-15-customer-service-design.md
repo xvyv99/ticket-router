@@ -273,7 +273,7 @@
 | 风险 | 缓冲方案 |
 |---|---|
 | Rule-Based 多语言规则工作量过大 | 高频 Queue 优先完整覆盖, 低频 Queue 用 LLM 辅助生成 + 允许简化 |
-| mBERT/T5 fine-tune 效果不佳 | 传统 ML 基线已能支撑 Supervised 分析; 失败本身可作为分析点 |
+| T5/BART 生成实验进度不足 | 标记为 optional; 若执行则聚焦语言不平等分析; 若放弃则不影响核心对比 |
 | Goal-Based 批量测试 API 费用/速率受限 | 严格执行"模型越大、测试量越少"; 9B 及以下免费模型跑满; 付费模型仅抽样 |
 | Fine-tune 本地模型时间不够 | 标记为 optional, 视 Week 2 进度决定 |
 | LLM-as-judge 评分不稳定 | 同一 case 评 3 次取平均; 争议案例引入人工复核 |
