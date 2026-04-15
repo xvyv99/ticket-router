@@ -22,11 +22,26 @@
 
 ## 2. 数据集说明
 
-- **来源**: `dataset/multilingual-customer-support-tickets/dataset-tickets-multi-lang3-4k.csv`
+目录 `dataset/multilingual-customer-support-tickets/` 下包含多个相关数据文件, 各有侧重:
+
+### 2.1 核心多语言数据集
+- **文件**: `dataset-tickets-multi-lang3-4k.csv`
 - **规模**: 4,000 条工单记录
 - **语言分布**: 英语(en, 1,391 条), 德语(de, 848 条), 西班牙语(es, 812 条), 法语(fr, 476 条), 葡萄牙语(pt, 473 条)
 - **Queue 分布**: `Technical Support`(1,317), `Product Support`(690), `Customer Service`(627), `IT Support`(445), `Billing and Payments`(338), `Returns and Exchanges`(197), `Service Outages and Maintenance`(141), `Sales and Pre-Sales`(137), `General Inquiry`(55), `Human Resources`(53)
 - **关键字段**: `subject`, `body`, `answer`, `queue`, `priority`, `language`, `type`, `business_type`, `tag_1` ~ `tag_9`
+- **用途**: **统一测试集来源**以及三种系统的基准训练/验证数据. 它是唯一覆盖 5 种语言的数据集, 是跨语言公平性分析的核心.
+
+### 2.2 大规模英德双语数据集
+- **文件**: `dataset-tickets-multi-lang-4-20k.csv` (20,000 条, EN/DE)
+- **文件**: `aa_dataset-tickets-multi-lang-5-2-50-version.csv` (28,587 条, EN/DE, 多 version)
+- **用途**: 用于 **Supervised 系统的英德双语增强训练**. 通过对比"仅使用 4k 全语言小数据"与"使用 20k+/28k 英德大数据"的模型表现, 可以分析"为提升主流语言性能而扩大数据规模"是否本身会加剧对小语种的覆盖缺失, 这本身是一个重要的 Fairness & Bias 讨论点.
+
+### 2.3 德语标准化数据集
+- **文件**: `dataset-tickets-german_normalized.csv` (2,125 条)
+- **文件**: `dataset-tickets-german_normalized_50_5_2.csv` (13,178 条)
+- **特点**: 德语文本经过标准化处理, 字段精简(无 tag 字段)
+- **用途**: 用于 **鲁棒性测试**. 可以测试 Rule-Based 在规范化文本上的表现是否优于真实口语化输入, 从而暴露规则系统对非标准语言风格(拼写错误、口语化、缩写)的脆弱性.
 
 数据集本身存在显著的类别不平衡和小样本 queue, 这为 Fairness & Bias 分析提供了天然素材.
 
