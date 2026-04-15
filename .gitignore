@@ -208,5 +208,6 @@ __marimo__/
 
 *.pdf
 dataset/
+outputs/
 
 docs/REQUIREMENTS.md
