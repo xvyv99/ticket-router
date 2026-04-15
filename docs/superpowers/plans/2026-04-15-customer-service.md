@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and evaluate three AI customer-service systems (Rule-Based, Supervised, Goal-Based) on a multilingual support-ticket dataset, with comprehensive Responsible AI analysis.
+**Goal:** 在一个多语言客服工单数据集上构建并评估三种 AI 客服系统(Rule-Based, Supervised, Goal-Based), 并进行全面的 Responsible AI 分析.
 
-**Architecture:** A shared Python package `src/ra_final/` houses data loaders, templates, and logging. Each paradigm lives in its own module (`rule_based/`, `supervised/`, `goal_based/`). Evaluation is centralized in `evaluation/`. All outputs are logged as JSONL for reproducibility.
+**Architecture:** 共享 Python 包 `src/ra_final/` 包含数据加载器, 模板和日志模块. 每种范式拥有独立的模块(`rule_based/`, `supervised/`, `goal_based/`). 评估集中放在 `evaluation/` 中. 所有输出均以 JSONL 格式记录以保证可复现性.
 
 **Tech Stack:** Python 3.13, pandas, scikit-learn, xgboost, transformers (HuggingFace), torch, faiss-cpu, asyncio, aiohttp, SiliconFlow API.
 
@@ -15,43 +15,43 @@
 ```
 src/ra_final/
   __init__.py
-  config.py              # Constants, paths, queue/priority/tag definitions
+  config.py              # 常量, 路径, queue/priority/tag 定义
   data/
     __init__.py
-    loader.py            # Load CSVs, deduplication, train/test split
-    templates.py         # Template pool for Rule-Based & Supervised
-  logging_utils.py       # Structured JSONL logger + token counter
-  test_set.py            # Build unified test set + difficult case set
+    loader.py            # 加载 CSV, 去重, 训练/测试划分
+    templates.py         # Rule-Based 和 Supervised 的模板池
+  logging_utils.py       # 结构化 JSONL 日志 + token 计数器
+  test_set.py            # 构建统一测试集和困难案例集
 
   rule_based/
     __init__.py
-    parser.py            # Keyword extraction per language
-    engine.py            # Queue/priority/tag rule matching
-    responder.py         # Template selection & filling
-    rules/               # JSON rule files per language
+    parser.py            # 按语言提取关键词
+    engine.py            # queue/priority/tag 规则匹配
+    responder.py         # 模板选择与填充
+    rules/               # 每种语言的 JSON 规则文件
       en.json, de.json, es.json, fr.json, pt.json
 
   supervised/
     __init__.py
-    features.py          # TF-IDF / tokenizer pipelines
-    train_traditional.py # LR, XGBoost trainers
-    train_mbert.py       # mBERT/XLM-R multi-task fine-tuning
-    train_t5.py          # Optional T5 seq2seq (optional)
-    inference.py         # Unified inference for all supervised models
+    features.py          # TF-IDF / tokenizer 管道
+    train_traditional.py # LR, XGBoost 训练器
+    train_mbert.py       # mBERT/XLM-R 多任务微调
+    train_t5.py          # 可选的 T5 seq2seq
+    inference.py         # 所有 Supervised 模型的统一推理入口
 
   goal_based/
     __init__.py
-    client.py            # SiliconFlow / OpenAI async client
-    prompt.py            # System prompts for Base / RAG / Tool
-    rag.py               # FAISS vector store & retriever
-    tool.py              # classify_keywords tool definition
-    runner.py            # Async batch runner with retries
+    client.py            # SiliconFlow / OpenAI 异步客户端
+    prompt.py            # Base / RAG / Tool 的系统提示词
+    rag.py               # FAISS 向量库与检索器
+    tool.py              # classify_keywords 工具定义
+    runner.py            # 带重试的异步批量运行器
 
   evaluation/
     __init__.py
-    metrics.py           # Accuracy, F1, confusion matrix, consistency
-    llm_judge.py         # LLM-as-judge prompt & scorer
-    report.py            # Generate comparison tables & plots
+    metrics.py           # Accuracy, F1, 混淆矩阵, 一致性
+    llm_judge.py         # LLM-as-judge 提示词与评分器
+    report.py            # 生成对比表格与图表
 
 tests/
   test_data_loader.py
@@ -79,14 +79,14 @@ outputs/
 
 ---
 
-## Task 1: Project Bootstrap & Shared Config
+## Task 1: 项目初始化与共享配置
 
 **Files:**
 - Create: `src/ra_final/__init__.py`
 - Create: `src/ra_final/config.py`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_config.py
@@ -104,12 +104,12 @@ def test_dataset_path_exists():
     assert DATASET_4K_PATH.exists()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_config.py -v`
-Expected: FAIL with import error or path not defined.
+Expected: FAIL, import error 或 path not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/config.py
@@ -144,12 +144,12 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_config.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/config.py tests/test_config.py
@@ -158,14 +158,14 @@ git commit -m "feat: add shared config with paths and constants"
 
 ---
 
-## Task 2: Data Loader with Deduplication Guard
+## Task 2: 带去重保护的数据加载器
 
 **Files:**
 - Create: `src/ra_final/data/__init__.py`
 - Create: `src/ra_final/data/loader.py`
 - Test: `tests/test_data_loader.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_data_loader.py
@@ -185,12 +185,12 @@ def test_load_20k_deduped_no_overlap():
     assert len(overlap) == 0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_data_loader.py -v`
-Expected: FAIL with import or function not defined.
+Expected: FAIL, import or function not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/data/loader.py
@@ -217,12 +217,12 @@ def load_28k_deduped(base_df: pd.DataFrame) -> pd.DataFrame:
     return _dedupe_by_text(df, base_df)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_data_loader.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/data/ tests/test_data_loader.py
@@ -231,13 +231,13 @@ git commit -m "feat: add data loader with deduplication guard"
 
 ---
 
-## Task 3: Template Pool Builder
+## Task 3: 模板池构建器
 
 **Files:**
 - Create: `src/ra_final/data/templates.py`
 - Test: `tests/test_templates.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_templates.py
@@ -255,12 +255,12 @@ def test_select_template_falls_back():
     assert "{customer_name}" in tpl or "support" in tpl.lower()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_templates.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/data/templates.py
@@ -277,7 +277,7 @@ def build_template_pool() -> dict:
         answer = str(row.get("answer", "")).strip()
         if answer:
             pool[(queue, priority)].append(answer)
-    # Deduplicate and keep top-3 most common per key
+    # 去重并保留每个 key 下最常见的 Top-3 回复
     final = {}
     for key, answers in pool.items():
         unique_ordered = sorted(set(answers), key=lambda x: answers.count(x), reverse=True)
@@ -288,19 +288,19 @@ def select_template(pool: dict, queue: str, priority: str, tags: list) -> str:
     key = (queue, priority)
     if key in pool and pool[key]:
         return pool[key][0]
-    # Fallback to queue-only or generic
+    # Fallback: 仅按 queue 匹配, 或返回通用模板
     for p in ["medium", "low", "high"]:
         if (queue, p) in pool and pool[(queue, p)]:
             return pool[(queue, p)][0]
     return "Dear {customer_name}, thank you for contacting us. We have received your request and will get back to you shortly."
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_templates.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/data/templates.py tests/test_templates.py
@@ -309,13 +309,13 @@ git commit -m "feat: add template pool builder and selector"
 
 ---
 
-## Task 4: JSONL Logger & Token Estimator
+## Task 4: JSONL 日志与 Token 估算器
 
 **Files:**
 - Create: `src/ra_final/logging_utils.py`
 - Test: `tests/test_logging_utils.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_logging_utils.py
@@ -333,12 +333,12 @@ def test_logger_appends(tmp_path):
     assert json.loads(lines[0])["a"] == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_logging_utils.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/logging_utils.py
@@ -355,36 +355,35 @@ class JSONLLogger:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 def estimate_cost(tokens: int, model_name: str) -> float:
-    # Rough SiliconFlow Qwen3 pricing placeholder (update later)
+    # SiliconFlow Qwen3 粗略定价占位(后续更新)
     if "0.6b" in model_name.lower() or "4b" in model_name.lower() or "9b" in model_name.lower():
         return 0.0
-    # 14B/32B approximate: ~0.0005 USD per 1K tokens (adjust in config as needed)
+    # 14B/32B 大致: ~0.0005 USD per 1K tokens (按需调整)
     return tokens * 0.0000005
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_logging_utils.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/logging_utils.py tests/test_logging_utils.py
 git commit -m "feat: add JSONL logger and rough cost estimator"
 ```
 
-
 ---
 
-## Task 5: Build Unified Test Set & Difficult Case Set
+## Task 5: 构建统一测试集与困难案例集
 
 **Files:**
 - Create: `src/ra_final/test_set.py`
 - Create: `scripts/01_build_test_set.py`
 - Test: `tests/test_test_set.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_test_set.py
@@ -395,7 +394,7 @@ def test_test_set_size_and_stratification():
     df = load_4k()
     test_df = build_test_set(df, n=1200, seed=42)
     assert len(test_df) == 1200
-    # All queues represented
+    # 所有 queue 都要有样本
     assert set(test_df["queue"].unique()).issubset(set(df["queue"].unique()))
 
 def test_difficult_cases_size():
@@ -404,12 +403,12 @@ def test_difficult_cases_size():
     assert len(diff_df) == 100
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_test_set.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/test_set.py
@@ -417,10 +416,9 @@ import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
 def build_test_set(df: pd.DataFrame, n: int = 1200, seed: int = 42) -> pd.DataFrame:
-    # Ensure queue+priority+language stratification
     df = df.copy()
     df["_strat"] = df["queue"].astype(str) + "|" + df["priority"].astype(str) + "|" + df["language"].astype(str)
-    # Filter out strata with < 2 samples to avoid split error
+    # 过滤掉样本数 < 2 的 strata 以避免 split 报错
     counts = df["_strat"].value_counts()
     valid = df[df["_strat"].isin(counts[counts >= 2].index)].copy()
     if len(valid) < n:
@@ -431,7 +429,7 @@ def build_test_set(df: pd.DataFrame, n: int = 1200, seed: int = 42) -> pd.DataFr
     return test_df.reset_index(drop=True)
 
 def build_difficult_cases(df: pd.DataFrame, n: int = 100, seed: int = 42) -> pd.DataFrame:
-    # Heuristic: small queues, high priority, long body, ambiguous keywords
+    # 启发式: 小 queue, 高优先级, 长正文, 歧义关键词
     df = df.copy()
     df["body_len"] = df["body"].fillna("").astype(str).str.len()
     queue_counts = df["queue"].value_counts()
@@ -440,7 +438,7 @@ def build_difficult_cases(df: pd.DataFrame, n: int = 100, seed: int = 42) -> pd.
     df["is_high"] = (df["priority"] == "high").astype(int)
     df["score"] = df["is_small"] * 3 + df["is_high"] * 2 + (df["body_len"] > 500).astype(int)
     top = df.sort_values("score", ascending=False).head(n * 3)
-    # Randomly sample n from top-scoring to avoid identical patterns
+    # 从高分开样本中随机抽样, 避免模式过于单一
     sample = top.sample(n=min(n, len(top)), random_state=seed)
     return sample.reset_index(drop=True)
 ```
@@ -493,17 +491,17 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_test_set.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Run script to generate artifacts**
+- [ ] **Step 5: 运行脚本生成产物**
 
 Run: `python scripts/01_build_test_set.py`
-Expected: Outputs `outputs/test_set.jsonl` and `outputs/difficult_cases.jsonl` with correct counts.
+Expected: 生成 `outputs/test_set.jsonl` 和 `outputs/difficult_cases.jsonl`, 数量正确.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add src/ra_final/test_set.py scripts/01_build_test_set.py tests/test_test_set.py
@@ -512,7 +510,7 @@ git commit -m "feat: add test set and difficult case builder"
 
 ---
 
-## Task 6: Rule-Based Keyword Rules (English)
+## Task 6: Rule-Based 英文关键词规则
 
 **Files:**
 - Create: `src/ra_final/rule_based/__init__.py`
@@ -520,7 +518,7 @@ git commit -m "feat: add test set and difficult case builder"
 - Create: `src/ra_final/rule_based/engine.py`
 - Test: `tests/test_rule_based.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_rule_based.py
@@ -546,12 +544,12 @@ def test_match_fallback():
     assert result["queue"] == "General Inquiry"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_rule_based.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```json
 // src/ra_final/rule_based/rules/en.json
@@ -624,7 +622,7 @@ def match_request(subject: str, body: str, language: str = "en") -> dict:
     rules = _load_rules(language)
     text = f"{subject} {body}"
 
-    # Queue matching
+    # queue 匹配
     best_queue = "General Inquiry"
     best_score = -1
     for queue, meta in rules["queues"].items():
@@ -633,7 +631,7 @@ def match_request(subject: str, body: str, language: str = "en") -> dict:
             best_score = score
             best_queue = queue
 
-    # Priority matching
+    # priority 匹配
     priority_scores = {
         p: _score_category(text, kws)
         for p, kws in rules.get("priority", {}).items()
@@ -645,7 +643,7 @@ def match_request(subject: str, body: str, language: str = "en") -> dict:
     else:
         best_priority = "medium"
 
-    # Tag matching
+    # tag 匹配
     tags = []
     for tag, kws in rules.get("tags", {}).items():
         if _score_category(text, kws) > 0:
@@ -665,12 +663,12 @@ def match_request(subject: str, body: str, language: str = "en") -> dict:
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_rule_based.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/rule_based/ tests/test_rule_based.py
@@ -679,7 +677,7 @@ git commit -m "feat: add rule-based engine with English keyword rules"
 
 ---
 
-## Task 7: Generate Multi-Language Rule Files
+## Task 7: 生成多语言规则文件
 
 **Files:**
 - Create: `src/ra_final/rule_based/rules/de.json`
@@ -688,7 +686,7 @@ git commit -m "feat: add rule-based engine with English keyword rules"
 - Create: `src/ra_final/rule_based/rules/pt.json`
 - Test: `tests/test_rule_based_i18n.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_rule_based_i18n.py
@@ -711,16 +709,16 @@ def test_spanish_return():
     assert result["queue"] == "Returns and Exchanges"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_rule_based_i18n.py -v`
-Expected: FAIL (languages not fully covered)
+Expected: FAIL (语言未完全覆盖)
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
-Use LLM-assisted translation of `en.json` to produce `de.json`, `es.json`, `fr.json`, `pt.json`. Store them in `src/ra_final/rule_based/rules/`. For each file, keep the same structure but localize keywords to common customer-service terms in that language.
+使用 LLM 辅助将 `en.json` 翻译为 `de.json`, `es.json`, `fr.json`, `pt.json`, 存储在 `src/ra_final/rule_based/rules/` 下. 每个文件保持相同结构, 但将关键词本地化为该语言客服场景中的常用表达.
 
-Example snippet for `de.json`:
+`de.json` 示例片段:
 ```json
 {
   "queues": {
@@ -740,14 +738,14 @@ Example snippet for `de.json`:
 }
 ```
 
-Repeat analogous translations for `es.json`, `fr.json`, `pt.json`.
+对 `es.json`, `fr.json`, `pt.json` 做类似翻译.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_rule_based_i18n.py -v`
-Expected: PASS (or at least matching the translated keywords)
+Expected: PASS (至少能匹配翻译后的关键词)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/rule_based/rules/*.json tests/test_rule_based_i18n.py
@@ -756,12 +754,12 @@ git commit -m "feat: add rule-based keyword rules for de, es, fr, pt"
 
 ---
 
-## Task 8: Rule-Based Batch Runner Script
+## Task 8: Rule-Based 批量运行脚本
 
 **Files:**
 - Create: `scripts/02_run_rule_based.py`
 
-- [ ] **Step 1: Write the script**
+- [ ] **Step 1: 编写脚本**
 
 ```python
 # scripts/02_run_rule_based.py
@@ -794,29 +792,28 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Run the script**
+- [ ] **Step 2: 运行脚本**
 
 Run: `python scripts/02_run_rule_based.py`
-Expected: `Processed 1200 requests.` and output file created.
+Expected: `Processed 1200 requests.` 且输出文件已创建.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: 提交**
 
 ```bash
 git add scripts/02_run_rule_based.py
 git commit -m "feat: add rule-based batch runner script"
 ```
 
-
 ---
 
-## Task 9: Supervised Feature Pipeline
+## Task 9: Supervised 特征管道
 
 **Files:**
 - Create: `src/ra_final/supervised/__init__.py`
 - Create: `src/ra_final/supervised/features.py`
 - Test: `tests/test_supervised_features.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_supervised_features.py
@@ -833,12 +830,12 @@ def test_tfidf_pipeline():
     assert Xt.shape[0] == 2
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_supervised_features.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/supervised/features.py
@@ -858,12 +855,12 @@ def build_tfidf_pipeline(max_features: int = 10000, n_components: int = 200) -> 
     ])
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_supervised_features.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/supervised/features.py tests/test_supervised_features.py
@@ -872,14 +869,14 @@ git commit -m "feat: add supervised feature pipeline"
 
 ---
 
-## Task 10: Traditional ML Training Script
+## Task 10: 传统 ML 训练脚本
 
 **Files:**
 - Create: `src/ra_final/supervised/train_traditional.py`
 - Create: `scripts/03_train_supervised.py`
 - Test: `tests/test_train_traditional.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_train_traditional.py
@@ -894,12 +891,12 @@ def test_train_lr_queue():
     assert len(preds) == 2
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_train_traditional.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/supervised/train_traditional.py
@@ -918,7 +915,6 @@ MODEL_DIR.mkdir(parents=True, exist_ok=True)
 def _prepare_X_y(df: pd.DataFrame, target_col: str, multi_label: bool = False):
     X = df.apply(lambda r: combine_text(str(r.get("subject", "")), str(r.get("body", ""))), axis=1).tolist()
     if multi_label:
-        # tags: build multi-hot matrix from tag_1..tag_9
         from sklearn.preprocessing import MultiLabelBinarizer
         tags = []
         for _, row in df.iterrows():
@@ -978,12 +974,12 @@ def save_model(name: str, model_dict: dict):
     return path
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_train_traditional.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/supervised/train_traditional.py tests/test_train_traditional.py
@@ -992,13 +988,13 @@ git commit -m "feat: add traditional ML training pipeline for queue, priority, t
 
 ---
 
-## Task 11: mBERT Fine-Tuning Script
+## Task 11: mBERT 微调脚本
 
 **Files:**
 - Create: `src/ra_final/supervised/train_mbert.py`
-- Test: `tests/test_train_mbert.py` (optional smoke test)
+- Test: `tests/test_train_mbert.py` (可选的 smoke test)
 
-- [ ] **Step 1: Write the failing test / smoke check**
+- [ ] **Step 1: 编写失败的测试 / smoke check**
 
 ```python
 # tests/test_train_mbert.py
@@ -1012,12 +1008,12 @@ def test_create_datasets():
     assert "queue" in ds[0]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_train_mbert.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/supervised/train_mbert.py
@@ -1054,8 +1050,7 @@ def create_datasets(df: pd.DataFrame):
 def tokenize_function(examples, tokenizer, max_length=256):
     return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=max_length)
 
-# For simplicity in this plan, train separate single-task models for queue and priority.
-# Multi-task can be added later if time permits.
+# 为简化, 先训练独立的单任务模型(queue 和 priority). 若时间允许可扩展为多任务.
 
 def train_mbert_queue(train_ds, val_ds, model_name="bert-base-multilingual-cased", epochs=3):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -1122,12 +1117,12 @@ def train_mbert_priority(train_ds, val_ds, model_name="bert-base-multilingual-ca
     return trainer
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_train_mbert.py -v`
-Expected: PASS (smoke test, no actual training)
+Expected: PASS (smoke test, 不实际训练)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/supervised/train_mbert.py tests/test_train_mbert.py
@@ -1136,14 +1131,14 @@ git commit -m "feat: add mBERT fine-tuning scripts for queue and priority"
 
 ---
 
-## Task 12: Supervised Inference Unified Runner
+## Task 12: Supervised 统一推理运行器
 
 **Files:**
 - Create: `src/ra_final/supervised/inference.py`
 - Modify: `scripts/03_train_supervised.py`
 - Test: `tests/test_supervised_inference.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_supervised_inference.py
@@ -1159,12 +1154,12 @@ def test_predict_traditional():
     assert "queue" in preds[0]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_supervised_inference.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/supervised/inference.py
@@ -1211,7 +1206,7 @@ def run_supervised_batch(test_records: list, model_queue, model_priority, model_
     pool = build_template_pool()
     queue_preds = predict_traditional(model_queue, texts) if model_type == "traditional" else predict_mbert(model_queue, texts, "queue")
     priority_preds = predict_traditional(model_priority, texts) if model_type == "traditional" else predict_mbert(model_priority, texts, "priority")
-    # For tags, fallback to empty list in mBERT mode if tag model not trained
+    # tag 默认空列表(mBERT 模式下若未训练 tag 模型)
     tag_preds = predict_traditional(model_tags, texts) if model_tags and model_type == "traditional" else [{"prediction": []} for _ in texts]
 
     outputs = []
@@ -1252,10 +1247,10 @@ from ra_final.config import OUTPUT_DIR
 def main():
     df = load_4k()
     train_df, val_df = train_test_split(df, test_size=0.2, stratify=df["queue"], random_state=42)
-    # Ensure at least 1000 training samples
+    # 确保训练样本不少于 1000 条
     assert len(train_df) >= 1000, f"Train size {len(train_df)} too small"
 
-    # Train traditional models
+    # 训练传统模型
     lr_queue = train_lr_queue(train_df)
     xgb_queue = train_xgboost_queue(train_df)
     lr_priority = train_lr_priority(train_df)
@@ -1266,7 +1261,7 @@ def main():
     save_model("lr_priority", lr_priority)
     save_model("lr_tags", lr_tags)
 
-    # Run inference on test set for LR model
+    # 在测试集上运行 LR 模型推理
     test_path = OUTPUT_DIR / "test_set.jsonl"
     records = [json.loads(line) for line in test_path.read_text(encoding="utf-8").strip().split("\n") if line.strip()]
 
@@ -1281,29 +1276,28 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_supervised_inference.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/supervised/inference.py scripts/03_train_supervised.py tests/test_supervised_inference.py
 git commit -m "feat: add unified supervised inference runner and training script"
 ```
 
-
 ---
 
-## Task 13: Goal-Based Async API Client
+## Task 13: Goal-Based 异步 API 客户端
 
 **Files:**
 - Create: `src/ra_final/goal_based/__init__.py`
 - Create: `src/ra_final/goal_based/client.py`
 - Test: `tests/test_goal_based_client.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_goal_based_client.py
@@ -1313,16 +1307,16 @@ from ra_final.goal_based.client import SiliconFlowClient
 @pytest.mark.asyncio
 async def test_client_chat_returns_dict():
     client = SiliconFlowClient(api_key="fake", base_url="https://api.siliconflow.cn/v1")
-    # We won't actually call the API in unit test; just verify method signature
+    # 单元测试不实际调用 API, 仅验证方法签名
     assert hasattr(client, "acompletion")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_goal_based_client.py -v`
-Expected: FAIL (class not defined)
+Expected: FAIL (class 未定义)
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/goal_based/client.py
@@ -1358,12 +1352,12 @@ class SiliconFlowClient:
                 return await resp.json()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_goal_based_client.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/goal_based/client.py tests/test_goal_based_client.py
@@ -1372,14 +1366,14 @@ git commit -m "feat: add async SiliconFlow API client"
 
 ---
 
-## Task 14: System Prompts & JSON Parsing
+## Task 14: 系统提示词与 JSON 解析
 
 **Files:**
 - Create: `src/ra_final/goal_based/prompt.py`
 - Create: `src/ra_final/goal_based/parser.py`
 - Test: `tests/test_goal_based_prompt.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_goal_based_prompt.py
@@ -1402,12 +1396,12 @@ def test_parser_falls_back():
     assert out["queue"] == "Returns and Exchanges"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_goal_based_prompt.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/goal_based/prompt.py
@@ -1435,7 +1429,7 @@ import re
 from ra_final.config import QUEUES, PRIORITIES
 
 def parse_response(text: str) -> dict:
-    # Try to extract JSON block
+    # 先尝试提取 JSON 代码块
     if "```json" in text:
         m = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
         if m:
@@ -1443,18 +1437,18 @@ def parse_response(text: str) -> dict:
                 return json.loads(m.group(1))
             except json.JSONDecodeError:
                 pass
-    # Try full string as JSON
+    # 再尝试将整个字符串作为 JSON 解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    # Fallback regex extraction
+    # Fallback: 正则提取
     result = {}
     for key in ["queue", "priority", "preliminary_answer"]:
         m = re.search(rf'["\']?{key}["\']?\s*[:=]\s*["\']?([^"\'\n,]+)', text, re.IGNORECASE)
         if m:
             result[key] = m.group(1).strip('"\' ')
-    # Tags fallback
+    # tags fallback
     tags_match = re.search(r'["\']?tags["\']?\s*[:=]\s*(\[[^\]]*\])', text, re.IGNORECASE)
     if tags_match:
         try:
@@ -1483,12 +1477,12 @@ def sanitize_output(parsed: dict) -> dict:
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_goal_based_prompt.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/goal_based/prompt.py src/ra_final/goal_based/parser.py tests/test_goal_based_prompt.py
@@ -1497,13 +1491,13 @@ git commit -m "feat: add goal-based system prompts and JSON parser with fallback
 
 ---
 
-## Task 15: RAG Vector Store
+## Task 15: RAG 向量库
 
 **Files:**
 - Create: `src/ra_final/goal_based/rag.py`
 - Test: `tests/test_goal_based_rag.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_goal_based_rag.py
@@ -1518,12 +1512,12 @@ def test_build_and_retrieve():
     assert "subject" in examples[0]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_goal_based_rag.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/goal_based/rag.py
@@ -1551,7 +1545,7 @@ def build_faiss_index(df: pd.DataFrame):
     embeddings = model.encode(texts, show_progress_bar=True, convert_to_numpy=True)
     dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
-    # Normalize for cosine similarity
+    # 归一化以使用余弦相似度
     faiss.normalize_L2(embeddings)
     index.add(embeddings)
 
@@ -1581,12 +1575,12 @@ def retrieve_examples(index, meta, query: str, k: int = 3):
     return [meta[i] for i in ids[0]]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_goal_based_rag.py -v`
-Expected: PASS (will download model on first run)
+Expected: PASS (首次运行会下载模型)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/goal_based/rag.py tests/test_goal_based_rag.py
@@ -1595,7 +1589,7 @@ git commit -m "feat: add FAISS RAG vector store with multilingual sentence embed
 
 ---
 
-## Task 16: Tool Definition & Async Batch Runner
+## Task 16: 工具定义与异步批量运行器
 
 **Files:**
 - Create: `src/ra_final/goal_based/tool.py`
@@ -1603,7 +1597,7 @@ git commit -m "feat: add FAISS RAG vector store with multilingual sentence embed
 - Create: `scripts/04_run_goal_based.py`
 - Test: `tests/test_goal_based_runner.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_goal_based_runner.py
@@ -1615,8 +1609,8 @@ def test_classify_keywords():
     result = classify_keywords("I want a refund for my printer")
     assert result["queue"] == "Returns and Exchanges"
 
-def test_run_single_structure():
-    # Smoke test with a fake client
+@pytest.mark.asyncio
+async def test_run_single_structure():
     class FakeClient:
         async def acompletion(self, **kwargs):
             return {
@@ -1626,12 +1620,12 @@ def test_run_single_structure():
     assert result["queue"] == "Technical Support"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_goal_based_runner.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/goal_based/tool.py
@@ -1720,7 +1714,7 @@ async def run_batch(
             out = await run_single(client, rec["subject"], rec["body"], rec.get("language", "en"), model, config, rag_index, rag_meta)
             out["request_id"] = rec["request_id"]
             out["run_id"] = run_id
-            # Rough token count estimate
+            # 粗略 token 估算
             text_len = len(rec["subject"]) + len(rec["body"])
             out["estimated_tokens"] = text_len // 4 + 200
             return out
@@ -1740,9 +1734,9 @@ async def run_batch(
     return valid_results
 ```
 
-- [ ] **Step 4: Fix the test syntax and rerun**
+- [ ] **Step 4: 修复测试语法并重新运行**
 
-The test file needs `pytest.mark.asyncio` for async test.
+测试文件需要 `pytest.mark.asyncio` 装饰异步测试.
 
 ```python
 # tests/test_goal_based_runner.py
@@ -1768,7 +1762,7 @@ async def test_run_single_structure():
 Run: `pytest tests/test_goal_based_runner.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/goal_based/tool.py src/ra_final/goal_based/runner.py tests/test_goal_based_runner.py
@@ -1777,15 +1771,16 @@ git commit -m "feat: add goal-based tool and async batch runner"
 
 ---
 
-## Task 17: Goal-Based Execution Script
+## Task 17: Goal-Based 执行脚本
 
 **Files:**
 - Create: `scripts/04_run_goal_based.py`
 
-- [ ] **Step 1: Write the script**
+- [ ] **Step 1: 编写脚本**
 
 ```python
 # scripts/04_run_goal_based.py
+import asyncio
 import json
 from pathlib import Path
 from ra_final.config import OUTPUT_DIR
@@ -1800,7 +1795,7 @@ MODELS = [
     ("Qwen/Qwen3-9B", 1200, "base"),
     ("Qwen/Qwen3-14B", 400, "base"),
     ("Qwen/Qwen3-32B", 200, "base"),
-    # Add RAG and Tool variants for selected models later
+    # 后续为选定模型添加 RAG 和 Tool 变体
 ]
 
 def main():
@@ -1818,7 +1813,7 @@ def main():
             logger.log(r)
         print(f"Finished {model_name} {config}: {len(results)} results")
 
-        # Also run difficult cases for models >= 9B
+        # 对 >= 9B 的模型也运行困难案例
         if "9B" in model_name or "14B" in model_name or "32B" in model_name:
             diff_results = asyncio.run(run_batch(diff_records, model=model_name, config=config, n_runs=3, rag_index=rag_index if config=="rag" else None, rag_meta=rag_meta if config=="rag" else None))
             diff_logger = JSONLLogger(OUTPUT_DIR / "goal_based" / f"{model_name.replace('/', '_')}_{config}_difficult.jsonl")
@@ -1826,34 +1821,26 @@ def main():
                 diff_logger.log(r)
 
 if __name__ == "__main__":
-    import asyncio
     main()
 ```
 
-Note: Need to import asyncio at top.
-
-```python
-import asyncio
-```
-
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: 提交**
 
 ```bash
 git add scripts/04_run_goal_based.py
 git commit -m "feat: add goal-based execution script with model scaling schedule"
 ```
 
-
 ---
 
-## Task 18: Evaluation Metrics Module
+## Task 18: 评估指标模块
 
 **Files:**
 - Create: `src/ra_final/evaluation/__init__.py`
 - Create: `src/ra_final/evaluation/metrics.py`
 - Test: `tests/test_evaluation_metrics.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_evaluation_metrics.py
@@ -1873,15 +1860,15 @@ def test_compute_consistency():
         {"queue": "B", "tags": ["y"], "preliminary_answer": "hey"},
     ]
     cons = compute_consistency(runs)
-    assert cons["queue_agreement"] == 0.5  # 2 identical out of 3 choose 2 = 1/3
+    assert cons["queue_agreement"] == 1 / 3
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_evaluation_metrics.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/evaluation/metrics.py
@@ -1912,7 +1899,7 @@ def _jaccard(a, b):
     return len(set_a & set_b) / len(set_a | set_b)
 
 def compute_consistency(runs: list) -> dict:
-    # runs: list of dicts for the same request across multiple model runs
+    # runs: 同一请求多次模型运行的 predicted dict 列表
     n = len(runs)
     if n < 2:
         return {"queue_agreement": 1.0, "tag_jaccard": 1.0, "answer_similarity": 1.0}
@@ -1923,7 +1910,7 @@ def compute_consistency(runs: list) -> dict:
         for j in range(i+1, n):
             tag_sims.append(_jaccard(runs[i].get("tags", []), runs[j].get("tags", [])))
     tag_jaccard = sum(tag_sims) / len(tag_sims) if tag_sims else 1.0
-    # Answer semantic similarity: placeholder using simple string overlap or later with embeddings
+    # answer 语义相似度: 先用简单词重叠, 后续可替换为 embedding 相似度
     answer_sims = []
     for i in range(n):
         for j in range(i+1, n):
@@ -1938,25 +1925,12 @@ def compute_consistency(runs: list) -> dict:
     }
 ```
 
-- [ ] **Step 4: Fix test expectation and rerun**
-
-For 3 runs, pairs = 3. queue_agreement = 1/3 ≈ 0.333. Update test:
-
-```python
-def test_compute_consistency():
-    runs = [
-        {"queue": "A", "tags": ["x"], "preliminary_answer": "hello"},
-        {"queue": "A", "tags": ["x"], "preliminary_answer": "hi"},
-        {"queue": "B", "tags": ["y"], "preliminary_answer": "hey"},
-    ]
-    cons = compute_consistency(runs)
-    assert cons["queue_agreement"] == 1 / 3
-```
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_evaluation_metrics.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/evaluation/metrics.py tests/test_evaluation_metrics.py
@@ -1965,13 +1939,13 @@ git commit -m "feat: add evaluation metrics for classification and consistency"
 
 ---
 
-## Task 19: LLM-as-Judge Module
+## Task 19: LLM-as-Judge 模块
 
 **Files:**
 - Create: `src/ra_final/evaluation/llm_judge.py`
 - Test: `tests/test_llm_judge.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_llm_judge.py
@@ -1989,12 +1963,12 @@ def test_parse_judge_response():
     assert out["tag_relevance"] == 4
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_llm_judge.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/evaluation/llm_judge.py
@@ -2046,12 +2020,12 @@ async def judge_single(subject: str, body: str, prediction: dict, ground_truth: 
         return {"error": str(e), **parse_judge_response("")}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_llm_judge.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/evaluation/llm_judge.py tests/test_llm_judge.py
@@ -2060,14 +2034,14 @@ git commit -m "feat: add LLM-as-judge prompt and scorer"
 
 ---
 
-## Task 20: Evaluation Orchestrator Script
+## Task 20: 评估编排脚本
 
 **Files:**
 - Create: `scripts/05_evaluate_all.py`
 - Create: `src/ra_final/evaluation/report.py`
-- Test: `tests/test_evaluation_report.py` (optional smoke)
+- Test: `tests/test_evaluation_report.py` (可选 smoke)
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: 编写失败的测试**
 
 ```python
 # tests/test_evaluation_report.py
@@ -2078,12 +2052,12 @@ def test_summarize_system_empty():
     assert summary["count"] == 0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: 运行测试确认失败**
 
 Run: `pytest tests/test_evaluation_report.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: 编写最小实现**
 
 ```python
 # src/ra_final/evaluation/report.py
@@ -2104,7 +2078,7 @@ def summarize_system(records: list) -> dict:
         "priority": compute_classification_metrics(y_true_priority, y_pred_priority),
     }
 
-    # Consistency for goal-based (group by request_id)
+    # Goal-Based 一致性: 按 request_id 分组
     by_request = defaultdict(list)
     for r in records:
         by_request[r.get("request_id")].append(r.get("predicted", {}))
@@ -2137,7 +2111,7 @@ def main():
         "rule_based": OUTPUT_DIR / "rule_based" / "predictions.jsonl",
         "supervised_lr": OUTPUT_DIR / "supervised" / "lr_predictions.jsonl",
     }
-    # Add goal-based outputs dynamically
+    # 动态添加 Goal-Based 输出
     gb_dir = OUTPUT_DIR / "goal_based"
     if gb_dir.exists():
         for f in gb_dir.glob("*.jsonl"):
@@ -2161,12 +2135,12 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `pytest tests/test_evaluation_report.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add src/ra_final/evaluation/report.py scripts/05_evaluate_all.py tests/test_evaluation_report.py
@@ -2175,12 +2149,12 @@ git commit -m "feat: add evaluation orchestrator and report generator"
 
 ---
 
-## Task 21: LLM-as-Judge Batch Evaluation Script
+## Task 21: LLM-as-Judge 批量评估脚本
 
 **Files:**
 - Create: `scripts/06_run_llm_judge.py`
 
-- [ ] **Step 1: Write the script**
+- [ ] **Step 1: 编写脚本**
 
 ```python
 # scripts/06_run_llm_judge.py
@@ -2195,7 +2169,7 @@ SYSTEMS_TO_JUDGE = [
     OUTPUT_DIR / "rule_based" / "predictions.jsonl",
     OUTPUT_DIR / "supervised" / "lr_predictions.jsonl",
 ]
-# Optionally add selected goal-based outputs
+# 可选添加选定的 Goal-Based 输出
 
 def main():
     for pred_path in SYSTEMS_TO_JUDGE:
@@ -2220,7 +2194,7 @@ def main():
                         "system": pred_path.parent.name,
                         "scores": score,
                     }
-            tasks = [_worker(r) for r in records[:200]]  # Judge 200 samples per system to control cost
+            tasks = [_worker(r) for r in records[:200]]  # 每个系统评 200 条以控制成本
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for r in results:
                 if not isinstance(r, Exception):
@@ -2233,9 +2207,9 @@ if __name__ == "__main__":
     main()
 ```
 
-Note: The judge_single signature expects subject/body; we should pass them from the record if available, otherwise from predicted or ground_truth.
+注意: `judge_single` 的签名需要 subject/body; 若 record 中未直接包含, 可从 predicted 或 ground_truth 中提取.
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: 提交**
 
 ```bash
 git add scripts/06_run_llm_judge.py
@@ -2244,13 +2218,12 @@ git commit -m "feat: add LLM-as-judge batch evaluation script"
 
 ---
 
-## Task 22: Final Integration & README
+## Task 22: 最终集成与 README
 
 **Files:**
 - Modify: `README.md`
-- Create: `Makefile` (optional convenience)
 
-- [ ] **Step 1: Update README**
+- [ ] **Step 1: 更新 README**
 
 ```markdown
 # RA-Final: Responsible AI Customer Service Systems
@@ -2260,34 +2233,34 @@ A comparative study of Rule-Based, Supervised, and Goal-Based AI systems for mul
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. 安装依赖
 uv sync
 
-# 2. Build test set
+# 2. 构建测试集
 python scripts/01_build_test_set.py
 
-# 3. Run Rule-Based
+# 3. 运行 Rule-Based
 python scripts/02_run_rule_based.py
 
-# 4. Train & run Supervised
+# 4. 训练并运行 Supervised
 python scripts/03_train_supervised.py
 
-# 5. Run Goal-Based (requires SiliconFlow API key)
+# 5. 运行 Goal-Based (需要 SiliconFlow API key)
 export SILICONFLOW_API_KEY=...
 python scripts/04_run_goal_based.py
 
-# 6. Evaluate all
+# 6. 评估全部
 python scripts/05_evaluate_all.py
 python scripts/06_run_llm_judge.py
 ```
 
 ## Project Structure
 
-- `src/ra_final/rule_based/`: Keyword-driven rule system
-- `src/ra_final/supervised/`: Traditional ML + mBERT classifiers
-- `src/ra_final/goal_based/`: LLM scaling experiments with RAG and tools
-- `src/ra_final/evaluation/`: Metrics, LLM-as-judge, and reporting
-- `outputs/`: All predictions and evaluation results
+- `src/ra_final/rule_based/`: 基于关键词的规则系统
+- `src/ra_final/supervised/`: 传统 ML + mBERT 分类器
+- `src/ra_final/goal_based/`: LLM scaling 实验, 含 RAG 和 Tool
+- `src/ra_final/evaluation/`: 指标, LLM-as-judge, 报告生成
+- `outputs/`: 所有预测结果和评估报告
 
 ## Responsible AI Dimensions Evaluated
 
@@ -2298,7 +2271,7 @@ python scripts/06_run_llm_judge.py
 - Alignment with User Intent
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: 提交**
 
 ```bash
 git add README.md
@@ -2311,26 +2284,26 @@ git commit -m "docs: update README with usage instructions and project overview"
 
 | Spec Section | Covered by Task(s) |
 |---|---|
-| Rule-Based multi-language rules | 6, 7, 8 |
-| Supervised traditional ML | 9, 10, 12 |
+| Rule-Based 多语言规则 | 6, 7, 8 |
+| Supervised 传统 ML | 9, 10, 12 |
 | Supervised mBERT | 11, 12 |
-| Goal-Based API client | 13, 14, 15, 16, 17 |
-| Goal-Based scaling & ablation (Base/RAG/Tool) | 14, 15, 16, 17 |
-| Unified test set & difficult cases | 5 |
-| Evaluation metrics (F1, consistency) | 18, 20 |
+| Goal-Based API 客户端 | 13, 14, 15, 16, 17 |
+| Goal-Based scaling & 消融 (Base/RAG/Tool) | 14, 15, 16, 17 |
+| 统一测试集与困难案例 | 5 |
+| 评估指标 (F1, 一致性) | 18, 20 |
 | LLM-as-judge | 19, 21 |
-| Data isolation / deduplication | 2, 10 |
-| Async batching / concurrency control | 13, 16, 17 |
-| Report generation | 20, 21, 22 |
+| 数据隔离 / 去重 | 2, 10 |
+| 异步批量 / 并发控制 | 13, 16, 17 |
+| 报告生成 | 20, 21, 22 |
 
 ## Placeholder Scan
 
-- No TBD, TODO, or "implement later" found.
-- All referenced functions are defined in earlier tasks.
-- Exact file paths provided for every step.
+- 无 TBD, TODO, 或 "implement later".
+- 所有引用的函数均已在前面 Task 中定义.
+- 每个步骤都提供了精确的文件路径.
 
 ## Type Consistency Check
 
-- `match_request` signature consistent across Task 6, 7, 16.
-- `JSONLLogger.log(record: dict)` consistent across all usage.
-- `combine_text` used consistently in features.py and inference.py.
+- `match_request` 签名在 Task 6, 7, 16 中保持一致.
+- `JSONLLogger.log(record: dict)` 在所有使用处保持一致.
+- `combine_text` 在 features.py 和 inference.py 中使用一致.
