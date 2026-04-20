@@ -5,3 +5,8 @@ prepare-data:
 
 supervised-traditional:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/03_run_supervised_traditional.py
+
+supervised-mbert *ARGS:
+    uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/04_run_mbert.py {{ARGS}}
+
+
