@@ -1,10 +1,10 @@
-from logging import getLogger
+from logging import getLogger, basicConfig
 
 import pandas as pd
 
 from ticket_router_base.data.loader import load_4k
 from ticket_router_base.data.utils import build_train_test_set, build_difficult_cases
-from ticket_router_base.config import OUTPUT_DIR
+from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
 
 logger = getLogger(__name__)
 
@@ -44,4 +44,5 @@ def main():
 
 
 if __name__ == "__main__":
+    basicConfig(level="INFO", format=LOGGING_FORMAT)
     main()

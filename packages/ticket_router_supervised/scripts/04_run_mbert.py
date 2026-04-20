@@ -1,5 +1,5 @@
-# scripts/07_train_mbert.py
 from argparse import ArgumentParser
+from logging import getLogger, basicConfig
 
 from sklearn.model_selection import train_test_split
 from ticket_router.supervised.models.mbert import (
@@ -9,10 +9,8 @@ from ticket_router.supervised.models.mbert import (
     MBERTPredictor,
 )
 from ticket_router.utils import write_pred
-from ticket_router.config import OUTPUT_DIR
+from ticket_router.config import OUTPUT_DIR, LOGGING_FORMAT
 from ticket_router.data.loader import load_test_set, load_train_set
-
-from logging import getLogger
 
 logger = getLogger(__name__)
 
@@ -90,4 +88,5 @@ def main():
 
 
 if __name__ == "__main__":
+    basicConfig(level="INFO", format=LOGGING_FORMAT)
     main()
