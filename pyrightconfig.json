@@ -1,0 +1,26 @@
+{
+    "include": [
+        "packages/ticket_router_supervised",
+        "packages/ticket_router_agent",
+        "packages/ticket_router_base"
+    ],
+    "extraPaths": [
+        "packages/ticket_router_base/src",
+        "packages/ticket_router_supervised/src",
+        "packages/ticket_router_agent/src"
+    ],
+    "executionEnvironments": [
+        {
+            "root": "packages/ticket_router_supervised",
+            "extraPaths": [
+                "../packages/ticket_router_base/src"
+            ]
+        },
+        {
+            "root": "packages/ticket_router_agent",
+            "extraPaths": [
+                "../packages/ticket_router_base/src"
+            ]
+        }
+    ]
+}
