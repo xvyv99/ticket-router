@@ -13,9 +13,11 @@ supervised-mbert *ARGS:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/04_run_mbert.py {{ARGS}}
 
 # LLM-based
-
 quantize-qwen *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/quantize_qwen.py {{ARGS}}
 
 local-llm-batch *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/run_batch.py {{ARGS}}
+
+gen-batch-files:
+    uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/gen_batch.py
