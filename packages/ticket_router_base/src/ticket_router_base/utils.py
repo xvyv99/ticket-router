@@ -42,27 +42,6 @@ class JSONLLogger:
         self.close()
 
 
-def write_pred(
-    preds: List[Prediction], records: List[Record] | RecordDF, save_path: Path
-) -> None:
-    assert len(preds) == len(records), (
-        "Number of predictions must match number of records"
-    )
-
-    if isinstance(records, pd.DataFrame):
-        records = df_to_records(records)
-
-    with JSONLLogger(save_path) as logger:
-        for p, r in zip(preds, records):
-            save_rec = PredSave(
-                request_id=p.request_id,
-                language=Language(r.language),
-                predicted=p,
-                ground_truth=r,
-            )
-            logger.write(asdict(save_rec))
-
-
 def task2labels(task: Task) -> Dict[int, str]:
     match task:
         case Task.QUEUE:
@@ -89,3 +68,47 @@ def to_record_df(records: List[Record] | RecordDF) -> RecordDF:
         return record_to_df(records)
     else:
         raise ValueError("Unsupported input type for records")
+
+
+def write_pred(
+    preds: List[Prediction], records: List[Record] | RecordDF, save_path: Path
+) -> None:
+    assert len(preds) == len(records), (
+        "Number of predictions must match number of records"
+    )
+
+    records = to_records(records)
+
+    with JSONLLogger(save_path) as logger:
+        for p, r in zip(preds, records):
+            save_rec = PredSave(
+                request_id=p.request_id,
+                language=Language(r.language),
+                predicted=p,
+                ground_truth=r,
+            )
+            logger.write(asdict(save_rec))
+
+
+def combine_text(subject: str, body: str) -> str:
+    return f"{subject}\n{body}"
+
+
+def combine_texts_df(records: RecordDF) -> List[str]:
+    return [
+        combine_text(s, b)
+        for s, b in zip(records.subject.fillna(""), records.body.fillna(""))
+    ]
+
+
+def combine_texts_lst(records: List[Record]) -> List[str]:
+    return [combine_text(r.subject or "", r.body or "") for r in records]
+
+
+def combine_texts(records: RecordDF | List[Record]) -> List[str]:
+    if isinstance(records, pd.DataFrame):
+        return combine_texts_df(records)
+    elif isinstance(records, list):
+        return combine_texts_lst(records)
+    else:
+        raise ValueError("Unsupported records type for combine_texts")

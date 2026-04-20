@@ -69,31 +69,6 @@ def save_model(name: str, model_dict: SKModel):
     return path
 
 
-def combine_text(subject: str, body: str) -> str:
-    # TODO: move this to global utils and apply consistently across all models
-    return f"{subject}\n{body}"
-
-
-def combine_texts_df(records: RecordDF) -> List[str]:
-    return [
-        combine_text(s, b)
-        for s, b in zip(records.subject.fillna(""), records.body.fillna(""))
-    ]
-
-
-def combine_texts_lst(records: List[Record]) -> List[str]:
-    return [combine_text(r.subject or "", r.body or "") for r in records]
-
-
-def combine_texts(records: RecordDF | List[Record]) -> List[str]:
-    if isinstance(records, pd.DataFrame):
-        return combine_texts_df(records)
-    elif isinstance(records, list):
-        return combine_texts_lst(records)
-    else:
-        raise ValueError("Unsupported records type for combine_texts")
-
-
 def create_datasets(records: RecordDF | List[Record]) -> Dataset:
     records_lst = []
 
