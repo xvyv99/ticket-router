@@ -2732,7 +2732,7 @@ dependencies = [
 requires-dist = [
     { name = "llmcompressor", specifier = ">=0.10.0.1" },
     { name = "pydantic", specifier = ">=2.13.2" },
-    { name = "ticket-router-base", directory = "../ticket_router_base" },
+    { name = "ticket-router-base", editable = "../ticket_router_base" },
     { name = "torch", specifier = ">=2.10.0" },
     { name = "vllm", specifier = ">=0.19.0" },
 ]
@@ -2740,7 +2740,7 @@ requires-dist = [
 [[package]]
 name = "ticket-router-base"
 version = "0.1.0"
-source = { directory = "../ticket_router_base" }
+source = { editable = "../ticket_router_base" }
 dependencies = [
     { name = "pandas" },
     { name = "pandera", extra = ["pandas"] },
