@@ -2,6 +2,7 @@
 
 from enum import Enum, IntFlag, auto, StrEnum
 from dataclasses import dataclass
+import json
 from typing import List
 
 import pandas as pd
@@ -87,7 +88,7 @@ class ErrorFlag(IntFlag):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class GroundRecord:
     queue: Queue
     priority: Priority
@@ -95,8 +96,20 @@ class GroundRecord:
     tag_2: str | None
     answer: str | None
 
+    def to_json_str(self) -> str:
+        return json.dumps(
+            {
+                "queue": self.queue.value,
+                "priority": self.priority.value,
+                "tag_1": self.tag_1,
+                "tag_2": self.tag_2,
+                "answer": self.answer,
+            },
+            ensure_ascii=False,
+        )
 
-@dataclass
+
+@dataclass(frozen=True)
 class Record(GroundRecord):
     request_id: str
     subject: str | None
@@ -162,7 +175,7 @@ def df_to_records(df: RecordDF) -> List[Record]:
     return records
 
 
-@dataclass
+@dataclass(frozen=True)
 class Prediction(GroundRecord):
     request_id: str
     queue_confidence: float | None
@@ -171,14 +184,14 @@ class Prediction(GroundRecord):
     error: ErrorFlag
 
 
-@dataclass
+@dataclass(frozen=True)
 class PredictionBatch:
     predictions: List[Prediction]
     parse_err_count: int
     parse_json_err_count: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class PredSave:
     request_id: str
     language: Language
