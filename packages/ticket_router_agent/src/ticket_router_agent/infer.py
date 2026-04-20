@@ -54,13 +54,6 @@ class vLLMPredictor(Predictor):
     def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
         records = to_records(records)
 
-        llm = LLM(
-            model=str(self.model_name_or_path),
-            trust_remote_code=True,
-            gpu_memory_utilization=0.85,
-            max_model_len=MAX_TOKEN_LENGTH,
-        )
-
         prompts = [
             build_prompt(
                 rec.subject or "",
@@ -70,6 +63,13 @@ class vLLMPredictor(Predictor):
             )
             for rec in records
         ]
+
+        llm = LLM(
+            model=str(self.model_name_or_path),
+            trust_remote_code=True,
+            gpu_memory_utilization=0.85,
+            max_model_len=MAX_TOKEN_LENGTH,
+        )
 
         outputs = llm.generate(prompts, DEFAULT_SAMPLING_PARAMS, use_tqdm=True)
 

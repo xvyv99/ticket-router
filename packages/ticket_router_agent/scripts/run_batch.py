@@ -42,9 +42,9 @@ def main():
         help="Model choices to run",
     )
     parser.add_argument(
-        "--few-shot",
+        "--no-few-shot",
         dest="few_shot",
-        action="store_true",
+        action="store_false",
         default=True,
         help="Enable few-shot prompting (default: true)",
     )
