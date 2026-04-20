@@ -5,7 +5,7 @@ from logging import getLogger, basicConfig
 from sklearn.model_selection import train_test_split
 from ticket_router_base.data.loader import load_test_set, load_train_set
 from ticket_router_base.utils import write_pred
-from ticket_router_base.config import OUTPUT_DIR, SEED
+from ticket_router_base.config import OUTPUT_DIR, SEED, LOGGING_FORMAT
 
 from ticket_router_supervised.models.lr import LRTrainer
 from ticket_router_supervised.models.xgb import XGBTrainer
@@ -63,5 +63,5 @@ def main():
 
 
 if __name__ == "__main__":
-    basicConfig(level="INFO")
+    basicConfig(level="INFO", format=LOGGING_FORMAT)
     main()
