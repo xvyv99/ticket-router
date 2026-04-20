@@ -55,27 +55,6 @@ def write_pred(
             logger.write(asdict(save_rec))
 
 
-def create_datasets(records: RecordDF | List[Record]) -> Dataset:
-    records_lst = []
-
-    if isinstance(records, pd.DataFrame):
-        records = df_to_records(records)
-
-    for r in records:
-        text = f"{r.subject}\n{r.body}"
-        tags = [r.tag_1, r.tag_2] if r.tag_1 and r.tag_2 else []
-        # TODO: handle tags better, currently just taking the first 2 tags, but some records have more than 2 tags
-        records_lst.append(
-            {
-                "text": text,
-                "queue": QUEUE2ID.get(str(r.queue)),
-                "priority": PRIORITY2ID.get(str(r.priority)),
-                "tags": tags,
-            }
-        )
-    return Dataset.from_list(records_lst)
-
-
 def task2labels(task: Task) -> Dict[int, str]:
     match task:
         case Task.QUEUE:
