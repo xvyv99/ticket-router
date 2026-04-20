@@ -86,11 +86,6 @@ class ErrorFlag(IntFlag):
         | ANSWER_REGEX_ERR
     )
 
-    def __eq__(self, other):
-        if isinstance(other, int):
-            return self.value == other
-        return super().__eq__(other)
-
 
 @dataclass
 class GroundRecord:
