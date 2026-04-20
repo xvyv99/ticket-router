@@ -14,8 +14,8 @@ from ticket_router_base.types import (
     Queue,
     Priority,
     ErrorFlag,
-    record_to_df,
 )
+from ticket_router_base.utils import to_record_df, to_records
 from ticket_router_base.predictor import Predictor, Trainer
 
 from ticket_router_supervised.utils import combine_texts
@@ -64,6 +64,7 @@ class XGBPredictor(Predictor):
         self._model_priority = model_priority
 
     def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
+        records = to_records(records)
         texts = combine_texts(records)
 
         q_preds = self._model_queue.predict(texts)
@@ -78,7 +79,7 @@ class XGBPredictor(Predictor):
             # TODO: convert predicted tag indices back to tag names using mlb
 
             pred = Prediction(
-                request_id=rec.request_id,  # pyright: ignore[reportAttributeAccessIssue]
+                request_id=rec.request_id,
                 queue=Queue(q[0]),
                 priority=Priority(p[0]),
                 tag_1=None,
@@ -102,8 +103,7 @@ class XGBTrainer(Trainer):
         records: List[Record] | RecordDF,
         val_records: List[Record] | RecordDF | None = None,
     ) -> XGBPredictor:
-        if isinstance(records, list):
-            records = record_to_df(records)
+        records = to_record_df(records)
 
         texts = combine_texts(records)
         queue_lst = records["queue"].tolist()
