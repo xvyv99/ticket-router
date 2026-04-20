@@ -16,3 +16,6 @@ supervised-mbert *ARGS:
 
 quantize-qwen *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/quantize_qwen.py {{ARGS}}
+
+local-llm-batch *ARGS:
+    uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/run_batch.py {{ARGS}}

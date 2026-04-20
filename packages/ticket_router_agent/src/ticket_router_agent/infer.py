@@ -17,6 +17,7 @@ from ticket_router_base.types import (
     Prediction,
 )
 
+from .config import MAX_TOKEN_LENGTH
 from .prompt import build_prompt
 from .types import TICKET_SCHEMA, TicketOutput
 
@@ -38,29 +39,26 @@ class vLLMPredictor(Predictor):
     supports_tags: bool = True
     supports_preliminary_answer: bool = True
 
-    model_path: Path
+    model_name_or_path: Path | str
     few_shot: bool
 
-    def __init__(self, model_path: Path, few_shot: bool = True):
-        assert model_path.exists(), f"Model path not found: {model_path}"
-        self.model_path = model_path
-        self.few_shot = few_shot
+    def __init__(self, model_name_or_path: Path | str, few_shot: bool = True):
+        if isinstance(model_name_or_path, Path):
+            assert model_name_or_path.exists(), (
+                f"Model path not found: {model_name_or_path}"
+            )
 
-        self.llm = LLM(
-            model=str(model_path),
-            trust_remote_code=True,
-            gpu_memory_utilization=0.85,
-            max_model_len=8092,
-        )
+        self.model_name_or_path = model_name_or_path
+        self.few_shot = few_shot
 
     def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
         records = to_records(records)
 
         llm = LLM(
-            model=str(self.model_path),
+            model=str(self.model_name_or_path),
             trust_remote_code=True,
             gpu_memory_utilization=0.85,
-            max_model_len=8092,
+            max_model_len=MAX_TOKEN_LENGTH,
         )
 
         prompts = [
@@ -102,7 +100,7 @@ class vLLMPredictor(Predictor):
                 json_err_count += 1
 
                 pred = Prediction(
-                    request_id="",
+                    request_id=rec.request_id,
                     queue=Queue.CUSTOMER_SERVICE,
                     priority=Priority.LOW,
                     tag_1=None,
