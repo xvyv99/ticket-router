@@ -31,14 +31,17 @@ from ticket_router_base.types import (
     RecordDF,
 )
 from ticket_router_base.predictor import Predictor, Trainer as TrainerProtocol
+from ticket_router_base.utils import to_records, combine_texts
 
-from ticket_router_supervised.utils import combine_texts, create_datasets
+from ticket_router_supervised.utils import create_datasets
 from ticket_router_supervised.config import TORCH_DEVICE
 
 logger = getLogger(__name__)
 
 MODEL_DIR = OUTPUT_DIR / "supervised" / "models" / "mbert"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+MBERT_INFER_BATCH_SIZE = 64
 
 QUEUE_MODEL_PATH = MODEL_DIR / "queue_best"
 PRIORITY_MODEL_PATH = MODEL_DIR / "priority_best"
@@ -61,7 +64,7 @@ DEFAULT_TRAIN_ARGS = TrainingArguments(
 )
 
 
-def tokenize_func(examples, tokenizer, max_length=256):
+def tokenize_func(examples, tokenizer, max_length: int = 256):
     return tokenizer(
         examples["text"], padding="max_length", truncation=True, max_length=max_length
     )
@@ -107,7 +110,7 @@ def predict_mbert(
     model_path: Path,
     records: List[Record] | RecordDF,
     id2label: Dict[int, str],
-    batch_size: int = 16,
+    batch_size: int = MBERT_INFER_BATCH_SIZE,
 ) -> List[Tuple[float, float]]:
     """Run inference using a fine-tuned mBERT model."""
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -150,13 +153,15 @@ class MBERTPredictor(Predictor):
         self._priority_path = Path(priority_model_path)
 
     def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
+        records = to_records(records)
+
         q_results = predict_mbert(self._queue_path, records, id2label=ID2QUEUE)
         p_results = predict_mbert(self._priority_path, records, id2label=ID2PRIORITY)
 
         predictions = []
         for i, rec in enumerate(records):
             pred = Prediction(
-                request_id=rec.request_id,  # pyright: ignore[reportAttributeAccessIssue]
+                request_id=rec.request_id,
                 queue=Queue(q_results[i][0]),
                 priority=Priority(p_results[i][0]),
                 tag_1=None,

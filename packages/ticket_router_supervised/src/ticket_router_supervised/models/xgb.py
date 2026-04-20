@@ -15,10 +15,9 @@ from ticket_router_base.types import (
     Priority,
     ErrorFlag,
 )
-from ticket_router_base.utils import to_record_df, to_records
+from ticket_router_base.utils import to_record_df, to_records, combine_texts
 from ticket_router_base.predictor import Predictor, Trainer
 
-from ticket_router_supervised.utils import combine_texts
 from ticket_router_supervised.features import build_tfidf_pipeline
 from ticket_router_supervised.utils import save_model, SKModel
 
