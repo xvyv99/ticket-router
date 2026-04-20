@@ -3,10 +3,11 @@ name = "ticket-router-agent"
 version = "0.1.0"
 requires-python = ">=3.13, <3.14"
 dependencies = [
+    "ticket-router-base",
     "llmcompressor>=0.10.0.1",
     "torch>=2.10.0",
     "vllm>=0.19.0",
 ]
 
 [tool.uv.sources]
-ticket-router-base = { path = "../ticket_router_base", editable = true }
+ticket-router-base = { path = "../ticket_router_base" }
