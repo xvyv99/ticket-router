@@ -15,8 +15,8 @@ from ticket_router_base.types import (
     Record,
     Prediction,
     PredictionBatch,
-    record_to_df,
 )
+from ticket_router_base.utils import to_record_df, to_records
 from ticket_router_base.config import SEED
 
 from ticket_router_supervised.features import build_tfidf_pipeline
@@ -71,6 +71,8 @@ class LRPredictor(Predictor):
         self._model_tags = model_tags
 
     def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
+        records = to_records(records)
+
         texts = combine_texts(records)
 
         q_preds = self._model_queue.predict(texts)
@@ -78,6 +80,7 @@ class LRPredictor(Predictor):
         # t_preds = self._model_tags.predict(texts)
 
         predictions = []
+
         for i, rec in enumerate(records):
             q = q_preds[i]
             p = p_preds[i]
@@ -109,9 +112,8 @@ class LRTrainer(Trainer):
         records: List[Record] | RecordDF,
         val_records: List[Record] | RecordDF | None = None,
     ) -> LRPredictor:
-        if isinstance(records, list):
-            records = record_to_df(records)
- 
+        records = to_record_df(records)
+
         texts = combine_texts(records)
 
         queue_lst = records["queue"].tolist()

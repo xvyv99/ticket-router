@@ -1,6 +1,6 @@
 """Train supervised models (LR, XGBoost) on 4k data, avoiding test-set leakage."""
 
-from logging import getLogger
+from logging import getLogger, basicConfig
 
 from sklearn.model_selection import train_test_split
 from ticket_router_base.data.loader import load_test_set, load_train_set
@@ -63,4 +63,5 @@ def main():
 
 
 if __name__ == "__main__":
+    basicConfig(level="INFO")
     main()

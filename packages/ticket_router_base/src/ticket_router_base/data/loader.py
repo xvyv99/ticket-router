@@ -2,8 +2,8 @@ import pandas as pd
 
 from pandera.typing import DataFrame
 
-from ticket_router.types import ITCusomterSupportSchema, RecordSchema
-from ticket_router.config import DATASET_4K_PATH, OUTPUT_DIR
+from ticket_router_base.types import ITCusomterSupportSchema, RecordSchema
+from ticket_router_base.config import DATASET_4K_PATH, OUTPUT_DIR
 
 
 def load_4k() -> DataFrame[ITCusomterSupportSchema]:

@@ -3,7 +3,7 @@ from logging import getLogger
 
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router.types import ITCusomterSupportDF
+from ticket_router_base.types import ITCusomterSupportDF
 
 logger = getLogger(__name__)
 

@@ -1517,7 +1517,7 @@ wheels = [
 [[package]]
 name = "ticket-router-base"
 version = "0.1.0"
-source = { directory = "../ticket_router_base" }
+source = { editable = "../ticket_router_base" }
 dependencies = [
     { name = "pandas" },
     { name = "pandera", extra = ["pandas"] },
@@ -1534,7 +1534,7 @@ requires-dist = [
 [[package]]
 name = "ticket-router-supervised"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "datasets" },
     { name = "joblib" },
@@ -1552,7 +1552,7 @@ requires-dist = [
     { name = "joblib", specifier = ">=1.5.3" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
-    { name = "ticket-router-base", directory = "../ticket_router_base" },
+    { name = "ticket-router-base", editable = "../ticket_router_base" },
     { name = "torch", specifier = ">=2.11.0" },
     { name = "transformers", specifier = ">=5.5.4" },
     { name = "xgboost", specifier = ">=3.2.0" },

@@ -5,10 +5,18 @@ import json
 from dataclasses import asdict
 
 import pandas as pd
-from datasets import Dataset
 
-from .types import PredSave, Prediction, Language, Record, RecordDF, Task, df_to_records
-from .types import QUEUE2ID, PRIORITY2ID, ID2QUEUE, ID2PRIORITY
+from .types import (
+    PredSave,
+    Prediction,
+    Language,
+    Record,
+    RecordDF,
+    Task,
+    df_to_records,
+    record_to_df,
+)
+from .types import ID2QUEUE, ID2PRIORITY
 
 
 class JSONLLogger:
@@ -63,3 +71,21 @@ def task2labels(task: Task) -> Dict[int, str]:
             return ID2PRIORITY
         case _:
             raise ValueError(f"Unsupported task: {task}")
+
+
+def to_records(records: List[Record] | RecordDF) -> List[Record]:
+    if isinstance(records, pd.DataFrame):
+        return df_to_records(records)
+    elif isinstance(records, list):
+        return records
+    else:
+        raise ValueError("Unsupported input type for records")
+
+
+def to_record_df(records: List[Record] | RecordDF) -> RecordDF:
+    if isinstance(records, pd.DataFrame):
+        return records
+    elif isinstance(records, list):
+        return record_to_df(records)
+    else:
+        raise ValueError("Unsupported input type for records")
