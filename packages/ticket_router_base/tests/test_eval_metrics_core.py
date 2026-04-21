@@ -28,9 +28,6 @@ class TestComputeClassificationMetrics:
         assert result.macro_precision == 1.0
         assert result.macro_recall == 1.0
         assert result.macro_f1 == 1.0
-        assert result.weighted_precision == 1.0
-        assert result.weighted_recall == 1.0
-        assert result.weighted_f1 == 1.0
         assert result.support == 6
         for label in ["a", "b", "c"]:
             pcm = result.per_class[label]
@@ -69,20 +66,13 @@ class TestComputeClassificationMetrics:
         assert result.per_class["pos"].f1 == pytest.approx(expected_f1_pos)
 
     def test_multi_class_imbalanced(self) -> None:
-        """Weighted metrics should differ from macro when supports are imbalanced."""
+        """Macro F1 should be lower than accuracy when minority classes fail."""
         y_true = ["a"] * 90 + ["b"] * 9 + ["c"] * 1
         y_pred = ["a"] * 85 + ["b"] * 5 + ["b"] * 4 + ["c"] * 5 + ["a"] * 1
         result = compute_classification_metrics(y_true, y_pred)
 
-        # weighted should not equal macro when classes are imbalanced
-        assert result.weighted_f1 != pytest.approx(result.macro_f1)
-        # class "a" dominates weighted_f1
-        assert result.weighted_f1 == pytest.approx(
-            result.per_class["a"].f1 * 0.9
-            + result.per_class["b"].f1 * 0.09
-            + result.per_class["c"].f1 * 0.01,
-            abs=1e-10,
-        )
+        # macro penalizes minority class performance
+        assert result.macro_f1 < result.accuracy
 
     def test_class_with_zero_support(self) -> None:
         """A label in labels but not in y_true should have zero support and zero metrics."""

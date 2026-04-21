@@ -21,30 +21,6 @@ class CFPBComplaintsDataset(BaseDataset):
     # label lists are shortened for brevity; full lists should be inferred from data
     classification_tasks = [
         ClassificationTask(
-            "product",
-            "Product",
-            [
-                "Bank account or service",
-                "Checking or savings account",
-                "Consumer Loan",
-                "Credit card",
-                "Credit card or prepaid card",
-                "Credit reporting",
-                "Credit reporting, credit repair services, or other personal consumer reports",
-                "Debt collection",
-                "Money transfer, virtual currency, or money service",
-                "Money transfers",
-                "Mortgage",
-                "Other financial service",
-                "Payday loan",
-                "Payday loan, title loan, or personal loan",
-                "Prepaid card",
-                "Student loan",
-                "Vehicle loan or lease",
-                "Virtual currency",
-            ],
-        ),
-        ClassificationTask(
             "issue",
             "Issue",
             [
@@ -140,19 +116,13 @@ class CFPBComplaintsDataset(BaseDataset):
             ],
         ),
         ClassificationTask(
-            "timely_response",
-            "Timely response?",
-            ["Yes", "No"],
-        ),
-        ClassificationTask(
-            "consumer_disputed",
-            "Consumer disputed?",
-            ["Yes", "No", "N/A"],
+            "sub_issue",
+            "Sub-issue",
+            [],  # populated dynamically in load() from data
         ),
     ]
     generation_task = GenerationTask("company_response", "Company response to consumer")
     discrete_feature_columns = [
-        "Sub-product",
         "State",
         "ZIP code",
         "Tags",
@@ -161,7 +131,7 @@ class CFPBComplaintsDataset(BaseDataset):
     ]
 
     def load(self):
-        """Override to filter out rows with empty narrative and sample for dev."""
+        """Override to filter out rows with empty narrative, sample, and infer sub-issue labels."""
         import pandas as pd
 
         df = pd.read_csv(
@@ -171,4 +141,32 @@ class CFPBComplaintsDataset(BaseDataset):
             nrows=10000,  # dev sampling; remove for full training
         )
         df = df[df[self.body_column].notna()].copy()
+
+        # Infer sub-issue labels from sampled data and replace rare ones with "Other"
+        sub_issue_col = "Sub-issue"
+        if sub_issue_col in df.columns:
+            # keep rows where sub-issue is known
+            df = df[df[sub_issue_col].notna()].copy()
+            vc = df[sub_issue_col].value_counts()
+            # keep sub-issues that appear at least 5 times; map others to "Other"
+            frequent = set(vc[vc >= 5].index)
+            df[sub_issue_col] = df[sub_issue_col].apply(
+                lambda x: x if x in frequent else "Other"
+            )
+            # update the classification task labels dynamically
+            for task in self.classification_tasks:
+                if task.name == "sub_issue":
+                    # dataclass is frozen, so we replace the whole task list
+                    new_tasks = []
+                    for t in self.classification_tasks:
+                        if t.name == "sub_issue":
+                            labels = sorted(df[sub_issue_col].unique())
+                            new_tasks.append(
+                                ClassificationTask(t.name, t.target_column, labels)
+                            )
+                        else:
+                            new_tasks.append(t)
+                    object.__setattr__(self, "classification_tasks", new_tasks)
+                    break
+
         return self._df_to_records(df)

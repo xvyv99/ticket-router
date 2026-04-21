@@ -54,7 +54,6 @@ class EvaluationReport:
             print(f"Task: {tr.task_name}")
             print(f"  Accuracy:    {tr.overall.accuracy:.4f}")
             print(f"  Macro F1:    {tr.overall.macro_f1:.4f}")
-            print(f"  Weighted F1: {tr.overall.weighted_f1:.4f}")
             print()
 
         # language fairness (using the first task as representative)
