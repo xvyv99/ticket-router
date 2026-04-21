@@ -6,18 +6,18 @@ prepare-data:
 
 # Supervised learning
 
-supervised-traditional:
+run-ml:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/03_run_supervised_traditional.py
 
-supervised-mbert *ARGS:
+run-mbert *ARGS:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/04_run_mbert.py {{ARGS}}
 
 # LLM-based
-quantize-qwen *ARGS:
+quan-qwen *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/quantize_qwen.py {{ARGS}}
 
-local-llm-batch *ARGS:
+run-vllm *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/run_batch.py {{ARGS}}
 
-gen-batch-files:
+gen-batch:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/gen_batch.py
