@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "path": "./",
+    },
+    {
+      "path": "./packages/ticket_router_base",
+    },
+    {
+      "path": "./packages/ticket_router_rule",
+    },
+    {
+      "path": "./packages/ticket_router_supervised",
+    },
+    {
+      "path": "./packages/ticket_router_agent",
+    },
+  ],
+  "settings": {
+      "python.defaultInterpreterPath": "./.venv/bin/python"
+  }
+},
+}
