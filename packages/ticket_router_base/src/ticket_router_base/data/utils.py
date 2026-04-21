@@ -66,7 +66,7 @@ def build_difficult_cases(
     n: int = 100,
     seed: int = 42,
 ) -> List[Record]:
-    """Heuristic extraction of difficult cases based on small queues, high priority, long body.
+    """Heuristic extraction of difficult cases based on small classes, high first-label, long body.
 
     Args:
         records: List of Record instances.
@@ -79,32 +79,32 @@ def build_difficult_cases(
     # body length
     body_lens = [len(r.body) for r in records]
 
-    # identify small queues (uses the first classification task)
-    queue_task = (
+    # identify small classes (uses the first classification task)
+    first_task = (
         dataset.classification_tasks[0] if dataset.classification_tasks else None
     )
-    if queue_task:
+    if first_task:
         from collections import Counter
 
-        queue_counts = Counter(r.labels.get(queue_task.name, "") for r in records)
-        small_queues = {q for q, c in queue_counts.items() if c < 200}
+        task_counts = Counter(r.labels.get(first_task.name, "") for r in records)
+        small_classes = {q for q, c in task_counts.items() if c < 200}
         is_small = [
-            1 if r.labels.get(queue_task.name, "") in small_queues else 0
+            1 if r.labels.get(first_task.name, "") in small_classes else 0
             for r in records
         ]
     else:
         is_small = [0] * len(records)
 
-    # high priority proxy (uses the second classification task)
-    priority_task = (
+    # high-label proxy (uses the second classification task)
+    second_task = (
         dataset.classification_tasks[1]
         if len(dataset.classification_tasks) > 1
         else None
     )
-    if priority_task:
-        high_label = sorted(priority_task.labels)[0]
+    if second_task:
+        high_label = sorted(second_task.labels)[0]
         is_high = [
-            1 if r.labels.get(priority_task.name, "") == high_label else 0
+            1 if r.labels.get(second_task.name, "") == high_label else 0
             for r in records
         ]
     else:

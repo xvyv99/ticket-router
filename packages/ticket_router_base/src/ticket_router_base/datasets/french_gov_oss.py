@@ -36,21 +36,6 @@ class FrenchGovOSSDataset(BaseDataset):
             ["Anomalie", "Demande d'information"],
         ),
         ClassificationTask(
-            "statut",
-            "STATUT",
-            [
-                "1 - Rappel effectué",
-                "2 - Suspendue/Complément demandé",
-                "3 - Complément transmis",
-                "4 - Contournement livré",
-                "5 - Analysé",
-                "7 - Information/solution fournie",
-                "9 - Fermé",
-                "10 - Abandonné",
-                "11 - Rejeté",
-            ],
-        ),
-        ClassificationTask(
             "criticite",
             "CRITICITE",
             ["Critique", "Non-critique"],

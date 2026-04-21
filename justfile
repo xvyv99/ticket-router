@@ -28,6 +28,13 @@ run-ml DATASET=default-dataset OUTPUT_PREFIX="":
 run-mbert *ARGS:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/04_run_mbert.py {{ARGS}}
 
+# Evaluation
+eval DATASET=default-dataset PRED_FILES="lr:xgb" PRED_DIR="outputs/supervised":
+    uv run --project packages/ticket_router_base packages/ticket_router_base/scripts/eval_models.py \
+        --dataset {{DATASET}} \
+        --pred-files {{PRED_FILES}} \
+        --pred-dir {{PRED_DIR}}
+
 # LLM-based
 quan-qwen *ARGS:
     uv run --project {{AGENTIC_PROJ}} {{AGENTIC_PROJ}}/scripts/quantize_qwen.py {{ARGS}}

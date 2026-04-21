@@ -43,9 +43,6 @@ class ClassificationMetrics:
     macro_precision: float
     macro_recall: float
     macro_f1: float
-    weighted_precision: float
-    weighted_recall: float
-    weighted_f1: float
     per_class: Dict[str, PerClassMetrics]
     confusion_matrix: List[List[int]]
     support: int  # total number of samples
@@ -57,9 +54,6 @@ class ClassificationMetrics:
             "macro_precision": self.macro_precision,
             "macro_recall": self.macro_recall,
             "macro_f1": self.macro_f1,
-            "weighted_precision": self.weighted_precision,
-            "weighted_recall": self.weighted_recall,
-            "weighted_f1": self.weighted_f1,
             "per_class": {k: v.to_dict() for k, v in self.per_class.items()},
             "confusion_matrix": self.confusion_matrix,
             "support": self.support,
@@ -95,17 +89,6 @@ def compute_classification_metrics(
     )
     macro_f1 = float(
         f1_score(y_true, y_pred, average="macro", labels=labels, zero_division=0)
-    )
-    weighted_precision = float(
-        precision_score(
-            y_true, y_pred, average="weighted", labels=labels, zero_division=0
-        )
-    )
-    weighted_recall = float(
-        recall_score(y_true, y_pred, average="weighted", labels=labels, zero_division=0)
-    )
-    weighted_f1 = float(
-        f1_score(y_true, y_pred, average="weighted", labels=labels, zero_division=0)
     )
     cm = confusion_matrix(y_true, y_pred, labels=labels).tolist()
 
@@ -143,9 +126,6 @@ def compute_classification_metrics(
         macro_precision=macro_precision,
         macro_recall=macro_recall,
         macro_f1=macro_f1,
-        weighted_precision=weighted_precision,
-        weighted_recall=weighted_recall,
-        weighted_f1=weighted_f1,
         per_class=per_class,
         confusion_matrix=cm,
         support=len(y_true),
