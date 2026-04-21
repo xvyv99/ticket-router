@@ -2,20 +2,15 @@
 
 from typing import List, Any, Tuple
 
-import pandas as pd
 from datasets import Dataset
 import joblib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 
 from ticket_router_base.config import OUTPUT_DIR
-from ticket_router_base.types import (
-    Record,
-    RecordDF,
-    df_to_records,
-    QUEUE2ID,
-    PRIORITY2ID,
-)
+from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.types import Record
+from ticket_router_base.utils import combine_texts
 
 
 MODEL_DIR = OUTPUT_DIR / "supervised" / "models"
@@ -69,22 +64,22 @@ def save_model(name: str, model_dict: SKModel):
     return path
 
 
-def create_datasets(records: RecordDF | List[Record]) -> Dataset:
+def create_datasets(records: List[Record], dataset: BaseDataset) -> Dataset:
+    """Convert Records to a HuggingFace Dataset for mBERT training.
+
+    Args:
+        records: List of Record instances.
+        dataset: Dataset descriptor for label mapping.
+    """
     records_lst = []
+    texts = combine_texts(records)
 
-    if isinstance(records, pd.DataFrame):
-        records = df_to_records(records)
+    for i, r in enumerate(records):
+        row: dict[str, Any] = {"text": texts[i]}
+        for task in dataset.classification_tasks:
+            label = r.labels.get(task.name, "")
+            label2id = dataset.get_label2id(task.name)
+            row[task.name] = label2id.get(label, -1)
+        records_lst.append(row)
 
-    for r in records:
-        text = f"{r.subject}\n{r.body}"
-        tags = [r.tag_1, r.tag_2] if r.tag_1 and r.tag_2 else []
-        # TODO: handle tags better, currently just taking the first 2 tags, but some records have more than 2 tags
-        records_lst.append(
-            {
-                "text": text,
-                "queue": QUEUE2ID.get(str(r.queue)),
-                "priority": PRIORITY2ID.get(str(r.priority)),
-                "tags": tags,
-            }
-        )
     return Dataset.from_list(records_lst)

@@ -3,19 +3,20 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
+
 
 from .evaluator import TaskEvaluationResult
 
 
 @dataclass(frozen=True)
 class EvaluationReport:
-    """Complete evaluation report for a model across queue and priority tasks."""
+    """Complete evaluation report for a model across all dataset tasks."""
 
     model_name: str
     pred_file_path: str
-    queue_result: TaskEvaluationResult
-    priority_result: TaskEvaluationResult
+    dataset_name: str
+    task_results: List[TaskEvaluationResult]
     error_summary: Dict[str, int]  # error flag name -> count
     total_samples: int
 
@@ -24,10 +25,10 @@ class EvaluationReport:
         return {
             "model_name": self.model_name,
             "pred_file_path": self.pred_file_path,
+            "dataset_name": self.dataset_name,
             "total_samples": self.total_samples,
             "error_summary": self.error_summary,
-            "queue_result": self.queue_result.to_dict(),
-            "priority_result": self.priority_result.to_dict(),
+            "task_results": [tr.to_dict() for tr in self.task_results],
         }
 
     def to_json(self, path: Path | None = None) -> str:
@@ -40,38 +41,27 @@ class EvaluationReport:
 
     def print_summary(self) -> None:
         """Print a concise summary table to the console."""
-        print(f"\n{'=' * 60}")
+        print(f"\n{'=' * 70}")
         print(f"Evaluation Report: {self.model_name}")
-        print(f"{'=' * 60}")
+        print(f"{'=' * 70}")
+        print(f"Dataset: {self.dataset_name}")
         print(f"File: {self.pred_file_path}")
         print(f"Total samples: {self.total_samples}")
         print(f"Errors: {self.error_summary}")
         print()
 
-        # queue summary
-        q = self.queue_result.overall
-        print("Queue Prediction:")
-        print(f"  Accuracy:      {q.accuracy:.4f}")
-        print(f"  Macro F1:      {q.macro_f1:.4f}")
-        print(f"  Weighted F1:   {q.weighted_f1:.4f}")
-        print()
+        for tr in self.task_results:
+            print(f"Task: {tr.task_name}")
+            print(f"  Accuracy:    {tr.overall.accuracy:.4f}")
+            print(f"  Macro F1:    {tr.overall.macro_f1:.4f}")
+            print(f"  Weighted F1: {tr.overall.weighted_f1:.4f}")
+            print()
 
-        # priority summary
-        p = self.priority_result.overall
-        print("Priority Prediction:")
-        print(f"  Accuracy:      {p.accuracy:.4f}")
-        print(f"  Macro F1:      {p.macro_f1:.4f}")
-        print(f"  Weighted F1:   {p.weighted_f1:.4f}")
-        print()
+        # language fairness (using the first task as representative)
+        if self.task_results:
+            first = self.task_results[0]
+            print("By Language (Macro F1):")
+            for lang, metrics in sorted(first.by_language.items()):
+                print(f"  {lang:>10}: {metrics.macro_f1:.4f}")
 
-        # language fairness
-        print("By Language (Macro F1):")
-        for lang, metrics in sorted(self.queue_result.by_language.items()):
-            print(f"  {lang:>3}: Queue={metrics.macro_f1:.4f}", end="")
-            if lang in self.priority_result.by_language:
-                pm = self.priority_result.by_language[lang]
-                print(f"  Priority={pm.macro_f1:.4f}")
-            else:
-                print()
-
-        print(f"{'=' * 60}\n")
+        print(f"{'=' * 70}\n")

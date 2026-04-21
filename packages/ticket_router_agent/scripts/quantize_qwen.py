@@ -3,14 +3,12 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import List, Dict
 
-import pandas as pd
 from datasets import Dataset
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import GPTQModifier
 from llmcompressor.modifiers.transform.smoothquant import SmoothQuantModifier
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from ticket_router_base.types import RecordDF
 from ticket_router_base.config import OUTPUT_DIR, SEED, LOGGING_FORMAT
 from ticket_router_base.utils import combine_text, JSONLLogger
 from ticket_router_base.data.loader import load_train_set
@@ -23,25 +21,35 @@ MODEL_DIR = Path.cwd() / "models"
 logger = getLogger(__name__)
 
 
-def build_calibration_dataset(df: RecordDF, size: int = 350) -> List[Dict[str, str]]:
-    langs = df["language"].unique().tolist()
-    queues = df["queue"].unique().tolist()
-    per_cell = max(1, size // (len(langs) * len(queues)))
+def build_calibration_dataset(records: list, size: int = 350) -> List[Dict[str, str]]:
+    # Simple stratified sampling by language (if available)
+    from collections import Counter
 
-    sampled = df.groupby(["language", "queue"], group_keys=False).apply(
-        lambda g: g.sample(n=min(per_cell, len(g)), random_state=SEED)
-    )
+    langs = Counter(r.language or "unknown" for r in records)
+    per_lang = max(1, size // max(len(langs), 1))
+
+    sampled = []
+    for lang in langs:
+        lang_records = [r for r in records if (r.language or "unknown") == lang]
+        import random
+
+        random.seed(SEED)
+        sampled.extend(random.sample(lang_records, min(per_lang, len(lang_records))))
+
     if len(sampled) < size:
-        extra = df.sample(n=size - len(sampled), random_state=SEED)
-        sampled = pd.concat([sampled, extra])
+        remaining = [r for r in records if r not in sampled]
+        import random
 
-    records = []
-    for _, row in sampled.iterrows():
-        subject = row["subject"] or ""
-        body = row["body"] or ""
-        text = combine_text(subject, body)
-        records.append({"text": text})
-    return records[:size]
+        random.seed(SEED)
+        sampled.extend(
+            random.sample(remaining, min(size - len(sampled), len(remaining)))
+        )
+
+    records_out = []
+    for r in sampled[:size]:
+        text = combine_text(r.title or "", r.body)
+        records_out.append({"text": text})
+    return records_out
 
 
 def save_calibration(records: List[Dict[str, str]], output_path: Path):
@@ -51,77 +59,62 @@ def save_calibration(records: List[Dict[str, str]], output_path: Path):
         for rec in records:
             jsonl.write(rec)
 
-    logger.info(f"Calibration: {len(records)} records -> {output_path}")
+    logger.info(f"Saved {len(records)} calibration samples to {output_path}")
 
 
-def quantize_model(size: str, calib_texts: List[Dict[str, str]]):
-    model_name = f"Qwen/Qwen3-{size}"
-    quant_dir = MODEL_DIR / f"qwen3-{size}-awq"
+def quantize_model(model_size: str, calibration_dataset: Dataset):
+    model_name = f"Qwen/Qwen3-{model_size}-AWQ"
+    model_path = MODEL_DIR / f"qwen3-{model_size}-awq"
 
-    if quant_dir.exists() and (quant_dir / "config.json").exists():
-        logger.info(f"Already quantized: {quant_dir}, skipping.")
-        return
-
-    logger.info(f"Loading {model_name}...")
+    logger.info(f"Loading model {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, dtype="auto", device_map="auto"
+        model_name,
+        torch_dtype="auto",
+        device_map="auto",
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # W8A8
-    recipe = [
-        SmoothQuantModifier(smoothing_strength=0.8),
-        GPTQModifier(targets="Linear", scheme="W8A8", ignore=["lm_head"]),
-    ]
-    calib_ds = Dataset.from_list(calib_texts)
-
-    logger.info(f"Quantizing {size}...")
+    logger.info("Starting quantization...")
     oneshot(
         model=model,
-        dataset=calib_ds,
-        recipe=recipe,
-        max_seq_length=512,
-        num_calibration_samples=len(calib_ds),
+        tokenizer=tokenizer,
+        dataset=calibration_dataset,
+        recipe=[
+            SmoothQuantModifier(smoothing_strength=0.8),
+            GPTQModifier(targets="Linear", scheme="W4A16", ignore=["lm_head"]),
+        ],
+        max_seq_length=2048,
+        num_calibration_samples=len(calibration_dataset),
     )
-    model.save_pretrained(quant_dir, save_compressed=True)
-    tokenizer.save_pretrained(quant_dir)
-    logger.info(f"Done: {size} -> {quant_dir}")
+
+    logger.info(f"Saving quantized model to {model_path}...")
+    model.save_pretrained(model_path)
+    tokenizer.save_pretrained(model_path)
+    logger.info(f"Quantization complete for {model_size}!")
 
 
 def main():
-    parser = ArgumentParser(description="Quantize Qwen models with calibration data")
+    parser = ArgumentParser(description="Quantize Qwen3 models")
     parser.add_argument(
-        "--calib", action="store_true", help="Only prepare calibration dataset"
-    )
-    parser.add_argument(
-        "--quantize",
-        nargs="?",
-        const="all",
+        "--sizes",
+        nargs="+",
         choices=MODEL_SIZES,
-        help="Quantize specified model size (default: all)",
+        default=MODEL_SIZES,
+        help="Model sizes to quantize",
     )
     args = parser.parse_args()
 
-    df = load_train_set()
-    cal_texts = build_calibration_dataset(df, size=CALIB_SIZE)
+    train_records = load_train_set()
+    calib_records = build_calibration_dataset(train_records, size=CALIB_SIZE)
+    save_calibration(calib_records, CALIB_OUTPUT)
 
-    if args.quantize:
-        target = args.quantize
+    calibration_dataset = Dataset.from_list(calib_records)
 
-        if target == "all":
-            for size in MODEL_SIZES:
-                logger.info(f"Quantizing {size}...")
-                quantize_model(size, cal_texts)
-        else:
-            logger.info(f"Quantizing {target}...")
-            quantize_model(target, cal_texts)
-        return
+    for size in args.sizes:
+        logger.info(f"Processing Qwen3-{size}...")
+        quantize_model(size, calibration_dataset)
 
-    if args.calib:
-        save_calibration(cal_texts, CALIB_OUTPUT)
-
-        logger.info(f"Calibration dataset ready: {len(cal_texts)} records")
-        return
+    logger.info("All models quantized successfully!")
 
 
 if __name__ == "__main__":

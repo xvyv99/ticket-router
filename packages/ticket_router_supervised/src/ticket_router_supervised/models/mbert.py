@@ -1,7 +1,7 @@
-"""mBERT fine-tuning training and inference."""
+"""mBERT fine-tuning training and inference for arbitrary classification tasks."""
 
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 from logging import getLogger
 
 import torch
@@ -17,21 +17,15 @@ from transformers import (
 from datasets import Dataset
 
 from ticket_router_base.config import OUTPUT_DIR, SEED
+from ticket_router_base.datasets.base import BaseDataset
 from ticket_router_base.types import (
-    ID2QUEUE,
-    ID2PRIORITY,
-    QUEUE2ID,
-    PRIORITY2ID,
     Record,
     Prediction,
     PredictionBatch,
     ErrorFlag,
-    Priority,
-    Queue,
-    RecordDF,
 )
 from ticket_router_base.predictor import Predictor, Trainer as TrainerProtocol
-from ticket_router_base.utils import to_records, combine_texts
+from ticket_router_base.utils import combine_texts
 
 from ticket_router_supervised.utils import create_datasets
 from ticket_router_supervised.config import TORCH_DEVICE
@@ -42,9 +36,6 @@ MODEL_DIR = OUTPUT_DIR / "supervised" / "models" / "mbert"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 MBERT_INFER_BATCH_SIZE = 64
-
-QUEUE_MODEL_PATH = MODEL_DIR / "queue_best"
-PRIORITY_MODEL_PATH = MODEL_DIR / "priority_best"
 
 DEFAULT_TRAIN_ARGS = TrainingArguments(
     eval_strategy="epoch",
@@ -108,10 +99,10 @@ def train_mbert(
 
 def predict_mbert(
     model_path: Path,
-    records: List[Record] | RecordDF,
+    records: List[Record],
     id2label: Dict[int, str],
     batch_size: int = MBERT_INFER_BATCH_SIZE,
-) -> List[Tuple[float, float]]:
+) -> List[Tuple[str, float]]:
     """Run inference using a fine-tuned mBERT model."""
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
@@ -148,32 +139,39 @@ class MBERTPredictor(Predictor):
     supports_tags = False
     supports_preliminary_answer = False
 
-    def __init__(self, queue_model_path: Path | str, priority_model_path: Path | str):
-        self._queue_path = Path(queue_model_path)
-        self._priority_path = Path(priority_model_path)
+    _model_paths: Dict[str, Path]
+    _dataset: BaseDataset
 
-    def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
-        records = to_records(records)
+    def __init__(self, model_paths: Dict[str, Path], dataset: BaseDataset):
+        self._model_paths = model_paths
+        self._dataset = dataset
 
-        q_results = predict_mbert(self._queue_path, records, id2label=ID2QUEUE)
-        p_results = predict_mbert(self._priority_path, records, id2label=ID2PRIORITY)
+    def predict(self, records: List[Record]) -> PredictionBatch:
+        task_results: Dict[str, List[Tuple[str, float]]] = {}
+        for task_name, model_path in self._model_paths.items():
+            id2label = self._dataset.get_id2label(task_name)
+            task_results[task_name] = predict_mbert(model_path, records, id2label)
 
         predictions = []
         for i, rec in enumerate(records):
+            labels: Dict[str, str] = {}
+            confidences: Dict[str, float | None] = {}
+            for task_name in self._dataset.get_task_names():
+                result = task_results[task_name]
+                labels[task_name] = result[i][0]
+                confidences[task_name] = result[i][1]
+
             pred = Prediction(
                 request_id=rec.request_id,
-                queue=Queue(q_results[i][0]),
-                priority=Priority(p_results[i][0]),
-                tag_1=None,
-                tag_2=None,
-                answer=None,
-                queue_confidence=q_results[i][1],
-                priority_confidence=p_results[i][1],
+                labels=labels,
+                discrete_features={},
+                generation_target=None,
+                confidences=confidences,
                 raw_output=None,
                 error=ErrorFlag.SUCCESS,
             )
-
             predictions.append(pred)
+
         return PredictionBatch(
             predictions=predictions, parse_err_count=0, parse_json_err_count=0
         )
@@ -182,37 +180,28 @@ class MBERTPredictor(Predictor):
 class MBERTTrainer(TrainerProtocol):
     def train(
         self,
-        records: List[Record] | RecordDF,
-        val_records: List[Record] | RecordDF | None = None,
+        records: List[Record],
+        dataset: BaseDataset,
+        val_records: List[Record] | None = None,
     ) -> MBERTPredictor:
         if val_records is None:
             raise ValueError("MBERTTrainer requires val_records for early stopping")
-        train_ds = create_datasets(records)
-        val_ds = create_datasets(val_records)
+        train_ds = create_datasets(records, dataset)
+        val_ds = create_datasets(val_records, dataset)
 
-        logger.info("Starting remBERT training for queue...")
-        train_mbert(
-            train_ds,
-            val_ds,
-            id2label=ID2QUEUE,
-            label2id=QUEUE2ID,
-            target_col="queue",
-            save_path=QUEUE_MODEL_PATH,
-        )
-        logger.info("Queue model training complete!")
+        model_paths: Dict[str, Path] = {}
+        for task in dataset.classification_tasks:
+            logger.info(f"Starting remBERT training for {task.name}...")
+            save_path = MODEL_DIR / f"{task.name}_best"
+            train_mbert(
+                train_ds,
+                val_ds,
+                id2label=dataset.get_id2label(task.name),
+                label2id=dataset.get_label2id(task.name),
+                target_col=task.name,
+                save_path=save_path,
+            )
+            logger.info(f"{task.name} model training complete!")
+            model_paths[task.name] = save_path
 
-        logger.info("Starting remBERT training for priority...")
-        train_mbert(
-            train_ds,
-            val_ds,
-            id2label=ID2PRIORITY,
-            label2id=PRIORITY2ID,
-            target_col="priority",
-            save_path=PRIORITY_MODEL_PATH,
-        )
-        logger.info("Priority model training complete!")
-
-        return MBERTPredictor(
-            queue_model_path=MODEL_DIR / "queue_best",
-            priority_model_path=MODEL_DIR / "priority_best",
-        )
+        return MBERTPredictor(model_paths=model_paths, dataset=dataset)

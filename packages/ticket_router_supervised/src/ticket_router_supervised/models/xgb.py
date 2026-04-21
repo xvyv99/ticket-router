@@ -1,21 +1,19 @@
-"""XGBoost training for queue and priority classification."""
+"""XGBoost training for arbitrary classification tasks."""
 
-from typing import List
+from typing import Dict, List
 
 from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 
 from ticket_router_base.config import SEED
+from ticket_router_base.datasets.base import BaseDataset
 from ticket_router_base.types import (
     Record,
-    RecordDF,
     Prediction,
     PredictionBatch,
-    Queue,
-    Priority,
     ErrorFlag,
 )
-from ticket_router_base.utils import to_record_df, to_records, combine_texts
+from ticket_router_base.utils import combine_texts
 from ticket_router_base.predictor import Predictor, Trainer
 
 from ticket_router_supervised.features import build_tfidf_pipeline
@@ -32,12 +30,11 @@ XGBCfg = {
 
 
 def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
-    X = texts
-    y_raw = labels
+    """Train a single XGB model for one classification task."""
     le = LabelEncoder()
-    y = le.fit_transform(y_raw)
+    y = le.fit_transform(labels)
     pipe = build_tfidf_pipeline()
-    X_t = pipe.fit_transform(X)
+    X_t = pipe.fit_transform(texts)
 
     clf = xgb.XGBClassifier(
         num_class=len(le.classes_),
@@ -47,7 +44,6 @@ def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
 
     model = SKModel(pipe, clf, le=le)
     save_model(save_name, model)
-
     return model
 
 
@@ -55,42 +51,40 @@ class XGBPredictor(Predictor):
     supports_tags = False
     supports_preliminary_answer = False
 
-    _model_queue: SKModel
-    _model_priority: SKModel
+    _models: Dict[str, SKModel]
+    _dataset: BaseDataset
 
-    def __init__(self, model_queue: SKModel, model_priority: SKModel):
-        self._model_queue = model_queue
-        self._model_priority = model_priority
+    def __init__(self, models: Dict[str, SKModel], dataset: BaseDataset):
+        self._models = models
+        self._dataset = dataset
 
-    def predict(self, records: List[Record] | RecordDF) -> PredictionBatch:
-        records = to_records(records)
+    def predict(self, records: List[Record]) -> PredictionBatch:
         texts = combine_texts(records)
 
-        q_preds = self._model_queue.predict(texts)
-        p_preds = self._model_priority.predict(texts)
-        # t_preds = self._model_tags.predict(texts)
+        task_preds: Dict[str, List[tuple]] = {}
+        for task_name, model in self._models.items():
+            task_preds[task_name] = model.predict(texts)
 
         predictions = []
         for i, rec in enumerate(records):
-            q = q_preds[i]
-            p = p_preds[i]
-            # tags = t_preds[i] if t_preds else []
-            # TODO: convert predicted tag indices back to tag names using mlb
+            labels: Dict[str, str] = {}
+            confidences: Dict[str, float | None] = {}
+            for task_name in self._dataset.get_task_names():
+                preds = task_preds[task_name]
+                labels[task_name] = str(preds[i][0])
+                confidences[task_name] = preds[i][1]
 
             pred = Prediction(
                 request_id=rec.request_id,
-                queue=Queue(q[0]),
-                priority=Priority(p[0]),
-                tag_1=None,
-                tag_2=None,
-                answer=None,
-                queue_confidence=q[1],
-                priority_confidence=p[1],
+                labels=labels,
+                discrete_features={},
+                generation_target=None,
+                confidences=confidences,
                 raw_output=None,
                 error=ErrorFlag.SUCCESS,
             )
-
             predictions.append(pred)
+
         return PredictionBatch(
             predictions=predictions, parse_err_count=0, parse_json_err_count=0
         )
@@ -99,27 +93,16 @@ class XGBPredictor(Predictor):
 class XGBTrainer(Trainer):
     def train(
         self,
-        records: List[Record] | RecordDF,
-        val_records: List[Record] | RecordDF | None = None,
+        records: List[Record],
+        dataset: BaseDataset,
+        val_records: List[Record] | None = None,
     ) -> XGBPredictor:
-        records = to_record_df(records)
-
         texts = combine_texts(records)
-        queue_lst = records["queue"].tolist()
-        priority_lst = records["priority"].tolist()
-        tag_lst_1 = records["tag_1"].fillna("")
-        tag_lst_2 = records["tag_2"].fillna("")
 
-        tag_lst = []
+        models: Dict[str, SKModel] = {}
+        for task in dataset.classification_tasks:
+            labels = [r.labels.get(task.name, "") for r in records]
+            model = train_xgb(texts, labels, f"xgb_{task.name}")
+            models[task.name] = model
 
-        for i in range(len(records)):
-            tags = []
-            if tag_lst_1.iloc[i]:
-                tags.append(tag_lst_1.iloc[i])
-            if tag_lst_2.iloc[i]:
-                tags.append(tag_lst_2.iloc[i])
-            tag_lst.append(tags)
-
-        model_queue = train_xgb(texts, queue_lst, "queue_model")
-        model_priority = train_xgb(texts, priority_lst, "priority_model")
-        return XGBPredictor(model_queue=model_queue, model_priority=model_priority)
+        return XGBPredictor(models=models, dataset=dataset)

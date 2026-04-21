@@ -3,13 +3,13 @@ from logging import getLogger, basicConfig
 from dataclasses import dataclass
 
 from ticket_router_base.data.loader import load_test_set
-from ticket_router_base.types import Record, RecordDF
+from ticket_router_base.types import Record
 from ticket_router_base.config import LOGGING_FORMAT
-from ticket_router_base.utils import JSONLLogger, to_records
+from ticket_router_base.utils import JSONLLogger
+from ticket_router_base.datasets import MultilingualCustomerSupportDataset
 
 from ticket_router_agent.config import SAVE_DIR
-from ticket_router_agent.prompt import build_system_prompt, FEW_SHOT_EXAMPLES
-# TODO: currently we not use few-shot examples for siliconflow batch, we can add them in the future if needed
+from ticket_router_agent.prompt import build_system_prompt
 
 logger = getLogger(__name__)
 
@@ -59,7 +59,8 @@ MODELS_CFG = [
 
 
 def build_messages(subject: str, body: str, language: str):
-    system_content = build_system_prompt(few_shot=True)
+    dataset = MultilingualCustomerSupportDataset()
+    system_content = build_system_prompt(dataset)
     user_content = f"Language: {language}\nSubject: {subject}\nBody: {body}"
     return [
         {"role": "system", "content": system_content},
@@ -79,17 +80,13 @@ def build_request_body(model_cfg: ModelConfig, messages: list) -> dict:
     return body
 
 
-def generate_batch_jsonl(
-    model_cfg: ModelConfig, records: List[Record] | RecordDF
-) -> List[Dict]:
-    records = to_records(records)
-
+def generate_batch_jsonl(model_cfg: ModelConfig, records: List[Record]) -> List[Dict]:
     requests = []
     for rec in records:
         messages = build_messages(
-            rec.subject or "",
-            rec.body or "",
-            rec.language,
+            rec.title or "",
+            rec.body,
+            rec.language or "",
         )
         body = build_request_body(model_cfg, messages)
         request = {
@@ -103,11 +100,11 @@ def generate_batch_jsonl(
 
 
 def main():
-    df_test = load_test_set()
+    test_records = load_test_set()
 
     for cfg in MODELS_CFG:
         file_path = BATCH_SAVE_DIR / f"batch_{cfg.name}_fewshot.jsonl"
-        requests = generate_batch_jsonl(cfg, df_test)
+        requests = generate_batch_jsonl(cfg, test_records)
         with JSONLLogger(file_path) as jsonl:
             for req in requests:
                 jsonl.write(req)

@@ -119,9 +119,15 @@ def compute_classification_metrics(
     )
     _f1s = f1_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
 
-    assert isinstance(_precisions, np.ndarray), "Expected precision_score with average=None to return np.ndarray"
-    assert isinstance(_recalls, np.ndarray), "Expected recall_score with average=None to return np.ndarray"
-    assert isinstance(_f1s, np.ndarray), "Expected f1_score with average=None to return np.ndarray"
+    assert isinstance(_precisions, np.ndarray), (
+        "Expected precision_score with average=None to return np.ndarray"
+    )
+    assert isinstance(_recalls, np.ndarray), (
+        "Expected recall_score with average=None to return np.ndarray"
+    )
+    assert isinstance(_f1s, np.ndarray), (
+        "Expected f1_score with average=None to return np.ndarray"
+    )
 
     label2idx = {label: i for i, label in enumerate(labels)}
     for label in labels:

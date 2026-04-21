@@ -1878,6 +1878,9 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.8.0" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
+
 [[package]]
 name = "ticket-router-supervised"
 version = "0.1.0"
