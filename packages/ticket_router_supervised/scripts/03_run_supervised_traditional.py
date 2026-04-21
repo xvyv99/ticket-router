@@ -1,10 +1,10 @@
 """Train supervised models (LR, XGBoost) avoiding test-set leakage."""
 
+from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 
 from sklearn.model_selection import train_test_split
-from ticket_router_base.data.loader import load_test_set, load_train_set
-from ticket_router_base.datasets import MultilingualCustomerSupportDataset
+from ticket_router_base.datasets import get_dataset
 from ticket_router_base.utils import write_pred
 from ticket_router_base.config import OUTPUT_DIR, SEED, LOGGING_FORMAT
 
@@ -15,14 +15,50 @@ logger = getLogger(__name__)
 
 
 def main():
-    dataset = MultilingualCustomerSupportDataset()
-    test_records = load_test_set()
-    train_records = load_train_set()
-
-    # Stratify by the first task (queue proxy) to maintain distribution
-    first_task = (
-        dataset.classification_tasks[0].name if dataset.classification_tasks else None
+    parser = ArgumentParser(description="Train LR and XGBoost models")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        required=True,
+        help="Dataset name (e.g. multilingual-customer-support, french-gov-oss)",
     )
+    parser.add_argument(
+        "--train-set",
+        type=str,
+        default="train_set.jsonl",
+        help="Train set JSONL filename (in OUTPUT_DIR)",
+    )
+    parser.add_argument(
+        "--test-set",
+        type=str,
+        default="test_set.jsonl",
+        help="Test set JSONL filename (in OUTPUT_DIR)",
+    )
+    parser.add_argument(
+        "--output-prefix",
+        type=str,
+        default="",
+        help="Prefix for output filenames",
+    )
+    args = parser.parse_args()
+
+    dataset = get_dataset(args.dataset)
+
+    # Load from JSONL
+    def _load(path_name: str):
+
+        path = OUTPUT_DIR / path_name
+        if not path.exists():
+            raise FileNotFoundError(f"{path} not found. Run prepare-data first.")
+        # parse JSONL into Records
+        from ticket_router_base.data.loader import _load_jsonl_records
+        return _load_jsonl_records(path)
+
+    test_records = _load(args.test_set)
+    train_records = _load(args.train_set)
+
+    # Stratify by the first task
+    first_task = dataset.classification_tasks[0].name if dataset.classification_tasks else None
     stratify = None
     if first_task:
         stratify = [r.labels.get(first_task, "") for r in train_records]
@@ -49,10 +85,12 @@ def main():
     # LR predictions
     logger.info("Running LR inference...")
     lr_batch = lr_predictor.predict(test_records)
+    prefix = args.output_prefix
+    sep = "_" if prefix else ""
     write_pred(
         lr_batch.predictions,
         test_records,
-        OUTPUT_DIR / "supervised" / "lr_predictions.jsonl",
+        OUTPUT_DIR / "supervised" / f"{prefix}{sep}lr_predictions.jsonl",
     )
     logger.info(f"LR predictions: {len(lr_batch.predictions)} records")
 
@@ -62,7 +100,7 @@ def main():
     write_pred(
         xgb_batch.predictions,
         test_records,
-        OUTPUT_DIR / "supervised" / "xgb_predictions.jsonl",
+        OUTPUT_DIR / "supervised" / f"{prefix}{sep}xgb_predictions.jsonl",
     )
     logger.info(f"XGBoost predictions: {len(xgb_batch.predictions)} records")
 

@@ -36,10 +36,13 @@ def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
     pipe = build_tfidf_pipeline()
     X_t = pipe.fit_transform(texts)
 
-    clf = xgb.XGBClassifier(
-        num_class=len(le.classes_),
-        **XGBCfg,
-    )
+    n_classes = len(le.classes_)
+    if n_classes == 2:
+        # binary classification: use binary:logistic instead of multi:softprob
+        cfg = {**XGBCfg, "objective": "binary:logistic", "eval_metric": "logloss"}
+        clf = xgb.XGBClassifier(**cfg)
+    else:
+        clf = xgb.XGBClassifier(num_class=n_classes, **XGBCfg)
     clf.fit(X_t, y)
 
     model = SKModel(pipe, clf, le=le)
