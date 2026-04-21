@@ -13,7 +13,7 @@ from argparse import ArgumentParser
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from ticket_router_base.eval import evaluate_file
-from ticket_router_base.datasets import get_dataset, DATASET_REGISTRY
+from ticket_router_base.data.dataset import get_dataset, DATASET_REGISTRY
 
 
 def main() -> None:

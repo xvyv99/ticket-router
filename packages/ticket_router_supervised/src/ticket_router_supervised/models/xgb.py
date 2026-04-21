@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 
 from ticket_router_base.config import SEED
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import (
     Record,
     Prediction,

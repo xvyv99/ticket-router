@@ -5,7 +5,7 @@ from logging import getLogger
 
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import Record
 
 logger = getLogger(__name__)

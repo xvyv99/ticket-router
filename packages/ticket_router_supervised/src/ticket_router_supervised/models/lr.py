@@ -5,7 +5,7 @@ from typing import Dict, List
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.predictor import Trainer, Predictor
 from ticket_router_base.types import (
     ErrorFlag,

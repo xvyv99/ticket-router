@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from ticket_router_base.datasets.base import BaseDataset, ClassificationTask
+from ticket_router_base.data.base import BaseDataset, ClassificationTask
 from ticket_router_base.eval.evaluator import TaskEvaluator
 from ticket_router_base.eval.report import EvaluationReport
 from ticket_router_base.types import (

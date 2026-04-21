@@ -4,7 +4,7 @@ from logging import getLogger, basicConfig
 from ticket_router_base.data.loader import load_test_set
 from ticket_router_base.config import LOGGING_FORMAT, OUTPUT_DIR
 from ticket_router_base.utils import write_pred
-from ticket_router_base.datasets import MultilingualCustomerSupportDataset
+from ticket_router_base.data.dataset import MultilingualCustomerSupportDataset
 
 from ticket_router_agent.config import MODEL_CHOICES
 from ticket_router_agent.infer import vLLMPredictor

@@ -17,7 +17,7 @@ from transformers import (
 from datasets import Dataset
 
 from ticket_router_base.config import OUTPUT_DIR, SEED
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import (
     Record,
     Prediction,
