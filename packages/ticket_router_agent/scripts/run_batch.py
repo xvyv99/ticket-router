@@ -4,6 +4,7 @@ from logging import getLogger, basicConfig
 from ticket_router_base.data.loader import load_test_set
 from ticket_router_base.config import LOGGING_FORMAT, OUTPUT_DIR
 from ticket_router_base.utils import write_pred
+from ticket_router_base.datasets import MultilingualCustomerSupportDataset
 
 from ticket_router_agent.config import MODEL_CHOICES
 from ticket_router_agent.infer import vLLMPredictor
@@ -13,11 +14,16 @@ logger = getLogger(__name__)
 
 
 def run_infer(sample_num: int, model_choice: str, few_shot: bool):
-    df_test = load_test_set().head(sample_num)
+    test_records = load_test_set()[:sample_num]
+    dataset = MultilingualCustomerSupportDataset()
 
-    predictor = vLLMPredictor(model_name_or_path=model_choice, few_shot=few_shot)
+    predictor = vLLMPredictor(
+        model_name_or_path=model_choice,
+        dataset=dataset,
+        few_shot=few_shot,
+    )
 
-    llm_batch = predictor.predict(df_test)
+    llm_batch = predictor.predict(test_records)
 
     save_prefix = save_prefix_from_model_choice(model_choice)
     save_path = (
@@ -28,7 +34,7 @@ def run_infer(sample_num: int, model_choice: str, few_shot: bool):
 
     write_pred(
         llm_batch.predictions,
-        df_test,
+        test_records,
         save_path,
     )
 
@@ -52,20 +58,14 @@ def main():
         "--sample-num",
         type=int,
         default=1200,
-        help="Number of samples",
+        help="Number of samples to run inference on",
     )
     args = parser.parse_args()
 
-    logger.info(
-        f"Running inference with model choices: {args.model_choice}, few_shot={args.few_shot}, sample_num={args.sample_num}"
-    )
-
     for model_choice in args.model_choice:
-        run_infer(
-            sample_num=args.sample_num,
-            model_choice=model_choice,
-            few_shot=args.few_shot,
-        )
+        logger.info(f"Running inference with {model_choice}...")
+        run_infer(args.sample_num, model_choice, args.few_shot)
+        logger.info(f"Inference complete for {model_choice}")
 
 
 if __name__ == "__main__":

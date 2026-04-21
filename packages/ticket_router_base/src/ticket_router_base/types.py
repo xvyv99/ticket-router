@@ -1,114 +1,52 @@
-"""Domain types for unified Predictor interface."""
+"""Domain types for unified Predictor interface.
 
-from enum import Enum, IntFlag, auto, StrEnum
+All dataset-specific enums (Queue, Priority, Language) have been removed.
+Classification labels are now stored in a generic `labels: Dict[str, str]` dict,
+making the type system fully decoupled from any particular dataset schema.
+"""
+
 from dataclasses import dataclass
-import json
-from typing import List
-
-import pandas as pd
-import pandera.pandas as pa
-from pandera.typing import DataFrame
-
-
-class ITCusomterSupportSchema(pa.DataFrameModel):
-    subject: str | None = pa.Field(nullable=True)
-    body: str | None = pa.Field(nullable=True)
-    answer: str = pa.Field()
-    type: str = pa.Field()
-    queue: str = pa.Field()
-    priority: str = pa.Field()
-    language: str = pa.Field()
-    business_type: str = pa.Field()
-    tag_1: str = pa.Field()
-    tag_2: str | None = pa.Field(nullable=True)
-
-
-type ITCusomterSupportDF = DataFrame[ITCusomterSupportSchema]
-
-
-class Queue(StrEnum):
-    TECHNICAL_SUPPORT = "Technical Support"
-    PRODUCT_SUPPORT = "Product Support"
-    CUSTOMER_SERVICE = "Customer Service"
-    IT_SUPPORT = "IT Support"
-    BILLING_AND_PAYMENTS = "Billing and Payments"
-    RETURNS_AND_EXCHANGES = "Returns and Exchanges"
-    SALES_AND_PRE_SALES = "Sales and Pre-Sales"
-    SERVICE_OUTAGES_AND_MAINTENANCE = "Service Outages and Maintenance"
-    GENERAL_INQUIRY = "General Inquiry"
-    HUMAN_RESOURCES = "Human Resources"
-
-
-class Priority(StrEnum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-    @property
-    def level(self) -> int:
-        levels = {"high": 3, "medium": 2, "low": 1}
-        return levels[self.value]
-
-
-class Language(StrEnum):
-    ENGLISH = "en"
-    GERMAN = "de"
-    SPANISH = "es"
-    FRENCH = "fr"
-    PORTUGUESE = "pt"
-
-
-class Task(Enum):
-    QUEUE = "queue"
-    PRIORITY = "priority"
-    TAGS = "tags"
-    PRELIMINARY_ANSWER = "preliminary_answer"
-
-
-# Mappings for model training: label string -> int id (for model config label2id)
-QUEUE2ID = {str(q): i for i, q in enumerate(Queue)}
-PRIORITY2ID = {str(p): i for i, p in enumerate(Priority)}
-
-# Reverse mappings: int id -> label string (for model config id2label)
-ID2QUEUE = {i: q.value for i, q in enumerate(Queue)}
-ID2PRIORITY = {i: p.value for i, p in enumerate(Priority)}
+from enum import IntFlag, auto
+from typing import Dict, List
 
 
 class ErrorFlag(IntFlag):
+    """Error flags for prediction parsing."""
+
     SUCCESS = 0
     JSON_ERR = auto()
-    QUEUE_REGEX_ERR = auto()
-    PRIORITY_REGEX_ERR = auto()
+    CLASSIFICATION_REGEX_ERR = auto()  # formerly QUEUE_REGEX_ERR / PRIORITY_REGEX_ERR
+    GENERATION_REGEX_ERR = auto()  # formerly ANSWER_REGEX_ERR
     TAGS_REGEX_ERR = auto()
-    ANSWER_REGEX_ERR = auto()
     TAGS_UNSUPPORTED = auto()
-    ANSWER_UNSUPPORTED = auto()
+    GENERATION_UNSUPPORTED = auto()  # formerly ANSWER_UNSUPPORTED
 
     PARSE_ERR = (
-        JSON_ERR
-        | QUEUE_REGEX_ERR
-        | PRIORITY_REGEX_ERR
-        | TAGS_REGEX_ERR
-        | ANSWER_REGEX_ERR
+        JSON_ERR | CLASSIFICATION_REGEX_ERR | GENERATION_REGEX_ERR | TAGS_REGEX_ERR
     )
 
 
 @dataclass(frozen=True)
 class GroundRecord:
-    queue: Queue
-    priority: Priority
-    tag_1: str | None
-    tag_2: str | None
-    answer: str | None
+    """Ground-truth record without request identity.
+
+    `labels` holds all classification task outputs (task_name -> label_value).
+    `discrete_features` holds auxiliary categorical features.
+    `generation_target` holds the expected text-generation output.
+    """
+
+    labels: Dict[str, str]
+    discrete_features: Dict[str, str | None]
+    generation_target: str | None
 
     def to_json_str(self) -> str:
+        import json
+
         return json.dumps(
             {
-                "queue": self.queue.value,
-                "priority": self.priority.value,
-                "tag_1": self.tag_1,
-                "tag_2": self.tag_2,
-                "answer": self.answer,
+                "labels": self.labels,
+                "discrete_features": self.discrete_features,
+                "generation_target": self.generation_target,
             },
             ensure_ascii=False,
         )
@@ -116,81 +54,28 @@ class GroundRecord:
 
 @dataclass(frozen=True)
 class Record(GroundRecord):
+    """A complete data record with identity and text content."""
+
     request_id: str
-    subject: str | None
-    body: str | None
-    language: str
-
-
-class RecordSchema(pa.DataFrameModel):
-    request_id: str = pa.Field()
-    subject: str | None = pa.Field(nullable=True)
-    body: str | None = pa.Field(nullable=True)
-    language: str = pa.Field()
-
-    # ground truth fields
-    queue: str = pa.Field()
-    priority: str = pa.Field()
-    tag_1: str | None = pa.Field(nullable=True)
-    tag_2: str | None = pa.Field(nullable=True)
-    answer: str | None = pa.Field(nullable=True)
-
-
-type RecordDF = DataFrame[RecordSchema]
-
-
-def record_to_df(record: List[Record]) -> RecordDF:
-    """Convert a Record dataclass instance to a pandas DataFrame."""
-    rows = []
-    for r in record:
-        row = {
-            "request_id": r.request_id,
-            "subject": r.subject,
-            "body": r.body,
-            "language": r.language,
-            "queue": r.queue.value,
-            "priority": r.priority.value,
-            "tag_1": r.tag_1,
-            "tag_2": r.tag_2,
-            "answer": r.answer,
-        }
-        rows.append(row)
-
-    df = pd.DataFrame(rows)
-    RecordSchema.validate(df)
-    return RecordSchema.validate(df)
-
-
-def df_to_records(df: RecordDF) -> List[Record]:
-    """Convert a pandas DataFrame to a list of Record dataclass instances."""
-    records = []
-    for _, row in df.iterrows():
-        rec = Record(
-            request_id=row["request_id"],
-            subject=row["subject"],
-            body=row["body"],
-            language=row["language"],
-            queue=Queue(row["queue"]),
-            priority=Priority(row["priority"]),
-            tag_1=row["tag_1"],
-            tag_2=row["tag_2"],
-            answer=row["answer"],
-        )
-        records.append(rec)
-    return records
+    title: str | None  # optional subject line
+    body: str
+    language: str | None
 
 
 @dataclass(frozen=True)
 class Prediction(GroundRecord):
+    """A model prediction with confidence scores and raw output."""
+
     request_id: str
-    queue_confidence: float | None
-    priority_confidence: float | None
+    confidences: Dict[str, float | None]  # task_name -> confidence
     raw_output: str | None
     error: ErrorFlag
 
 
 @dataclass(frozen=True)
 class PredictionBatch:
+    """Batch of predictions with parse-error counters."""
+
     predictions: List[Prediction]
     parse_err_count: int
     parse_json_err_count: int
@@ -198,7 +83,9 @@ class PredictionBatch:
 
 @dataclass(frozen=True)
 class PredSave:
+    """Single prediction paired with its ground truth, as stored in JSONL."""
+
     request_id: str
-    language: Language
+    language: str | None
     predicted: Prediction
     ground_truth: GroundRecord

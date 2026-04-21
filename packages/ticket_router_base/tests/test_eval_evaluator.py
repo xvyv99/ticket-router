@@ -2,275 +2,140 @@
 
 import pytest
 
+from ticket_router_base.datasets.base import BaseDataset, ClassificationTask
 from ticket_router_base.eval.evaluator import TaskEvaluator
 from ticket_router_base.types import (
     ErrorFlag,
     GroundRecord,
-    Language,
     PredSave,
     Prediction,
-    Priority,
-    Queue,
-    Task,
 )
 
 
 def _make_pred_save(
     request_id: str,
     language: str,
-    pred_queue: Queue,
-    pred_priority: Priority,
-    gt_queue: Queue,
-    gt_priority: Priority,
+    pred_labels: dict[str, str],
+    gt_labels: dict[str, str],
 ) -> PredSave:
     """Helper to construct a minimal PredSave for testing."""
     return PredSave(
         request_id=request_id,
-        language=Language(language),
+        language=language,
         predicted=Prediction(
             request_id=request_id,
-            queue=pred_queue,
-            priority=pred_priority,
-            tag_1=None,
-            tag_2=None,
-            answer=None,
-            queue_confidence=None,
-            priority_confidence=None,
+            labels=pred_labels,
+            discrete_features={},
+            generation_target=None,
+            confidences={},
             raw_output=None,
             error=ErrorFlag.SUCCESS,
         ),
         ground_truth=GroundRecord(
-            queue=gt_queue,
-            priority=gt_priority,
-            tag_1=None,
-            tag_2=None,
-            answer=None,
+            labels=gt_labels,
+            discrete_features={},
+            generation_target=None,
         ),
     )
 
 
+class _FakeDataset(BaseDataset):
+    """Minimal fake dataset for evaluator tests."""
+
+    name = "fake"
+    csv_path = __import__("pathlib").Path("/dev/null")
+    body_column = "body"
+    classification_tasks = [
+        ClassificationTask("queue", "queue", ["A", "B", "C"]),
+        ClassificationTask("priority", "priority", ["high", "low"]),
+    ]
+
+
 class TestTaskEvaluatorQueue:
-    """Tests for TaskEvaluator on QUEUE task."""
+    """Tests for TaskEvaluator."""
 
     def test_overall_accuracy(self) -> None:
-        """3 out of 4 queue predictions correct -> accuracy=0.75."""
+        """3 out of 4 predictions correct -> accuracy=0.75."""
         pred_saves = [
-            _make_pred_save(
-                "T-0",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-1",
-                "en",
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-            ),
-            _make_pred_save(
-                "T-2",
-                "de",
-                Queue.CUSTOMER_SERVICE,
-                Priority.LOW,
-                Queue.CUSTOMER_SERVICE,
-                Priority.LOW,
-            ),
-            _make_pred_save(
-                "T-3",
-                "de",
-                Queue.IT_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
+            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("T-1", "en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("T-2", "de", {"queue": "C"}, {"queue": "C"}),
+            _make_pred_save("T-3", "de", {"queue": "A"}, {"queue": "B"}),
         ]
+        dataset = _FakeDataset()
         evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.QUEUE)
+        results = evaluator.evaluate(pred_saves, dataset)
 
-        assert result.task == Task.QUEUE
-        assert result.overall.accuracy == pytest.approx(0.75)
-        assert result.overall.support == 4
+        queue_result = [r for r in results if r.task_name == "queue"][0]
+        assert queue_result.overall.accuracy == pytest.approx(0.75)
+        assert queue_result.overall.support == 4
 
     def test_by_language(self) -> None:
         """By-language breakdown should only contain languages present in data."""
         pred_saves = [
-            _make_pred_save(
-                "T-0",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-1",
-                "en",
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-            ),
-            _make_pred_save(
-                "T-2",
-                "de",
-                Queue.CUSTOMER_SERVICE,
-                Priority.LOW,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.LOW,
-            ),
+            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("T-1", "en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("T-2", "de", {"queue": "C"}, {"queue": "A"}),
         ]
+        dataset = _FakeDataset()
         evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.QUEUE)
+        results = evaluator.evaluate(pred_saves, dataset)
 
-        assert set(result.by_language.keys()) == {"en", "de"}
-        # en: 2/2 correct
-        assert result.by_language["en"].accuracy == 1.0
-        # de: 0/1 correct
-        assert result.by_language["de"].accuracy == 0.0
+        queue_result = [r for r in results if r.task_name == "queue"][0]
+        assert set(queue_result.by_language.keys()) == {"en", "de"}
+        assert queue_result.by_language["en"].accuracy == 1.0
+        assert queue_result.by_language["de"].accuracy == 0.0
 
-    def test_by_queue_for_queue_task(self) -> None:
-        """By-queue breakdown for queue task: each queue shows its own recall."""
+    def test_by_strata(self) -> None:
+        """By-strata breakdown for queue task."""
+        pred_saves = [
+            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("T-1", "en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("T-2", "en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("T-3", "en", {"queue": "C"}, {"queue": "B"}),
+        ]
+        dataset = _FakeDataset()
+        evaluator = TaskEvaluator()
+        results = evaluator.evaluate(pred_saves, dataset)
+
+        queue_result = [r for r in results if r.task_name == "queue"][0]
+        assert queue_result.by_strata is not None
+        assert queue_result.by_strata["A"].accuracy == 1.0
+        assert queue_result.by_strata["B"].accuracy == pytest.approx(0.5)
+
+    def test_multiple_tasks(self) -> None:
+        """Evaluator should return results for all classification tasks."""
         pred_saves = [
             _make_pred_save(
                 "T-0",
                 "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
+                {"queue": "A", "priority": "high"},
+                {"queue": "A", "priority": "high"},
             ),
             _make_pred_save(
                 "T-1",
                 "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-2",
-                "en",
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-            ),
-            _make_pred_save(
-                "T-3",
-                "en",
-                Queue.CUSTOMER_SERVICE,
-                Priority.LOW,
-                Queue.PRODUCT_SUPPORT,
-                Priority.LOW,
+                {"queue": "B", "priority": "low"},
+                {"queue": "B", "priority": "high"},
             ),
         ]
+        dataset = _FakeDataset()
         evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.QUEUE)
+        results = evaluator.evaluate(pred_saves, dataset)
 
-        assert result.by_queue is not None
-        # Technical Support: 2 samples, both correct
-        assert result.by_queue["Technical Support"].accuracy == 1.0
-        # Product Support: 2 samples, 1 correct (T-2), 1 misclassified as CUSTOMER_SERVICE (T-3)
-        assert result.by_queue["Product Support"].accuracy == pytest.approx(0.5)
-
-
-class TestTaskEvaluatorPriority:
-    """Tests for TaskEvaluator on PRIORITY task."""
-
-    def test_overall_priority(self) -> None:
-        """2 out of 3 priority predictions correct -> accuracy=2/3."""
-        pred_saves = [
-            _make_pred_save(
-                "T-0",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-1",
-                "en",
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-            ),
-            _make_pred_save(
-                "T-2",
-                "de",
-                Queue.CUSTOMER_SERVICE,
-                Priority.LOW,
-                Queue.CUSTOMER_SERVICE,
-                Priority.HIGH,
-            ),
-        ]
-        evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.PRIORITY)
-
-        assert result.task == Task.PRIORITY
-        assert result.overall.accuracy == pytest.approx(2 / 3)
-
-    def test_by_queue_for_priority_task(self) -> None:
-        """By-queue breakdown for priority task shows priority accuracy per queue."""
-        pred_saves = [
-            _make_pred_save(
-                "T-0",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-1",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.LOW,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
-            _make_pred_save(
-                "T-2",
-                "en",
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-                Queue.PRODUCT_SUPPORT,
-                Priority.MEDIUM,
-            ),
-        ]
-        evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.PRIORITY)
-
-        assert result.by_queue is not None
-        # Technical Support: 2 samples, 1 correct -> accuracy=0.5
-        assert result.by_queue["Technical Support"].accuracy == pytest.approx(0.5)
-        # Product Support: 1 sample, correct -> accuracy=1.0
-        assert result.by_queue["Product Support"].accuracy == 1.0
-
-
-class TestTaskEvaluatorEdgeCases:
-    """Edge cases for TaskEvaluator."""
+        assert len(results) == 2
+        task_names = {r.task_name for r in results}
+        assert task_names == {"queue", "priority"}
 
     def test_single_sample(self) -> None:
         """Evaluation on a single sample should work."""
         pred_saves = [
-            _make_pred_save(
-                "T-0",
-                "en",
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-                Queue.TECHNICAL_SUPPORT,
-                Priority.HIGH,
-            ),
+            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
         ]
+        dataset = _FakeDataset()
         evaluator = TaskEvaluator()
-        result = evaluator.evaluate(pred_saves, Task.QUEUE)
+        results = evaluator.evaluate(pred_saves, dataset)
 
-        assert result.overall.accuracy == 1.0
-        assert result.overall.support == 1
-        assert result.by_language["en"].accuracy == 1.0
+        queue_result = [r for r in results if r.task_name == "queue"][0]
+        assert queue_result.overall.accuracy == 1.0
+        assert queue_result.overall.support == 1

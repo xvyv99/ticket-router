@@ -1,68 +1,81 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
+from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 from ticket_router_supervised.models.mbert import (
-    PRIORITY_MODEL_PATH,
-    QUEUE_MODEL_PATH,
     MBERTTrainer,
     MBERTPredictor,
+    MODEL_DIR,
 )
 from ticket_router_base.utils import write_pred
 from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
 from ticket_router_base.data.loader import load_test_set, load_train_set
+from ticket_router_base.datasets import MultilingualCustomerSupportDataset
 
 logger = getLogger(__name__)
 
 
 def run_smoke_test():
     logger.info("Smoke Test: 200 samples, 1 epoch")
-    df_small = load_train_set().head(200)
+    dataset = MultilingualCustomerSupportDataset()
+    records = load_train_set()[:200]
 
-    train_df, val_df = train_test_split(
-        df_small, test_size=0.2, stratify=df_small["queue"], random_state=42
+    first_task = (
+        dataset.classification_tasks[0].name if dataset.classification_tasks else None
     )
-    logger.info(f"Train: {len(train_df)}, Val: {len(val_df)}")
+    stratify = None
+    if first_task:
+        stratify = [r.labels.get(first_task, "") for r in records]
+
+    train_split, val_split = train_test_split(
+        records, test_size=0.2, stratify=stratify, random_state=42
+    )
+    logger.info(f"Train: {len(train_split)}, Val: {len(val_split)}")
     trainer = MBERTTrainer()
-    trainer.train(train_df, val_df)
+    trainer.train(train_split, dataset, val_split)
     logger.info("Smoke test passed!")
 
 
 def run_full_training():
     logger.info("Full Training: 4k minus test_set")
+    dataset = MultilingualCustomerSupportDataset()
+    records = load_train_set()
 
-    df = load_train_set()
-    train_df, val_df = train_test_split(
-        df, test_size=0.2, stratify=df["queue"], random_state=42
+    first_task = (
+        dataset.classification_tasks[0].name if dataset.classification_tasks else None
     )
-    logger.info(f"Train: {len(train_df)}, Val: {len(val_df)}")
+    stratify = None
+    if first_task:
+        stratify = [r.labels.get(first_task, "") for r in records]
+
+    train_split, val_split = train_test_split(
+        records, test_size=0.2, stratify=stratify, random_state=42
+    )
+    logger.info(f"Train: {len(train_split)}, Val: {len(val_split)}")
     trainer = MBERTTrainer()
-    trainer.train(train_df, val_df)
+    trainer.train(train_split, dataset, val_split)
     logger.info("Full training done!")
 
 
 def run_inference():
-    assert QUEUE_MODEL_PATH.exists(), f"Queue model not found at {QUEUE_MODEL_PATH}"
-    assert PRIORITY_MODEL_PATH.exists(), (
-        f"Priority model not found at {PRIORITY_MODEL_PATH}"
-    )
+    dataset = MultilingualCustomerSupportDataset()
+    model_paths: dict[str, Path] = {}
+    for task in dataset.classification_tasks:
+        path = MODEL_DIR / f"{task.name}_best"
+        assert path.exists(), f"Model for {task.name} not found at {path}"
+        model_paths[task.name] = path
 
-    predictor = MBERTPredictor(
-        queue_model_path=QUEUE_MODEL_PATH, priority_model_path=PRIORITY_MODEL_PATH
-    )
+    predictor = MBERTPredictor(model_paths=model_paths, dataset=dataset)
+    test_records = load_test_set()
 
-    df_test = load_test_set()
+    logger.info(f"Running inference on {len(test_records)} test records...")
+    batch = predictor.predict(test_records)
 
-    logger.info(f"Running inference on {len(df_test)} test records...")
-    batch = predictor.predict(df_test)
-
-    # TODO: make output_path configurable and easy to query
     output_path = OUTPUT_DIR / "supervised" / "mbert_predictions.jsonl"
-    write_pred(batch.predictions, df_test, output_path)
+    write_pred(batch.predictions, test_records, output_path)
 
-    logger.info(
-        f"Processed {len(batch.predictions)} records. Output: {OUTPUT_DIR / 'supervised' / 'mbert_predictions.jsonl'}"
-    )
+    logger.info(f"Processed {len(batch.predictions)} records. Output: {output_path}")
 
 
 def main():

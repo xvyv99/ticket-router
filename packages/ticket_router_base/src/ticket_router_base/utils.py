@@ -1,22 +1,12 @@
+"""Shared utilities for record conversion, text combination, and prediction I/O."""
+
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Dict, Any, List
 import json
 from dataclasses import asdict
 
-import pandas as pd
-
-from .types import (
-    PredSave,
-    Prediction,
-    Language,
-    Record,
-    RecordDF,
-    Task,
-    df_to_records,
-    record_to_df,
-)
-from .types import ID2QUEUE, ID2PRIORITY
+from .types import PredSave, Prediction, Record
 
 
 class JSONLLogger:
@@ -42,73 +32,25 @@ class JSONLLogger:
         self.close()
 
 
-def task2labels(task: Task) -> Dict[int, str]:
-    match task:
-        case Task.QUEUE:
-            return ID2QUEUE
-        case Task.PRIORITY:
-            return ID2PRIORITY
-        case _:
-            raise ValueError(f"Unsupported task: {task}")
-
-
-def to_records(records: List[Record] | RecordDF) -> List[Record]:
-    if isinstance(records, pd.DataFrame):
-        return df_to_records(records)
-    elif isinstance(records, list):
-        return records
-    else:
-        raise ValueError("Unsupported input type for records")
-
-
-def to_record_df(records: List[Record] | RecordDF) -> RecordDF:
-    if isinstance(records, pd.DataFrame):
-        return records
-    elif isinstance(records, list):
-        return record_to_df(records)
-    else:
-        raise ValueError("Unsupported input type for records")
-
-
-def write_pred(
-    preds: List[Prediction], records: List[Record] | RecordDF, save_path: Path
-) -> None:
+def write_pred(preds: List[Prediction], records: List[Record], save_path: Path) -> None:
     assert len(preds) == len(records), (
         "Number of predictions must match number of records"
     )
-
-    records = to_records(records)
 
     with JSONLLogger(save_path) as logger:
         for p, r in zip(preds, records):
             save_rec = PredSave(
                 request_id=p.request_id,
-                language=Language(r.language),
+                language=r.language,
                 predicted=p,
                 ground_truth=r,
             )
             logger.write(asdict(save_rec))
 
 
-def combine_text(subject: str, body: str) -> str:
-    return f"{subject}\n{body}"
+def combine_text(title: str, body: str) -> str:
+    return f"{title}\n{body}" if title else body
 
 
-def combine_texts_df(records: RecordDF) -> List[str]:
-    return [
-        combine_text(s, b)
-        for s, b in zip(records.subject.fillna(""), records.body.fillna(""))
-    ]
-
-
-def combine_texts_lst(records: List[Record]) -> List[str]:
-    return [combine_text(r.subject or "", r.body or "") for r in records]
-
-
-def combine_texts(records: RecordDF | List[Record]) -> List[str]:
-    if isinstance(records, pd.DataFrame):
-        return combine_texts_df(records)
-    elif isinstance(records, list):
-        return combine_texts_lst(records)
-    else:
-        raise ValueError("Unsupported records type for combine_texts")
+def combine_texts(records: List[Record]) -> List[str]:
+    return [combine_text(r.title or "", r.body) for r in records]

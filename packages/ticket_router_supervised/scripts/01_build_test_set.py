@@ -1,8 +1,7 @@
 from logging import getLogger, basicConfig
 
-import pandas as pd
-
-from ticket_router_base.data.loader import load_4k
+from ticket_router_base.datasets import MultilingualCustomerSupportDataset
+from ticket_router_base.data.loader import load_dataset
 from ticket_router_base.data.utils import build_train_test_set, build_difficult_cases
 from ticket_router_base.config import (
     OUTPUT_DIR,
@@ -15,38 +14,49 @@ from ticket_router_base.config import (
 logger = getLogger(__name__)
 
 
-def add_request_id(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
-    df = df.copy()
-    df["request_id"] = [f"{prefix}-{i:04d}" for i in df.index]
-    return df
-
-
 def main():
-    df = load_4k()
+    dataset = MultilingualCustomerSupportDataset()
+    records = load_dataset(dataset)
 
-    train_df, test_df = build_train_test_set(df, test_num=TEST_SAMPLE_NUM, seed=SEED)
-    diff_df = build_difficult_cases(df, n=DIFFICULT_CASE_NUM, seed=SEED)
+    train_records, test_records = build_train_test_set(
+        records, dataset, test_num=TEST_SAMPLE_NUM, seed=SEED
+    )
+    diff_records = build_difficult_cases(
+        records, dataset, n=DIFFICULT_CASE_NUM, seed=SEED
+    )
 
-    train_df = add_request_id(train_df, "Train")
-    test_df = add_request_id(test_df, "Test")
-    diff_df = add_request_id(diff_df, "Difficult")
+    # prefix request_ids
+    for i, r in enumerate(train_records):
+        train_records[i] = _with_request_id(r, f"Train-{i:04d}")
+    for i, r in enumerate(test_records):
+        test_records[i] = _with_request_id(r, f"Test-{i:04d}")
+    for i, r in enumerate(diff_records):
+        diff_records[i] = _with_request_id(r, f"Difficult-{i:04d}")
 
-    train_df.to_json(
-        OUTPUT_DIR / "train_set.jsonl", orient="records", lines=True, force_ascii=False
-    )
-    test_df.to_json(
-        OUTPUT_DIR / "test_set.jsonl", orient="records", lines=True, force_ascii=False
-    )
-    diff_df.to_json(
-        OUTPUT_DIR / "difficult_cases.jsonl",
-        orient="records",
-        lines=True,
-        force_ascii=False,
-    )
+    _write_jsonl(train_records, OUTPUT_DIR / "train_set.jsonl")
+    _write_jsonl(test_records, OUTPUT_DIR / "test_set.jsonl")
+    _write_jsonl(diff_records, OUTPUT_DIR / "difficult_cases.jsonl")
 
     logger.info(
-        f"Wrote {len(test_df)} test cases, {len(train_df)} training cases and {len(diff_df)} difficult cases to {OUTPUT_DIR}"
+        f"Wrote {len(test_records)} test cases, {len(train_records)} training cases "
+        f"and {len(diff_records)} difficult cases to {OUTPUT_DIR}"
     )
+
+
+def _with_request_id(record, request_id: str):
+    from dataclasses import replace
+
+    return replace(record, request_id=request_id)
+
+
+def _write_jsonl(records, path):
+    import json
+    from dataclasses import asdict
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":
