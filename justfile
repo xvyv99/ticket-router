@@ -1,6 +1,12 @@
 SUPERVISED_PROJ := "packages/ticket_router_supervised"
 AGENTIC_PROJ := "packages/ticket_router_agent"
 
+# Environment setup
+sync-env:
+    uv sync --no-dev --project {{SUPERVISED_PROJ}}
+    uv sync --no-dev --project {{AGENTIC_PROJ}}
+
+# Data preparation
 prepare-data:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/01_build_test_set.py
 
