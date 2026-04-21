@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ticket_router_base.datasets import MultilingualCustomerSupportDataset
+from ticket_router_base.data.dataset import MultilingualCustomerSupportDataset
 from ticket_router_base.eval import evaluate_file
 from ticket_router_base.eval.report import EvaluationReport
 

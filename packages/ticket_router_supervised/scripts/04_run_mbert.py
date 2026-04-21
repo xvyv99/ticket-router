@@ -11,7 +11,7 @@ from ticket_router_supervised.models.mbert import (
 from ticket_router_base.utils import write_pred
 from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
 from ticket_router_base.data.loader import load_test_set, load_train_set
-from ticket_router_base.datasets import MultilingualCustomerSupportDataset
+from ticket_router_base.data.dataset import MultilingualCustomerSupportDataset
 
 logger = getLogger(__name__)
 

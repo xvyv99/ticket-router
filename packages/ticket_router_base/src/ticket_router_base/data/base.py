@@ -171,12 +171,9 @@ class BaseDataset(ABC):
         """Return all classification task names."""
         return [t.name for t in self.classification_tasks]
 
-    def get_task(self, task_name: str) -> ClassificationTask:
+    def _get_task(self, task_name: str) -> ClassificationTask:
         """Look up a classification task by name."""
         for task in self.classification_tasks:
             if task.name == task_name:
                 return task
         raise ValueError(f"Task '{task_name}' not found in dataset '{self.name}'")
-
-    # alias for backward compatibility in eval
-    _get_task = get_task

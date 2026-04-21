@@ -5,7 +5,7 @@ from typing import List
 import pandas as pd
 
 from ticket_router_base.config import OUTPUT_DIR
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import Record
 
 

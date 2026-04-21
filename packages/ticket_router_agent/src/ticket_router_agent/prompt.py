@@ -2,7 +2,7 @@
 
 from typing import List
 
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import GroundRecord
 
 

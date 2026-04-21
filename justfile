@@ -23,7 +23,7 @@ prepare-data DATASET=default-dataset TEST_NUM=default-test-num DIFFICULT_NUM=def
 run-ml DATASET=default-dataset OUTPUT_PREFIX="":
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/03_run_supervised_traditional.py \
         --dataset {{DATASET}} \
-        --output-prefix {{OUTPUT_PREFIX}}
+        {{ if OUTPUT_PREFIX != "" { "--output-prefix " + OUTPUT_PREFIX } else { "" } }}
 
 run-mbert *ARGS:
     uv run --project {{SUPERVISED_PROJ}} {{SUPERVISED_PROJ}}/scripts/04_run_mbert.py {{ARGS}}

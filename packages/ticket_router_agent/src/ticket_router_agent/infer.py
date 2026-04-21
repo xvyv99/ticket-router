@@ -7,7 +7,7 @@ from typing import Dict, List
 from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
-from ticket_router_base.datasets.base import BaseDataset
+from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import (
     ErrorFlag,
     Record,
