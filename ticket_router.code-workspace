@@ -9,10 +9,6 @@
       "name": "base_pkg",
     },
     {
-      "path": "./packages/ticket_router_dataset",
-      "name": "dataset_pkg",
-    },
-    {
       "path": "./packages/ticket_router_rule",
       "name": "rule_pkg",
     },

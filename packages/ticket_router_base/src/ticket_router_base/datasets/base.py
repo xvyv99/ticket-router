@@ -34,11 +34,12 @@ class BaseDataset(ABC):
     The base class provides generic loading, prompt building, and label-mapping logic.
     """
 
+    delimiter: str = ","
+    encoding: str = "utf-8"
+
     # --- schema declarations (subclasses override) ---
     name: str
     csv_path: Path
-    delimiter: str = ","
-    encoding: str = "utf-8"
 
     title_column: str | None = None  # maps to Record.title; None = no title
     body_column: str  # maps to Record.body; required
