@@ -2,22 +2,34 @@
   "folders": [
     {
       "path": "./",
+      "name": "global",
     },
     {
       "path": "./packages/ticket_router_base",
+      "name": "base_pkg",
+    },
+    {
+      "path": "./packages/ticket_router_dataset",
+      "name": "dataset_pkg",
     },
     {
       "path": "./packages/ticket_router_rule",
+      "name": "rule_pkg",
     },
     {
       "path": "./packages/ticket_router_supervised",
+      "name": "supervised_pkg",
     },
     {
       "path": "./packages/ticket_router_agent",
+      "name": "agent_pkg",
     },
   ],
   "settings": {
-      "python.defaultInterpreterPath": "./.venv/bin/python"
-  }
-},
+    "files.exclude": {
+      "**/*.egg-info/": true,
+      ".venv/": true,
+    },
+    "python.defaultInterpreterPath": "./.venv/bin/python",
+  },
 }

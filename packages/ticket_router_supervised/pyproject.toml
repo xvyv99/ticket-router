@@ -19,3 +19,4 @@ dependencies = [
 
 [tool.uv.sources]
 ticket-router-base = { path = "../ticket_router_base", editable = true }
+ticket-router-dataset = { path = "../ticket_router_dataset", editable = true }
