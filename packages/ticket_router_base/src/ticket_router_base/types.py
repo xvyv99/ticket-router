@@ -44,6 +44,11 @@ class Priority(StrEnum):
     MEDIUM = "medium"
     LOW = "low"
 
+    @property
+    def level(self) -> int:
+        levels = {"high": 3, "medium": 2, "low": 1}
+        return levels[self.value]
+
 
 class Language(StrEnum):
     ENGLISH = "en"

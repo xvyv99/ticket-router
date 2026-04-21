@@ -106,7 +106,7 @@ def main():
     df_test = load_test_set()
 
     for cfg in MODELS_CFG:
-        file_path = BATCH_SAVE_DIR / f"siliconflow_{cfg.name}_fewshot.jsonl"
+        file_path = BATCH_SAVE_DIR / f"batch_{cfg.name}_fewshot.jsonl"
         requests = generate_batch_jsonl(cfg, df_test)
         with JSONLLogger(file_path) as jsonl:
             for req in requests:
