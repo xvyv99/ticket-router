@@ -255,26 +255,31 @@ class BaseDataset(ABC):
 class CSVDataset(BaseDataset):
     DEFAULT_DATASET_PATH: Path  # subclasses must override with default CSV path
 
-    def load(self, dataset_path: Path | None, sample_num: int = 0) -> List[Record]:
+    def load(self, dataset_path: Path | None = None, sample_num: int | None = None) -> List[Record]:
         if dataset_path is None:
             dataset_path = self.DEFAULT_DATASET_PATH
 
+        assert sample_num is None or sample_num > 0, "sample_num must be positive or None"
         assert dataset_path.exists(), f"Dataset file not found at {dataset_path}"
-        assert sample_num >= 0, "sample_num must be non-negative"
 
-        if sample_num == 0:
+        if sample_num is None:
             logger.debug(f"Loading full dataset from {dataset_path}...")
+            df = pd.read_csv(
+                dataset_path,
+                delimiter=self.DELIMITER,
+                encoding=self.ENCODING,
+            )
         else:
+            assert sample_num > 0, "sample_num must be positive"
             logger.debug(
                 f"Loading sample of {sample_num} records from {dataset_path}..."
             )
-
-        df = pd.read_csv(
-            dataset_path,
-            delimiter=self.DELIMITER,
-            encoding=self.ENCODING,
-            nrows=sample_num,  # dev sampling; remove for full training
-        )
+            df = pd.read_csv(
+                dataset_path,
+                delimiter=self.DELIMITER,
+                encoding=self.ENCODING,
+                nrows=sample_num,
+            )
 
         self._valid_df(df)  # validate schema before processing
 
