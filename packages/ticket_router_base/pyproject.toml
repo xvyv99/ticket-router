@@ -7,6 +7,7 @@ dependencies = [
     "fairlearn>=0.13.0",
     "pandas>=3.0.2",
     "pandera[pandas]>=0.31.1",
+    "rich>=15.0.0",
     "scikit-learn>=1.8.0",
 ]
 
