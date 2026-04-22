@@ -11,7 +11,7 @@ from ticket_router_base.types import Record
 
 def load_dataset(dataset: BaseDataset) -> List[Record]:
     """Load a dataset via its descriptor and return standardized Records."""
-    return dataset.load()
+    return dataset.load(None)
 
 
 def load_test_set() -> List[Record]:
