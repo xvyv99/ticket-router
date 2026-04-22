@@ -39,18 +39,6 @@ class GroundRecord:
     discrete_features: Dict[str, str | None]
     generation_target: str | None
 
-    def to_json_str(self) -> str:
-        import json
-
-        return json.dumps(
-            {
-                "labels": self.labels,
-                "discrete_features": self.discrete_features,
-                "generation_target": self.generation_target,
-            },
-            ensure_ascii=False,
-        )
-
 
 @dataclass(frozen=True)
 class Record(GroundRecord):
@@ -67,7 +55,7 @@ class Prediction(GroundRecord):
     """A model prediction with confidence scores and raw output."""
 
     request_id: str
-    confidences: Dict[str, float | None]  # task_name -> confidence
+    confidences: Dict[str, float] | None  # task_name -> confidence
     raw_output: str | None
     error: ErrorFlag
 
@@ -77,15 +65,12 @@ class PredictionBatch:
     """Batch of predictions with parse-error counters."""
 
     predictions: List[Prediction]
-    parse_err_count: int
-    parse_json_err_count: int
 
 
 @dataclass(frozen=True)
 class PredSave:
     """Single prediction paired with its ground truth, as stored in JSONL."""
 
-    request_id: str
     language: str | None
     predicted: Prediction
     ground_truth: GroundRecord

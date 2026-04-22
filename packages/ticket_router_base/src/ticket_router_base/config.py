@@ -3,16 +3,11 @@
 from pathlib import Path
 
 
-def _find_project_root() -> Path:
-    """Locate project root by searching upward for the dataset directory."""
-    here = Path(__file__).resolve().parent
-    for parent in [here, *here.parents]:
-        if (parent / "dataset").is_dir():
-            return parent
-    return Path.cwd()
+PROJECT_ROOT = Path.cwd()
 
+DATASET_DIR = PROJECT_ROOT / "dataset"
+assert DATASET_DIR.exists(), f"Dataset directory not found at {DATASET_DIR}"
 
-PROJECT_ROOT = _find_project_root()
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
