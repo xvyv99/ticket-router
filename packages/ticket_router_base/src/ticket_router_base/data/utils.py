@@ -25,9 +25,10 @@ def build_train_test_set(
         test_num: Number of test samples.
         seed: Random seed.
     """
-    # build stratification string from all classification tasks + language
+    # build stratification string from all tasks + language
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
     parts: List[List[str]] = [[] for _ in range(len(records))]
-    for task in dataset.classification_tasks:
+    for task in all_tasks:
         for i, rec in enumerate(records):
             parts[i].append(rec.labels.get(task.name, "unknown"))
     if dataset.language_column:
@@ -79,10 +80,9 @@ def build_difficult_cases(
     # body length
     body_lens = [len(r.body) for r in records]
 
-    # identify small classes (uses the first classification task)
-    first_task = (
-        dataset.classification_tasks[0] if dataset.classification_tasks else None
-    )
+    # identify small classes (uses the first task)
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
+    first_task = all_tasks[0] if all_tasks else None
     if first_task:
         from collections import Counter
 
@@ -95,12 +95,8 @@ def build_difficult_cases(
     else:
         is_small = [0] * len(records)
 
-    # high-label proxy (uses the second classification task)
-    second_task = (
-        dataset.classification_tasks[1]
-        if len(dataset.classification_tasks) > 1
-        else None
-    )
+    # high-label proxy (uses the second task)
+    second_task = all_tasks[1] if len(all_tasks) > 1 else None
     if second_task:
         high_label = sorted(second_task.labels)[0]
         is_high = [

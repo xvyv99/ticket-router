@@ -14,7 +14,7 @@ def build_ticket_schema(dataset: BaseDataset) -> Dict[str, Any]:
     properties: Dict[str, Any] = {}
     required: list[str] = []
 
-    for task in dataset.classification_tasks:
+    for task in dataset.classification_tasks + dataset.ordinal_tasks:
         properties[task.name] = {
             "type": "string",
             "enum": task.labels,

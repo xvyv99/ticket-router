@@ -20,6 +20,18 @@ class ClassificationTask:
 
 
 @dataclass(frozen=True)
+class OrdinalTask:
+    """Definition of a single ordinal (ordered) classification task.
+
+    Labels must be listed in ascending order (lowest to highest).
+    """
+
+    name: str
+    target_column: str
+    labels: List[str]  # ordered from lowest to highest
+
+
+@dataclass(frozen=True)
 class GenerationTask:
     """Definition of a single generation (text-output) task."""
 
@@ -47,6 +59,7 @@ class BaseDataset(ABC):
     id_column: str | None = None  # None = auto-generate request_id
 
     classification_tasks: List[ClassificationTask] = []
+    ordinal_tasks: List[OrdinalTask] = []
     generation_task: GenerationTask | None = None
     discrete_feature_columns: List[str] = []
 
@@ -88,9 +101,12 @@ class BaseDataset(ABC):
                 else None
             )
 
-            # classification labels
+            # classification labels (nominal + ordinal are both stored in labels dict)
             labels: Dict[str, str] = {}
             for task in self.classification_tasks:
+                val = row.get(task.target_column)
+                labels[task.name] = str(val) if pd.notna(val) else ""
+            for task in self.ordinal_tasks:
                 val = row.get(task.target_column)
                 labels[task.name] = str(val) if pd.notna(val) else ""
 
@@ -133,6 +149,8 @@ class BaseDataset(ABC):
         ]
         for task in self.classification_tasks:
             lines.append(f"- {task.name}: one of {', '.join(task.labels)}")
+        for task in self.ordinal_tasks:
+            lines.append(f"- {task.name}: one of {', '.join(task.labels)} (ordered)")
         if self.generation_task:
             lines.append(
                 f"- {self.generation_task.name}: a polite, helpful reply in the same language "
@@ -151,6 +169,7 @@ class BaseDataset(ABC):
     def _demo_record(self) -> GroundRecord:
         """Return a minimal demo record for prompt examples."""
         labels = {task.name: task.labels[0] for task in self.classification_tasks}
+        labels.update({task.name: task.labels[0] for task in self.ordinal_tasks})
         return GroundRecord(
             labels=labels,
             discrete_features={},
@@ -168,12 +187,21 @@ class BaseDataset(ABC):
         return {i: label for i, label in enumerate(task.labels)}
 
     def get_task_names(self) -> List[str]:
-        """Return all classification task names."""
-        return [t.name for t in self.classification_tasks]
+        """Return all classification + ordinal task names."""
+        return [t.name for t in self.classification_tasks] + [
+            t.name for t in self.ordinal_tasks
+        ]
 
-    def _get_task(self, task_name: str) -> ClassificationTask:
-        """Look up a classification task by name."""
+    def get_ordinal_task_names(self) -> List[str]:
+        """Return all ordinal task names."""
+        return [t.name for t in self.ordinal_tasks]
+
+    def _get_task(self, task_name: str) -> ClassificationTask | OrdinalTask:
+        """Look up a classification or ordinal task by name."""
         for task in self.classification_tasks:
+            if task.name == task_name:
+                return task
+        for task in self.ordinal_tasks:
             if task.name == task_name:
                 return task
         raise ValueError(f"Task '{task_name}' not found in dataset '{self.name}'")

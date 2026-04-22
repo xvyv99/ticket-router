@@ -27,7 +27,7 @@ def parse_llm_output(raw: str, dataset: BaseDataset) -> Dict[str, str]:
     """
     loaded = json.loads(raw)
     labels: Dict[str, str] = {}
-    for task in dataset.classification_tasks:
+    for task in dataset.classification_tasks + dataset.ordinal_tasks:
         val = loaded.get(task.name)
         if val is not None:
             labels[task.name] = str(val)

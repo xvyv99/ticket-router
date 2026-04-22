@@ -57,8 +57,9 @@ def main():
     test_records = _load(args.test_set)
     train_records = _load(args.train_set)
 
-    # Stratify by the first task
-    first_task = dataset.classification_tasks[0].name if dataset.classification_tasks else None
+    # Stratify by the first task (classification or ordinal)
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
+    first_task = all_tasks[0].name if all_tasks else None
     stratify = None
     if first_task:
         stratify = [r.labels.get(first_task, "") for r in train_records]

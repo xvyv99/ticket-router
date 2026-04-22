@@ -15,7 +15,7 @@ def build_system_prompt(
         "ONLY with a valid JSON object. Do not include markdown formatting outside the JSON.\n",
         "The JSON must have these exact keys:",
     ]
-    for task in dataset.classification_tasks:
+    for task in dataset.classification_tasks + dataset.ordinal_tasks:
         lines.append(f"- {task.name}: one of {', '.join(task.labels)}")
     if dataset.generation_task:
         lines.append(

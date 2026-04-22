@@ -54,6 +54,9 @@ class EvaluationReport:
             print(f"Task: {tr.task_name}")
             print(f"  Accuracy:    {tr.overall.accuracy:.4f}")
             print(f"  Macro F1:    {tr.overall.macro_f1:.4f}")
+            if tr.ordinal is not None:
+                print(f"  MAE:         {tr.ordinal.mae:.4f}")
+                print(f"  QWK:         {tr.ordinal.qwk:.4f}")
             print()
 
         # language fairness (using the first task as representative)

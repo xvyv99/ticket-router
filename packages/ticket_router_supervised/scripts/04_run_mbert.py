@@ -21,9 +21,8 @@ def run_smoke_test():
     dataset = MultilingualCustomerSupportDataset()
     records = load_train_set()[:200]
 
-    first_task = (
-        dataset.classification_tasks[0].name if dataset.classification_tasks else None
-    )
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
+    first_task = all_tasks[0].name if all_tasks else None
     stratify = None
     if first_task:
         stratify = [r.labels.get(first_task, "") for r in records]
@@ -42,9 +41,8 @@ def run_full_training():
     dataset = MultilingualCustomerSupportDataset()
     records = load_train_set()
 
-    first_task = (
-        dataset.classification_tasks[0].name if dataset.classification_tasks else None
-    )
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
+    first_task = all_tasks[0].name if all_tasks else None
     stratify = None
     if first_task:
         stratify = [r.labels.get(first_task, "") for r in records]
@@ -61,7 +59,7 @@ def run_full_training():
 def run_inference():
     dataset = MultilingualCustomerSupportDataset()
     model_paths: dict[str, Path] = {}
-    for task in dataset.classification_tasks:
+    for task in dataset.classification_tasks + dataset.ordinal_tasks:
         path = MODEL_DIR / f"{task.name}_best"
         assert path.exists(), f"Model for {task.name} not found at {path}"
         model_paths[task.name] = path

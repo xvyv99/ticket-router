@@ -6,7 +6,12 @@ from typing import Dict, List, Tuple
 from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.types import PredSave
 
-from .metrics_core import ClassificationMetrics, compute_classification_metrics
+from .metrics_core import (
+    ClassificationMetrics,
+    OrdinalMetrics,
+    compute_classification_metrics,
+    compute_ordinal_metrics,
+)
 
 
 @dataclass(frozen=True)
@@ -17,9 +22,10 @@ class TaskEvaluationResult:
     overall: ClassificationMetrics
     by_language: Dict[str, ClassificationMetrics]
     by_strata: Dict[str, ClassificationMetrics] | None
+    ordinal: OrdinalMetrics | None = None  # set for ordinal tasks
 
     def to_dict(self) -> dict:
-        return {
+        d: dict = {
             "task_name": self.task_name,
             "overall": self.overall.to_dict(),
             "by_language": {k: v.to_dict() for k, v in self.by_language.items()},
@@ -29,6 +35,9 @@ class TaskEvaluationResult:
                 else None
             ),
         }
+        if self.ordinal is not None:
+            d["ordinal"] = self.ordinal.to_dict()
+        return d
 
 
 class TaskEvaluator:
@@ -37,20 +46,28 @@ class TaskEvaluator:
     def evaluate(
         self, pred_saves: List[PredSave], dataset: BaseDataset
     ) -> List[TaskEvaluationResult]:
-        """Evaluate all classification tasks defined by the dataset descriptor."""
+        """Evaluate all classification and ordinal tasks defined by the dataset descriptor."""
         results: List[TaskEvaluationResult] = []
         for task in dataset.classification_tasks:
-            result = self._evaluate_task(pred_saves, task.name)
+            result = self._evaluate_task(pred_saves, task.name, is_ordinal=False)
+            results.append(result)
+        for task in dataset.ordinal_tasks:
+            result = self._evaluate_task(pred_saves, task.name, is_ordinal=True)
             results.append(result)
         return results
 
     def _evaluate_task(
-        self, pred_saves: List[PredSave], task_name: str
+        self, pred_saves: List[PredSave], task_name: str, is_ordinal: bool = False
     ) -> TaskEvaluationResult:
-        """Evaluate a single classification task with global and breakdown metrics."""
+        """Evaluate a single classification or ordinal task with global and breakdown metrics."""
         y_true_all, y_pred_all = self._extract_labels(pred_saves, task_name)
         labels = sorted(set(y_true_all) | set(y_pred_all))
         overall = compute_classification_metrics(y_true_all, y_pred_all, labels=labels)
+
+        # ordinal metrics (if applicable)
+        ordinal: OrdinalMetrics | None = None
+        if is_ordinal:
+            ordinal = compute_ordinal_metrics(y_true_all, y_pred_all, labels=labels)
 
         # by language
         by_language: Dict[str, ClassificationMetrics] = {}
@@ -62,7 +79,7 @@ class TaskEvaluator:
             yt, yp = self._extract_labels(group, task_name)
             by_language[lang] = compute_classification_metrics(yt, yp, labels=labels)
 
-        # by ground-truth label (formerly by_queue)
+        # by ground-truth label
         by_strata: Dict[str, ClassificationMetrics] = {}
         strata_groups: Dict[str, List[PredSave]] = {}
         for ps in pred_saves:
@@ -77,6 +94,7 @@ class TaskEvaluator:
             overall=overall,
             by_language=by_language,
             by_strata=by_strata,
+            ordinal=ordinal,
         )
 
     def _extract_labels(
