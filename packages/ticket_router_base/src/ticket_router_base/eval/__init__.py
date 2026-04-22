@@ -2,7 +2,7 @@
 
 Usage:
     from ticket_router_base.eval import evaluate_file
-    from ticket_router_base.data.dataset import get_dataset
+    from ticket_router_base.data import get_dataset
     dataset = get_dataset("multilingual-customer-support")
     report = evaluate_file(Path("outputs/supervised/lr_predictions.jsonl"), dataset)
     report.print_summary()
@@ -12,7 +12,7 @@ Usage:
 from pathlib import Path
 from typing import Dict, List
 
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from .evaluator import TaskEvaluator
 from .loader import load_pred_saves
 from .report import EvaluationReport

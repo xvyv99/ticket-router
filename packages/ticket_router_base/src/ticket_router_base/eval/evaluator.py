@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import PredSave
 
 from .metrics_core import (

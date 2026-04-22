@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich import box
 
 from ticket_router_base.eval import evaluate_file
-from ticket_router_base.data.dataset import get_dataset, DATASET_REGISTRY
+from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 
 console = Console()
 

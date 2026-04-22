@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 
 from ticket_router_base.config import SEED
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import (
     Record,
     Prediction,
@@ -72,7 +72,7 @@ class XGBPredictor(Predictor):
         for i, rec in enumerate(records):
             labels: Dict[str, str] = {}
             confidences: Dict[str, float | None] = {}
-            for task_name in self._dataset.get_task_names():
+            for task_name in self._dataset.task_names:
                 preds = task_preds[task_name]
                 labels[task_name] = str(preds[i][0])
                 confidences[task_name] = preds[i][1]
@@ -88,9 +88,7 @@ class XGBPredictor(Predictor):
             )
             predictions.append(pred)
 
-        return PredictionBatch(
-            predictions=predictions, parse_err_count=0, parse_json_err_count=0
-        )
+        return PredictionBatch(predictions=predictions)
 
 
 class XGBTrainer(Trainer):

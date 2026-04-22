@@ -2,11 +2,11 @@ from typing import List, Dict
 from logging import getLogger, basicConfig
 from dataclasses import dataclass
 
-from ticket_router_base.data.loader import load_test_set
+from ticket_router_base.data import load_test_set
 from ticket_router_base.types import Record
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.utils import JSONLLogger
-from ticket_router_base.data.dataset import MultilingualCustomerSupportDataset
+from ticket_router_base.data import MultilingualCustomerSupportDataset
 
 from ticket_router_agent.config import SAVE_DIR
 from ticket_router_agent.prompt import build_system_prompt

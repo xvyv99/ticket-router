@@ -17,7 +17,7 @@ from transformers import (
 from datasets import Dataset
 
 from ticket_router_base.config import OUTPUT_DIR, SEED
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import (
     Record,
     Prediction,
@@ -156,7 +156,7 @@ class MBERTPredictor(Predictor):
         for i, rec in enumerate(records):
             labels: Dict[str, str] = {}
             confidences: Dict[str, float | None] = {}
-            for task_name in self._dataset.get_task_names():
+            for task_name in self._dataset.task_names:
                 result = task_results[task_name]
                 labels[task_name] = result[i][0]
                 confidences[task_name] = result[i][1]
@@ -172,9 +172,7 @@ class MBERTPredictor(Predictor):
             )
             predictions.append(pred)
 
-        return PredictionBatch(
-            predictions=predictions, parse_err_count=0, parse_json_err_count=0
-        )
+        return PredictionBatch(predictions=predictions)
 
 
 class MBERTTrainer(TrainerProtocol):

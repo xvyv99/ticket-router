@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from ticket_router_base.data.base import BaseDataset, ClassificationTask
+from ticket_router_base.data import BaseDataset, ClassificationTask
 from ticket_router_base.eval.evaluator import TaskEvaluator
 from ticket_router_base.eval.report import EvaluationReport
 from ticket_router_base.types import (
@@ -15,16 +15,14 @@ from ticket_router_base.types import (
 
 
 def _make_pred_save(
-    request_id: str,
     language: str,
     pred_labels: dict[str, str],
     gt_labels: dict[str, str],
 ) -> PredSave:
     return PredSave(
-        request_id=request_id,
         language=language,
         predicted=Prediction(
-            request_id=request_id,
+            request_id="test",
             labels=pred_labels,
             discrete_features={},
             generation_target=None,
@@ -55,8 +53,8 @@ class TestEvaluationReport:
     def _build_report(self) -> EvaluationReport:
         """Helper to build a minimal EvaluationReport."""
         pred_saves = [
-            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("T-1", "de", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("de", {"queue": "B"}, {"queue": "B"}),
         ]
         dataset = _FakeDataset()
         evaluator = TaskEvaluator()

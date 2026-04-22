@@ -2,7 +2,7 @@
 
 from typing import Dict, Any
 
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 
 
 def build_ticket_schema(dataset: BaseDataset) -> Dict[str, Any]:

@@ -1,12 +1,15 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 
-from ticket_router_base.data.dataset import (
+from ticket_router_base.data import (
     DATASET_REGISTRY,
     get_dataset,
+    load_dataset,
 )
-from ticket_router_base.data.loader import load_dataset
-from ticket_router_base.data.utils import build_train_test_set, build_difficult_cases
+from ticket_router_base.data.utils import (
+    build_train_test_set,
+    build_difficult_cases,
+)
 from ticket_router_base.config import (
     OUTPUT_DIR,
     LOGGING_FORMAT,

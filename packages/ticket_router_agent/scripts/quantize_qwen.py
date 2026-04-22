@@ -11,7 +11,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ticket_router_base.config import OUTPUT_DIR, SEED, LOGGING_FORMAT
 from ticket_router_base.utils import combine_text, JSONLLogger
-from ticket_router_base.data.loader import load_train_set
+from ticket_router_base.data import load_train_set
 
 CALIB_SIZE = 350
 CALIB_OUTPUT = OUTPUT_DIR / "goal_based" / "calibration.jsonl"
