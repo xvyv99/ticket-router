@@ -2,7 +2,7 @@
 
 import pytest
 
-from ticket_router_base.data.base import BaseDataset, ClassificationTask
+from ticket_router_base.data import BaseDataset, ClassificationTask
 from ticket_router_base.eval.evaluator import TaskEvaluator
 from ticket_router_base.types import (
     ErrorFlag,
@@ -13,17 +13,15 @@ from ticket_router_base.types import (
 
 
 def _make_pred_save(
-    request_id: str,
     language: str,
     pred_labels: dict[str, str],
     gt_labels: dict[str, str],
 ) -> PredSave:
     """Helper to construct a minimal PredSave for testing."""
     return PredSave(
-        request_id=request_id,
         language=language,
         predicted=Prediction(
-            request_id=request_id,
+            request_id="test",
             labels=pred_labels,
             discrete_features={},
             generation_target=None,
@@ -57,10 +55,10 @@ class TestTaskEvaluatorQueue:
     def test_overall_accuracy(self) -> None:
         """3 out of 4 predictions correct -> accuracy=0.75."""
         pred_saves = [
-            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("T-1", "en", {"queue": "B"}, {"queue": "B"}),
-            _make_pred_save("T-2", "de", {"queue": "C"}, {"queue": "C"}),
-            _make_pred_save("T-3", "de", {"queue": "A"}, {"queue": "B"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("de", {"queue": "C"}, {"queue": "C"}),
+            _make_pred_save("de", {"queue": "A"}, {"queue": "B"}),
         ]
         dataset = _FakeDataset()
         evaluator = TaskEvaluator()
@@ -73,9 +71,9 @@ class TestTaskEvaluatorQueue:
     def test_by_language(self) -> None:
         """By-language breakdown should only contain languages present in data."""
         pred_saves = [
-            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("T-1", "en", {"queue": "B"}, {"queue": "B"}),
-            _make_pred_save("T-2", "de", {"queue": "C"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("de", {"queue": "C"}, {"queue": "A"}),
         ]
         dataset = _FakeDataset()
         evaluator = TaskEvaluator()
@@ -89,10 +87,10 @@ class TestTaskEvaluatorQueue:
     def test_by_strata(self) -> None:
         """By-strata breakdown for queue task."""
         pred_saves = [
-            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("T-1", "en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("T-2", "en", {"queue": "B"}, {"queue": "B"}),
-            _make_pred_save("T-3", "en", {"queue": "C"}, {"queue": "B"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "B"}, {"queue": "B"}),
+            _make_pred_save("en", {"queue": "C"}, {"queue": "B"}),
         ]
         dataset = _FakeDataset()
         evaluator = TaskEvaluator()
@@ -107,13 +105,11 @@ class TestTaskEvaluatorQueue:
         """Evaluator should return results for all classification tasks."""
         pred_saves = [
             _make_pred_save(
-                "T-0",
                 "en",
                 {"queue": "A", "priority": "high"},
                 {"queue": "A", "priority": "high"},
             ),
             _make_pred_save(
-                "T-1",
                 "en",
                 {"queue": "B", "priority": "low"},
                 {"queue": "B", "priority": "high"},
@@ -130,7 +126,7 @@ class TestTaskEvaluatorQueue:
     def test_single_sample(self) -> None:
         """Evaluation on a single sample should work."""
         pred_saves = [
-            _make_pred_save("T-0", "en", {"queue": "A"}, {"queue": "A"}),
+            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
         ]
         dataset = _FakeDataset()
         evaluator = TaskEvaluator()

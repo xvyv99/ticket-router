@@ -40,7 +40,6 @@ def write_pred(preds: List[Prediction], records: List[Record], save_path: Path) 
     with JSONLLogger(save_path) as logger:
         for p, r in zip(preds, records):
             save_rec = PredSave(
-                request_id=p.request_id,
                 language=r.language,
                 predicted=p,
                 ground_truth=r,

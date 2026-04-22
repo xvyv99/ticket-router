@@ -74,7 +74,6 @@ class TestLoadPredSaves:
         assert len(result) == 2
 
         # first record
-        assert result[0].request_id == "Test-0000"
         assert result[0].language == "en"
         assert result[0].predicted.labels == {
             "queue": "Technical Support",
@@ -87,7 +86,6 @@ class TestLoadPredSaves:
         }
 
         # second record
-        assert result[1].request_id == "Test-0001"
         assert result[1].language == "de"
         assert result[1].predicted.labels == {
             "queue": "Billing and Payments",
@@ -118,13 +116,11 @@ class TestParsePredSave:
     def test_error_flag_mapping(self) -> None:
         """Error integer maps correctly to ErrorFlag."""
         raw = {
-            "request_id": "T-003",
             "language": "en",
             "predicted": {
                 "labels": {"queue": "IT Support"},
                 "discrete_features": {},
                 "generation_target": None,
-                "request_id": "T-003",
                 "confidences": {},
                 "raw_output": None,
                 "error": 3,  # JSON_ERR | CLASSIFICATION_REGEX_ERR
@@ -133,7 +129,6 @@ class TestParsePredSave:
                 "labels": {"queue": "IT Support"},
                 "discrete_features": {},
                 "generation_target": "OK",
-                "request_id": "T-003",
                 "subject": "S",
                 "body": "B",
                 "language": "en",

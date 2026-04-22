@@ -7,7 +7,7 @@ from typing import Dict, List
 from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import (
     ErrorFlag,
     Record,
@@ -99,39 +99,32 @@ class vLLMPredictor:
                 if self.dataset.generation_task:
                     gen_target = json.loads(raw).get(self.dataset.generation_task.name)
 
+                all_tasks = self.dataset.classification_tasks + self.dataset.ordinal_tasks
                 pred = Prediction(
                     request_id=rec.request_id,
                     labels=labels,
                     discrete_features={},
                     generation_target=gen_target,
-                    confidences={
-                        task.name: None for task in self.dataset.classification_tasks
-                    },
+                    confidences={task.name: None for task in all_tasks},
                     raw_output=raw,
                     error=ErrorFlag.SUCCESS,
                 )
                 results.append(pred)
             except json.JSONDecodeError:
                 json_err_count += 1
+                all_tasks = self.dataset.classification_tasks + self.dataset.ordinal_tasks
 
                 pred = Prediction(
                     request_id=rec.request_id,
                     labels={
-                        task.name: task.labels[0]
-                        for task in self.dataset.classification_tasks
+                        task.name: task.labels[0] for task in all_tasks
                     },
                     discrete_features={},
                     generation_target=None,
-                    confidences={
-                        task.name: None for task in self.dataset.classification_tasks
-                    },
+                    confidences={task.name: None for task in all_tasks},
                     raw_output=None,
                     error=ErrorFlag.JSON_ERR,
                 )
                 results.append(pred)
 
-        return PredictionBatch(
-            predictions=results,
-            parse_err_count=json_err_count,
-            parse_json_err_count=json_err_count,
-        )
+        return PredictionBatch(predictions=results)

@@ -2,7 +2,7 @@
 
 from typing import List
 
-from ticket_router_base.data.base import BaseDataset
+from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import GroundRecord
 
 
@@ -52,7 +52,8 @@ def build_prompt(
 
 def _demo_record(dataset: BaseDataset) -> GroundRecord:
     """Return a minimal demo record for prompt examples."""
-    labels = {task.name: task.labels[0] for task in dataset.classification_tasks}
+    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
+    labels = {task.name: task.labels[0] for task in all_tasks}
     gen = "Thank you for your request. We will get back to you shortly."
     if dataset.generation_task:
         return GroundRecord(

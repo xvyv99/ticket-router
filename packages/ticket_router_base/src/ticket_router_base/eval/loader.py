@@ -119,7 +119,6 @@ def _parse_pred_save(raw: dict) -> PredSave:
         language = language.get("value")
 
     return PredSave(
-        request_id=raw["request_id"],
         language=language,
         predicted=_parse_prediction(raw["predicted"]),
         ground_truth=_parse_ground_record(raw["ground_truth"]),
