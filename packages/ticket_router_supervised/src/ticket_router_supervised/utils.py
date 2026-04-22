@@ -76,7 +76,7 @@ def create_datasets(records: List[Record], dataset: BaseDataset) -> Dataset:
 
     for i, r in enumerate(records):
         row: dict[str, Any] = {"text": texts[i]}
-        for task in dataset.classification_tasks:
+        for task in dataset.classification_tasks + dataset.ordinal_tasks:
             label = r.labels.get(task.name, "")
             label2id = dataset.get_label2id(task.name)
             row[task.name] = label2id.get(label, -1)

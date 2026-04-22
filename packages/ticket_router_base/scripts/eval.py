@@ -51,14 +51,26 @@ def illustrate_metric(dataset_name: str, pred_files: str, pred_dir: Path) -> Non
     )
     overall_table.add_column("Model", style="bold cyan", width=22)
     for tn in task_names:
-        overall_table.add_column(f"{tn} Acc", justify="right", min_width=10)
-        overall_table.add_column(f"{tn} MF1", justify="right", min_width=10)
+        overall_table.add_column(f"{tn} Acc", justify="right", min_width=8)
+        overall_table.add_column(f"{tn} MF1", justify="right", min_width=8)
+        has_ordinal = any(
+            tr.ordinal is not None
+            for _, report in results
+            for tr in report.task_results
+            if tr.task_name == tn
+        )
+        if has_ordinal:
+            overall_table.add_column(f"{tn} MAE", justify="right", min_width=8)
+            overall_table.add_column(f"{tn} QWK", justify="right", min_width=8)
 
     for name, report in results:
         row = [name]
         for tr in report.task_results:
             row.append(f"{tr.overall.accuracy:.4f}")
             row.append(f"{tr.overall.macro_f1:.4f}")
+            if tr.ordinal is not None:
+                row.append(f"{tr.ordinal.mae:.4f}")
+                row.append(f"{tr.ordinal.qwk:.4f}")
         overall_table.add_row(*row)
 
     console.print(overall_table)

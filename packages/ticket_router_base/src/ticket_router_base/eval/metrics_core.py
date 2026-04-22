@@ -10,6 +10,7 @@ from typing import Dict, List
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
+    cohen_kappa_score,
     confusion_matrix,
     f1_score,
     precision_score,
@@ -54,6 +55,32 @@ class ClassificationMetrics:
             "macro_precision": self.macro_precision,
             "macro_recall": self.macro_recall,
             "macro_f1": self.macro_f1,
+            "per_class": {k: v.to_dict() for k, v in self.per_class.items()},
+            "confusion_matrix": self.confusion_matrix,
+            "support": self.support,
+            "labels": self.labels,
+        }
+
+
+@dataclass(frozen=True)
+class OrdinalMetrics:
+    """Ordinal classification metrics that respect label ordering."""
+
+    accuracy: float
+    macro_f1: float
+    mae: float  # Mean Absolute Error in label-index space
+    qwk: float  # Quadratic Weighted Kappa
+    per_class: Dict[str, PerClassMetrics]
+    confusion_matrix: List[List[int]]
+    support: int
+    labels: List[str]  # ordered from lowest to highest
+
+    def to_dict(self) -> dict:
+        return {
+            "accuracy": self.accuracy,
+            "macro_f1": self.macro_f1,
+            "mae": self.mae,
+            "qwk": self.qwk,
             "per_class": {k: v.to_dict() for k, v in self.per_class.items()},
             "confusion_matrix": self.confusion_matrix,
             "support": self.support,
@@ -129,5 +156,56 @@ def compute_classification_metrics(
         per_class=per_class,
         confusion_matrix=cm,
         support=len(y_true),
+        labels=labels,
+    )
+
+
+def compute_ordinal_metrics(
+    y_true: List[str], y_pred: List[str], labels: List[str]
+) -> OrdinalMetrics:
+    """Compute ordinal classification metrics respecting label order.
+
+    Args:
+        y_true: Ground truth labels.
+        y_pred: Predicted labels.
+        labels: Ordered list of labels from lowest to highest.
+    """
+    if len(y_true) != len(y_pred):
+        raise ValueError(
+            f"y_true ({len(y_true)}) and y_pred ({len(y_pred)}) must have same length"
+        )
+    if len(y_true) == 0:
+        raise ValueError("y_true and y_pred must not be empty")
+
+    # classification metrics (reuse same logic)
+    cls = compute_classification_metrics(y_true, y_pred, labels=labels)
+
+    # convert labels to ordered integer indices
+    label2idx = {label: i for i, label in enumerate(labels)}
+    yt_idx = [label2idx.get(y, -1) for y in y_true]
+    yp_idx = [label2idx.get(y, -1) for y in y_pred]
+
+    # filter out unknown labels for MAE/QWK
+    valid_pairs = [(t, p) for t, p in zip(yt_idx, yp_idx) if t >= 0 and p >= 0]
+    if valid_pairs:
+        yt_valid, yp_valid = zip(*valid_pairs)
+        mae = float(np.mean([abs(t - p) for t, p in zip(yt_valid, yp_valid)]))
+        # QWK requires at least 2 distinct ratings in both vectors
+        if len(set(yt_valid)) > 1 and len(set(yp_valid)) > 1:
+            qwk = float(cohen_kappa_score(yt_valid, yp_valid, weights="quadratic"))
+        else:
+            qwk = 0.0
+    else:
+        mae = 0.0
+        qwk = 0.0
+
+    return OrdinalMetrics(
+        accuracy=cls.accuracy,
+        macro_f1=cls.macro_f1,
+        mae=mae,
+        qwk=qwk,
+        per_class=cls.per_class,
+        confusion_matrix=cls.confusion_matrix,
+        support=cls.support,
         labels=labels,
     )

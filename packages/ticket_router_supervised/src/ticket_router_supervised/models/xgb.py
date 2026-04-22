@@ -103,7 +103,7 @@ class XGBTrainer(Trainer):
         texts = combine_texts(records)
 
         models: Dict[str, SKModel] = {}
-        for task in dataset.classification_tasks:
+        for task in dataset.classification_tasks + dataset.ordinal_tasks:
             labels = [r.labels.get(task.name, "") for r in records]
             model = train_xgb(texts, labels, f"xgb_{task.name}")
             models[task.name] = model
