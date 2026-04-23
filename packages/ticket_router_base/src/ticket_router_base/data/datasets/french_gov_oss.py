@@ -2,7 +2,7 @@
 
 from ticket_router_base.config import DATASET_DIR
 from ticket_router_base.data import (
-    CSVDataset,
+    DFDataset,
     ClassificationTask,
     GenerationTask,
     OrdinalTask,
@@ -13,7 +13,7 @@ DEFAULT_DATASET_PATH = (
 )
 
 
-class FrenchGovOSSDataset(CSVDataset):
+class FrenchGovOSSDataset(DFDataset):
     """French government inter-ministerial OSS support tickets (518 rows)."""
 
     ENCODING = "utf-8-sig"  # dataset contains a UTF-8 BOM, so we use utf-8-sig to handle it correctly

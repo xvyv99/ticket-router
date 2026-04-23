@@ -2,7 +2,7 @@
 
 from ticket_router_base.config import DATASET_DIR
 from ticket_router_base.data import (
-    CSVDataset,
+    DFDataset,
     ClassificationTask,
     GenerationTask,
     OrdinalTask,
@@ -15,7 +15,7 @@ DEFAULT_DATASET_PATH = (
 )
 
 
-class MultilingualCustomerSupportDataset(CSVDataset):
+class MultilingualCustomerSupportDataset(DFDataset):
     """Original multilingual customer support ticket dataset (4k/20k/28k)."""
 
     DEFAULT_DATASET_PATH = DEFAULT_DATASET_PATH
