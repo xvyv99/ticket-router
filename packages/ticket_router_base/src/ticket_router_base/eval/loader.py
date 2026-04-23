@@ -104,12 +104,12 @@ def _parse_ground_record(raw: dict) -> GroundRecord:
     if "tag_2" in raw:
         discrete["tag_2"] = raw.get("tag_2")
 
+
     return GroundRecord(
         labels=labels,
         discrete_features=discrete,
         generation_target=raw.get("answer"),
     )
-
 
 def _parse_pred_save(raw: dict) -> PredSave:
     """Deserialize a top-level PredSave dict with legacy-format fallback."""

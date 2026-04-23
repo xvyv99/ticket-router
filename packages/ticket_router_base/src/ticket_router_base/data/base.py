@@ -2,13 +2,15 @@
 
 from abc import ABC
 from dataclasses import dataclass, asdict
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from pathlib import Path
 import json
 from logging import getLogger
 
 import pandas as pd
+from sklearn.model_selection import StratifiedShuffleSplit
 
+from ticket_router_base.config import SEED, TEST_SAMPLE_NUM
 from ticket_router_base.types import Record, GroundRecord
 
 logger = getLogger(__name__)
@@ -68,6 +70,15 @@ class BaseDataset(ABC):
 
     discrete_feature_columns: List[str] = []
 
+    stratified_columns: List[str] | None = (
+        None  # columns to use for stratified train/test split
+    )
+
+    def load_df(
+        self, dataset_path: Path | None = None, sample_num: int | None = None
+    ) -> pd.DataFrame:
+        raise NotImplementedError("Subclasses must implement load_df() method")
+
     def load(self, dataset_path: Path | None, sample_num: int = 0) -> List[Record]:
         raise NotImplementedError("Subclasses must implement load() method")
 
@@ -116,49 +127,50 @@ class BaseDataset(ABC):
                     f"Label counts for task '{task.name}':\n{df[task.target_column].value_counts()}"
                 )
 
-    def _df_to_records(self, df: pd.DataFrame) -> List[Record]:
+    @classmethod
+    def df_to_records(cls, df: pd.DataFrame) -> List[Record]:
         """Convert a DataFrame to Record list using this dataset's column mapping."""
         records: List[Record] = []
 
         for i, row in df.iterrows():
             req_id = (
-                str(row[self.id_column])
-                if self.id_column and self.id_column in row
-                else f"{self.name}-{i:06d}"
+                str(row[cls.id_column])
+                if cls.id_column and cls.id_column in row
+                else f"{cls.name}-{i:06d}"
             )
 
             # text
             title = (
-                str(row[self.title_column])
-                if self.title_column and self.title_column in row
+                str(row[cls.title_column])
+                if cls.title_column and cls.title_column in row
                 else None
             )
-            body = str(row[self.body_column]) if self.body_column in row else ""
+            body = str(row[cls.body_column]) if cls.body_column in row else ""
             language = (
-                str(row[self.language_column])
-                if self.language_column and self.language_column in row
+                str(row[cls.language_column])
+                if cls.language_column and cls.language_column in row
                 else None
             )
 
             # classification labels (nominal + ordinal are both stored in labels dict)
             labels: Dict[str, str] = {}
-            for task in self.classification_tasks:
+            for task in cls.classification_tasks:
                 val = row.get(task.target_column)
                 labels[task.name] = str(val) if pd.notna(val) else ""
-            for task in self.ordinal_tasks:
+            for task in cls.ordinal_tasks:
                 val = row.get(task.target_column)
                 labels[task.name] = str(val) if pd.notna(val) else ""
 
             # discrete features
             discrete: Dict[str, str | None] = {}
-            for col in self.discrete_feature_columns:
+            for col in cls.discrete_feature_columns:
                 val = row.get(col)
                 discrete[col] = str(val) if pd.notna(val) else None
 
             # generation target
             gen_target: str | None = None
-            if self.generation_task:
-                val = row.get(self.generation_task.target_column)
+            if cls.generation_task:
+                val = row.get(cls.generation_task.target_column)
                 gen_target = str(val) if pd.notna(val) else None
 
             rec = Record(
@@ -251,13 +263,80 @@ class BaseDataset(ABC):
 
         return "\n".join(lines)
 
+    def split_train_test_set(
+        self,
+        path: Path | None = None,
+        save_path: Path | None = None,
+        test_num: int = TEST_SAMPLE_NUM,
+        seed: int = SEED,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Stratified split using all classification tasks + language as the stratification key.
+
+        Args:
+            records: List of Record instances.
+            dataset: Dataset descriptor providing task and column definitions.
+            test_num: Number of test samples.
+            seed: Random seed.
+        """
+        df = self.load_df(path)
+
+        assert (
+            self.stratified_columns is not None and len(self.stratified_columns) > 0
+        ), (
+            "stratified_columns must be defined with at least one column for stratified splitting"
+        )
+
+        for strat_col in self.stratified_columns:
+            assert strat_col in df.columns, (
+                f"Stratification column '{strat_col}' not found"
+            )
+
+        strat_labels = list(
+            df[self.stratified_columns].itertuples(index=False, name=None)
+        )
+
+        sss = StratifiedShuffleSplit(
+            n_splits=1,
+            test_size=test_num,
+            random_state=seed,
+        )
+
+        train_idx, test_idx = next(sss.split(df, strat_labels))
+
+        train_df: pd.DataFrame = df.iloc[train_idx].reset_index(drop=True)
+        test_df: pd.DataFrame = df.iloc[test_idx].reset_index(drop=True)
+
+        if save_path:
+            save_train_path = save_path / f"{self.name}_train_split.parquet"
+            save_test_path = save_path / f"{self.name}_test_split.parquet"
+
+            train_df.to_parquet(save_train_path, index=False)
+            test_df.to_parquet(save_test_path, index=False)
+
+        return train_df, test_df
+
+    def load_train_test_split(
+        self, train_path: Path | None = None, test_path: Path | None = None
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Load a pre-split train/test set from disk."""
+
+        if train_path is None:
+            train_path = Path(f"{self.name}_train_split.parquet")
+        if test_path is None:
+            test_path = Path(f"{self.name}_test_split.parquet")
+
+        train_df = pd.read_parquet(train_path)
+        test_df = pd.read_parquet(test_path)
+
+        return train_df, test_df
+
 
 class DFDataset(BaseDataset):
     DEFAULT_DATASET_PATH: Path  # subclasses must override with default CSV path
 
-    def load(
+    def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None
-    ) -> List[Record]:
+    ) -> pd.DataFrame:
         if dataset_path is None:
             dataset_path = self.DEFAULT_DATASET_PATH
 
@@ -282,10 +361,10 @@ class DFDataset(BaseDataset):
                 nrows=sample_num,
             )
         elif dataset_path.suffix == ".parquet":
+            if sample_num is not None:
+                logger.warning("sample_num is not supported for parquet files")
             df = pd.read_parquet(
                 dataset_path,
-                encoding=self.ENCODING,
-                nrows=sample_num,
             )
         else:
             raise ValueError(
@@ -298,4 +377,11 @@ class DFDataset(BaseDataset):
             df
         )  # initialize any missing labels, e.g. by inferring from data
 
-        return self._df_to_records(df)
+        return df
+
+    def load(
+        self, dataset_path: Path | None = None, sample_num: int | None = None
+    ) -> List[Record]:
+        df = self.load_df(dataset_path, sample_num)
+
+        return self.df_to_records(df)
