@@ -49,3 +49,5 @@ class MultilingualCustomerSupportDataset(DFDataset):
     ]
     generation_task = GenerationTask("preliminary_answer", "answer")
     discrete_feature_columns = ["type", "business_type", "tag_1", "tag_2"]
+
+    stratified_columns = ["language", "queue"]

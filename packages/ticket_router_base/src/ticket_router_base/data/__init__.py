@@ -14,7 +14,6 @@ from .datasets import (
     DATASET_REGISTRY,
 )
 from .loader import load_dataset, load_test_set, load_train_set
-from .utils import build_train_test_set, build_difficult_cases
 
 __all__ = [
     # base classes
@@ -34,6 +33,4 @@ __all__ = [
     "load_test_set",
     "load_train_set",
     # data utils
-    "build_train_test_set",
-    "build_difficult_cases",
 ]

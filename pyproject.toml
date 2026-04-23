@@ -3,4 +3,13 @@ name = "ticket-router"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
-dependencies = []
+dependencies = [
+    "ticket-router-base",
+    "ipykernel>=7.2.0",
+    "polars>=1.40.1",
+    "pyarrow>=24.0.0",
+    "tqdm>=4.67.3",
+]
+
+[tool.uv.sources]
+ticket-router-base = { path = "./packages/ticket_router_base", editable = true }
