@@ -9,7 +9,7 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from ticket_router_base.eval.metrics_core import (
+from ticket_router_base.eval.metrics import (
     PerClassMetrics,
     compute_classification_metrics,
 )
