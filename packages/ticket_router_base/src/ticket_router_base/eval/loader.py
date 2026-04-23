@@ -44,6 +44,7 @@ def _parse_prediction(raw: dict) -> Prediction:
             request_id=raw.get("request_id", ""),
             labels=labels,
             discrete_features=raw.get("discrete_features", {}),
+            sensitive_attributes=raw.get("sensitive_attributes", {}),
             generation_target=raw.get("generation_target"),
             confidences=raw.get("confidences", {}),
             raw_output=raw.get("raw_output"),
@@ -73,6 +74,7 @@ def _parse_prediction(raw: dict) -> Prediction:
         request_id=raw.get("request_id", ""),
         labels=labels,
         discrete_features=discrete,
+        sensitive_attributes=raw.get("sensitive_attributes", {}),
         generation_target=raw.get("answer"),
         confidences=confidences,
         raw_output=raw.get("raw_output"),
@@ -89,6 +91,7 @@ def _parse_ground_record(raw: dict) -> GroundRecord:
             labels=labels,
             discrete_features=raw.get("discrete_features", {}),
             generation_target=raw.get("generation_target"),
+            sensitive_attributes=raw.get("sensitive_attributes", {}),
         )
 
     # legacy format
@@ -104,12 +107,13 @@ def _parse_ground_record(raw: dict) -> GroundRecord:
     if "tag_2" in raw:
         discrete["tag_2"] = raw.get("tag_2")
 
-
     return GroundRecord(
         labels=labels,
         discrete_features=discrete,
         generation_target=raw.get("answer"),
+        sensitive_attributes=raw.get("sensitive_attributes", {}),
     )
+
 
 def _parse_pred_save(raw: dict) -> PredSave:
     """Deserialize a top-level PredSave dict with legacy-format fallback."""
@@ -119,7 +123,6 @@ def _parse_pred_save(raw: dict) -> PredSave:
         language = language.get("value")
 
     return PredSave(
-        language=language,
         predicted=_parse_prediction(raw["predicted"]),
         ground_truth=_parse_ground_record(raw["ground_truth"]),
     )

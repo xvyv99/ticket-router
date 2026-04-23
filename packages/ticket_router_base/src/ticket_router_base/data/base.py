@@ -61,7 +61,7 @@ class BaseDataset(ABC):
 
     title_column: str | None = None  # maps to Record.title; None = no title
     body_column: str  # maps to Record.body; required
-    language_column: str | None = None
+
     id_column: str | None = None  # None = auto-generate request_id
 
     classification_tasks: List[ClassificationTask] = []
@@ -70,9 +70,8 @@ class BaseDataset(ABC):
 
     discrete_feature_columns: List[str] = []
 
-    stratified_columns: List[str] | None = (
-        None  # columns to use for stratified train/test split
-    )
+    stratified_columns: List[str]  # columns to use for stratified train/test split
+    sensitive_columns: List[str]  # columns to use for fairness evaluation
 
     def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None
@@ -93,10 +92,6 @@ class BaseDataset(ABC):
             assert self.title_column in df.columns, (
                 f"Declared title column '{self.title_column}' not found"
             )
-        if self.language_column:
-            assert self.language_column in df.columns, (
-                f"Declared language column '{self.language_column}' not found"
-            )
         for task in self.classification_tasks + self.ordinal_tasks:
             assert task.target_column in df.columns, (
                 f"Declared target column '{task.target_column}' not found"
@@ -110,6 +105,10 @@ class BaseDataset(ABC):
             assert col in df.columns, (
                 f"Declared discrete feature column '{col}' not found"
             )
+        for col in self.stratified_columns:
+            assert col in df.columns, f"Declared stratified column '{col}' not found"
+        for col in self.sensitive_columns:
+            assert col in df.columns, f"Declared sensitive column '{col}' not found"
 
     def _init_null_labels(self, df: pd.DataFrame):
         for task in self.classification_tasks + self.ordinal_tasks:
@@ -146,11 +145,6 @@ class BaseDataset(ABC):
                 else None
             )
             body = str(row[cls.body_column]) if cls.body_column in row else ""
-            language = (
-                str(row[cls.language_column])
-                if cls.language_column and cls.language_column in row
-                else None
-            )
 
             # classification labels (nominal + ordinal are both stored in labels dict)
             labels: Dict[str, str] = {}
@@ -167,6 +161,12 @@ class BaseDataset(ABC):
                 val = row.get(col)
                 discrete[col] = str(val) if pd.notna(val) else None
 
+            # sensitive attributes (for fairness evaluation)
+            sensitive: Dict[str, str | None] = {}
+            for col in cls.sensitive_columns:
+                val = row.get(col)
+                sensitive[col] = str(val) if pd.notna(val) else None
+
             # generation target
             gen_target: str | None = None
             if cls.generation_task:
@@ -177,9 +177,9 @@ class BaseDataset(ABC):
                 request_id=req_id,
                 title=title,
                 body=body,
-                language=language,
                 labels=labels,
                 discrete_features=discrete,
+                sensitive_attributes=sensitive,
                 generation_target=gen_target,
             )
 

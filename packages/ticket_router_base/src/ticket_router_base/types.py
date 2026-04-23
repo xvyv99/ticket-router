@@ -1,6 +1,6 @@
 """Domain types for unified Predictor interface.
 
-All dataset-specific enums (Queue, Priority, Language) have been removed.
+All dataset-specific enums (Queue, Priority) have been removed.
 Classification labels are now stored in a generic `labels: Dict[str, str]` dict,
 making the type system fully decoupled from any particular dataset schema.
 """
@@ -38,6 +38,8 @@ class GroundRecord:
     labels: Dict[str, str]
     discrete_features: Dict[str, str | None]
     generation_target: str | None
+    sensitive_attributes: Dict[str, str]  # for fairness evaluation
+    # FIXME: maybe null?
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,6 @@ class Record(GroundRecord):
     request_id: str
     title: str | None  # optional subject line
     body: str
-    language: str | None
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,5 @@ class PredictionBatch:
 class PredSave:
     """Single prediction paired with its ground truth, as stored in JSONL."""
 
-    language: str | None
     predicted: Prediction
     ground_truth: GroundRecord
