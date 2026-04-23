@@ -62,6 +62,17 @@ def illustrate_metric(dataset_name: str, pred_files: str, pred_dir: Path) -> Non
         if has_ordinal:
             overall_table.add_column(f"{tn} MAE", justify="right", min_width=8)
             overall_table.add_column(f"{tn} QWK", justify="right", min_width=8)
+        has_fairness = any(
+            tr.fairness is not None
+            for _, report in results
+            for tr in report.task_results
+            if tr.task_name == tn
+        )
+        if has_fairness:
+            overall_table.add_column(f"{tn} AccGap", justify="right", min_width=8)
+            overall_table.add_column(f"{tn} AccRatio", justify="right", min_width=8)
+            overall_table.add_column(f"{tn} F1Gap", justify="right", min_width=8)
+            overall_table.add_column(f"{tn} F1Ratio", justify="right", min_width=8)
 
     for name, report in results:
         row = [name]
@@ -71,6 +82,11 @@ def illustrate_metric(dataset_name: str, pred_files: str, pred_dir: Path) -> Non
             if tr.ordinal is not None:
                 row.append(f"{tr.ordinal.mae:.4f}")
                 row.append(f"{tr.ordinal.qwk:.4f}")
+            if tr.fairness is not None:
+                row.append(f"{tr.fairness.accuracy_gap:.4f}")
+                row.append(f"{tr.fairness.accuracy_ratio:.4f}")
+                row.append(f"{tr.fairness.macro_f1_gap:.4f}")
+                row.append(f"{tr.fairness.macro_f1_ratio:.4f}")
         overall_table.add_row(*row)
 
     console.print(overall_table)

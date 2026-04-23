@@ -1,4 +1,4 @@
-BASE_PROJ := "packages/ticket_router_base"
+# BASE_PROJ := "packages/ticket_router_base"
 SUPERVISED_PROJ := "packages/ticket_router_supervised"
 AGENTIC_PROJ := "packages/ticket_router_agent"
 
@@ -30,7 +30,7 @@ run-mbert *ARGS:
 
 # Evaluation
 eval DATASET=default-dataset PRED_FILES="lr:xgb" PRED_DIR="outputs/supervised":
-    uv run --project {{BASE_PROJ}} {{BASE_PROJ}}/scripts/eval.py \
+    uv run scripts/eval.py \
         --dataset {{DATASET}} \
         --pred-files {{PRED_FILES}} \
         --pred-dir {{PRED_DIR}}
