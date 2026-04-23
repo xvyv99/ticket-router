@@ -4,17 +4,17 @@ from logging import getLogger
 
 from ticket_router_base.config import DATASET_DIR
 from ticket_router_base.data import (
-    CSVDataset,
+    DFDataset,
     ClassificationTask,
     GenerationTask,
 )
 
-DEFAULT_DATASET_PATH = DATASET_DIR / "complaints.csv"
+DEFAULT_DATASET_PATH = DATASET_DIR / "complaints.parquet"
 
 logger = getLogger(__name__)
 
 
-class CFPBComplaintsDataset(CSVDataset):
+class CFPBComplaintsDataset(DFDataset):
     """Consumer Financial Protection Bureau complaints dataset (~25M rows)."""
 
     DEFAULT_DATASET_PATH = DEFAULT_DATASET_PATH

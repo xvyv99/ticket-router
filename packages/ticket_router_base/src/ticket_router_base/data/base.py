@@ -252,33 +252,44 @@ class BaseDataset(ABC):
         return "\n".join(lines)
 
 
-class CSVDataset(BaseDataset):
+class DFDataset(BaseDataset):
     DEFAULT_DATASET_PATH: Path  # subclasses must override with default CSV path
 
-    def load(self, dataset_path: Path | None = None, sample_num: int | None = None) -> List[Record]:
+    def load(
+        self, dataset_path: Path | None = None, sample_num: int | None = None
+    ) -> List[Record]:
         if dataset_path is None:
             dataset_path = self.DEFAULT_DATASET_PATH
 
-        assert sample_num is None or sample_num > 0, "sample_num must be positive or None"
+        assert sample_num is None or sample_num > 0, (
+            "sample_num must be positive or None"
+        )
         assert dataset_path.exists(), f"Dataset file not found at {dataset_path}"
 
         if sample_num is None:
             logger.debug(f"Loading full dataset from {dataset_path}...")
-            df = pd.read_csv(
-                dataset_path,
-                delimiter=self.DELIMITER,
-                encoding=self.ENCODING,
-            )
         else:
             assert sample_num > 0, "sample_num must be positive"
             logger.debug(
                 f"Loading sample of {sample_num} records from {dataset_path}..."
             )
+
+        if dataset_path.suffix == ".csv":
             df = pd.read_csv(
                 dataset_path,
                 delimiter=self.DELIMITER,
                 encoding=self.ENCODING,
                 nrows=sample_num,
+            )
+        elif dataset_path.suffix == ".parquet":
+            df = pd.read_parquet(
+                dataset_path,
+                encoding=self.ENCODING,
+                nrows=sample_num,
+            )
+        else:
+            raise ValueError(
+                f"Unsupported file format '{dataset_path.suffix}' for dataset '{self.name}'"
             )
 
         self._valid_df(df)  # validate schema before processing

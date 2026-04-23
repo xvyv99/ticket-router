@@ -1,7 +1,7 @@
 # ticket_router.data package
 from .base import (
     BaseDataset,
-    CSVDataset,
+    DFDataset,
     ClassificationTask,
     GenerationTask,
     OrdinalTask,
@@ -19,7 +19,7 @@ from .utils import build_train_test_set, build_difficult_cases
 __all__ = [
     # base classes
     "BaseDataset",
-    "CSVDataset",
+    "DFDataset",
     "ClassificationTask",
     "GenerationTask",
     "OrdinalTask",
