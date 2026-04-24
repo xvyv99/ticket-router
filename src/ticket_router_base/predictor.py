@@ -2,14 +2,14 @@
 
 from typing import Protocol, List
 
-from .types import Record, PredictionBatch
+from .types import Record, Prediction
 
 
 class Predictor(Protocol):
     supports_tags: bool
     supports_preliminary_answer: bool
 
-    def predict(self, records: List[Record]) -> PredictionBatch:
+    def predict(self, records: List[Record]) -> List[Prediction]:
         raise NotImplementedError
 
 

@@ -8,17 +8,6 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
-    "ipykernel>=7.2.0",
-    "polars>=1.40.1",
-    "pyarrow>=24.0.0",
-    "tqdm>=4.67.3",
-]
-
-[tool.uv]
-default-groups = ["base", "supervised", "agent"]
-
-[dependency-groups]
-base = [
     "aif360>=0.6.1",
     "fairlearn>=0.13.0",
     "pandas>=3.0.2",
@@ -29,6 +18,7 @@ base = [
     "scikit-learn>=1.8.0",
 ]
 
+[dependency-groups]
 supervised = [
     "datasets>=4.8.4",
     "joblib>=1.5.3",
@@ -41,6 +31,16 @@ supervised = [
 
 agent = []
 
+scripts = [
+    "ipykernel>=7.2.0",
+    "polars>=1.40.1",
+    "pyarrow>=24.0.0",
+    "tqdm>=4.67.3",
+]
+
 dev = [
     "pytest>=9.0.3",
 ]
+
+[tool.uv]
+default-groups = ["scripts", "supervised", "agent"]
