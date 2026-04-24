@@ -1,5 +1,7 @@
 {
   "files.exclude": {
-    "packages/": true
+    "packages/": true,
+    ".worktrees/": true,
+    ".ruff_cache/": true
   }
 }
