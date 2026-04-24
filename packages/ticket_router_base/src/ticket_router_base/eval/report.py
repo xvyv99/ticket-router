@@ -57,6 +57,17 @@ class EvaluationReport:
             if tr.ordinal is not None:
                 print(f"  MAE:         {tr.ordinal.mae:.4f}")
                 print(f"  QWK:         {tr.ordinal.qwk:.4f}")
+            if tr.fairness is not None:
+                fm = tr.fairness
+                print(f"  Fairness (lang)")
+                print(f"    Acc Gap:   {fm.accuracy_gap:.4f}")
+                print(f"    Acc Ratio: {fm.accuracy_ratio:.4f}")
+                print(f"    F1 Gap:    {fm.macro_f1_gap:.4f}")
+                print(f"    F1 Ratio:  {fm.macro_f1_ratio:.4f}")
+                if fm.avg_disparate_impact is not None:
+                    print(f"    Avg DI:    {fm.avg_disparate_impact:.4f}")
+                if fm.avg_statistical_parity_difference is not None:
+                    print(f"    Avg SPD:   {fm.avg_statistical_parity_difference:.4f}")
             print()
 
         # language fairness (using the first task as representative)
