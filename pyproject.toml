@@ -1,15 +1,46 @@
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12"]
+build-backend = "uv_build"
+
 [project]
-name = "ticket-router"
+name = "ticket-router-base"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
-    "ticket-router-base",
     "ipykernel>=7.2.0",
     "polars>=1.40.1",
     "pyarrow>=24.0.0",
     "tqdm>=4.67.3",
 ]
 
-[tool.uv.sources]
-ticket-router-base = { path = "./packages/ticket_router_base", editable = true }
+[tool.uv]
+default-groups = ["base", "supervised", "agent"]
+
+[dependency-groups]
+base = [
+    "aif360>=0.6.1",
+    "fairlearn>=0.13.0",
+    "pandas>=3.0.2",
+    "pandera[pandas]>=0.31.1",
+    "pyarrow>=24.0.0",
+    "pydantic>=2.13.3",
+    "rich>=15.0.0",
+    "scikit-learn>=1.8.0",
+]
+
+supervised = [
+    "datasets>=4.8.4",
+    "joblib>=1.5.3",
+    "pandas>=3.0.2",
+    "scikit-learn>=1.8.0",
+    "torch>=2.11.0",
+    "transformers[torch]>=5.5.4",
+    "xgboost>=3.2.0",
+]
+
+agent = []
+
+dev = [
+    "pytest>=9.0.3",
+]

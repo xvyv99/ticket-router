@@ -2,6 +2,7 @@
   "files.exclude": {
     "packages/": true,
     ".worktrees/": true,
-    ".ruff_cache/": true
+    ".ruff_cache/": true,
+    ".venv": true
   }
 }
