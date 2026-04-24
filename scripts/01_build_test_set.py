@@ -45,8 +45,10 @@ def main():
 
     dataset = get_dataset(args.dataset)
 
+    df = dataset.load_df()
+
     df_train, df_test = dataset.split_train_test_set(
-        save_path=OUTPUT_DIR, test_num=args.test_num
+        df, save=True, test_num=args.test_num
     )
 
     logger.info(f"Wrote {len(df_train)} training cases, {len(df_test)} test cases.")

@@ -9,6 +9,11 @@ from ticket_router_base.types import Record
 logger = getLogger(__name__)
 
 
+def load_dataset(dataset: BaseDataset) -> List[Record]:
+    """Load a dataset via its descriptor and return standardized Records."""
+    return dataset.load(None)
+
+
 def build_difficult_cases(
     records: List[Record],
     dataset: BaseDataset,

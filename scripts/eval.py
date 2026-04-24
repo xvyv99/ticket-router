@@ -7,6 +7,7 @@ Usage:
 
 from pathlib import Path
 from argparse import ArgumentParser
+from logging import basicConfig
 
 from rich.console import Console
 from rich.table import Table
@@ -15,6 +16,7 @@ from rich import box
 
 from ticket_router_base.eval import evaluate_file
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
+from ticket_router_base.config import LOGGING_FORMAT
 
 console = Console()
 
@@ -29,12 +31,9 @@ def illustrate_metric(dataset_name: str, pred_files: str, pred_dir: Path) -> Non
         if not path.exists():
             console.print(f"[yellow][SKIP][/yellow] {stem}: {path} not found")
             continue
-        try:
-            report = evaluate_file(path, dataset, model_name=stem)
-            results.append((stem, report))
-        except Exception as e:
-            console.print(f"[red][ERROR][/red] {stem}: {e}")
-            continue
+
+        report = evaluate_file(path, dataset, model_name=stem)
+        results.append((stem, report))
 
     if not results:
         console.print("[red]No valid prediction files found.[/red]")
@@ -174,4 +173,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    basicConfig(level="INFO", format=LOGGING_FORMAT)
     main()

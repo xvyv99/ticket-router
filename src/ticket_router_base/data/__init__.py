@@ -13,7 +13,7 @@ from .datasets import (
     get_dataset,
     DATASET_REGISTRY,
 )
-from .loader import load_dataset, load_test_set, load_train_set
+from .utils import load_dataset
 
 __all__ = [
     # base classes
@@ -30,7 +30,5 @@ __all__ = [
     "DATASET_REGISTRY",
     # loader functions
     "load_dataset",
-    "load_test_set",
-    "load_train_set",
     # data utils
 ]

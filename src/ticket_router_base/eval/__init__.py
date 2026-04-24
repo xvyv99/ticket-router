@@ -14,7 +14,7 @@ from typing import Dict, List
 
 from ticket_router_base.data import BaseDataset
 from .evaluator import TaskEvaluator
-from .loader import load_pred_saves
+from .utils import load_pred_saves
 from .report import EvaluationReport
 
 
@@ -39,7 +39,8 @@ def evaluate_file(
     error_summary: Dict[str, int] = {}
     for ps in pred_saves:
         flag_name = ps.predicted.error.name  # IntFlag auto-generated name
-        error_summary[flag_name] = error_summary.get(flag_name, 0) + 1
+        # error_summary[flag_name] = error_summary.get(flag_name, 0) + 1
+        # TODO: error count
 
     return EvaluationReport(
         model_name=model_name,

@@ -1,23 +1,21 @@
 """BaseDataset abstract base class for dataset-agnostic loading and task definition."""
 
 from abc import ABC
-from dataclasses import dataclass, asdict
 from typing import Dict, List, Tuple
 from pathlib import Path
-import json
 from logging import getLogger
 
+from pydantic import BaseModel, model_validator
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router_base.config import SEED, TEST_SAMPLE_NUM
+from ticket_router_base.config import SEED, TEST_SAMPLE_NUM, OUTPUT_DIR
 from ticket_router_base.types import Record, GroundRecord
 
 logger = getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class ClassificationTask:
+class ClassificationTask(BaseModel):
     """Definition of a single classification task."""
 
     name: str  # task name, e.g. "queue", "priority", "product"
@@ -25,25 +23,24 @@ class ClassificationTask:
     labels: List[str]  # ordered list of valid label values
 
 
-@dataclass(frozen=True)
 class OrdinalTask(ClassificationTask):
     """Definition of a single ordinal (ordered) classification task.
 
     Labels must be listed in ascending order (lowest to highest).
     """
 
-    def __post_init__(self):
-        assert len(self.labels) >= 2, (
-            f"Ordinal task '{self.name}' must have at least 2 labels"
-        )
+    @model_validator(mode="after")
+    def check_ordinal_labels(self):
+        if len(self.labels) < 2:
+            raise ValueError(f"Ordinal task '{self.name}' must have at least 2 labels")
+        return self
 
 
-@dataclass(frozen=True)
-class GenerationTask:
+class GenerationTask(BaseModel):
     """Definition of a single generation (text-output) task."""
 
     name: str
-    target_column: str
+    target_column: str | None
 
 
 class BaseDataset(ABC):
@@ -162,10 +159,14 @@ class BaseDataset(ABC):
                 discrete[col] = str(val) if pd.notna(val) else None
 
             # sensitive attributes (for fairness evaluation)
-            sensitive: Dict[str, str | None] = {}
+            sensitive: Dict[str, str] = {}
             for col in cls.sensitive_columns:
                 val = row.get(col)
-                sensitive[col] = str(val) if pd.notna(val) else None
+                assert pd.notna(val), (
+                    f"Sensitive attribute '{col}' cannot be null for record {req_id}"
+                )
+                # FIXME: Maybe null in some cases? If so, need to decide how to handle nulls in sensitive attributes for fairness eval.
+                sensitive[col] = str(val)
 
             # generation target
             gen_target: str | None = None
@@ -188,12 +189,8 @@ class BaseDataset(ABC):
 
     def _demo_record(self) -> GroundRecord:
         """Return a minimal demo record for prompt examples."""
-        labels = {task.name: task.labels[0] for task in self.classification_tasks}
-        labels.update({task.name: task.labels[0] for task in self.ordinal_tasks})
-        return GroundRecord(
-            labels=labels,
-            discrete_features={},
-            generation_target="Thank you for your request. We will get back to you shortly.",
+        raise NotImplementedError(
+            "Subclasses must implement _demo_record() method for prompt examples"
         )
 
     def _get_task(self, task_name: str) -> ClassificationTask | OrdinalTask:
@@ -226,6 +223,13 @@ class BaseDataset(ABC):
         """Return all ordinal task names."""
         return [t.name for t in self.ordinal_tasks]
 
+    @classmethod
+    def _get_train_test_path(cls) -> Tuple[Path, Path]:
+        """Get default train/test split paths for this dataset."""
+        train_path = OUTPUT_DIR / f"{cls.name}_train_split.parquet"
+        test_path = OUTPUT_DIR / f"{cls.name}_test_split.parquet"
+        return train_path, test_path
+
     def build_system_prompt(
         self, few_shot_examples: List[GroundRecord] | None = None
     ) -> str:
@@ -253,20 +257,16 @@ class BaseDataset(ABC):
         lines.append("\nExamples:")
         if few_shot_examples:
             for ex in few_shot_examples:
-                ex_dic = asdict(ex)
-                ex_str = json.dumps(ex_dic, ensure_ascii=False)
-                lines.append(ex_str)
+                lines.append(ex.model_dump_json(ensure_ascii=False))
         else:
-            ex_dic = asdict(self._demo_record())
-            ex_str = json.dumps(ex_dic, ensure_ascii=False)
-            lines.append(ex_str)
+            lines.append(self._demo_record().model_dump_json(ensure_ascii=False))
 
         return "\n".join(lines)
 
     def split_train_test_set(
         self,
-        path: Path | None = None,
-        save_path: Path | None = None,
+        df: pd.DataFrame,
+        save: bool = False,
         test_num: int = TEST_SAMPLE_NUM,
         seed: int = SEED,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -278,8 +278,6 @@ class BaseDataset(ABC):
             test_num: Number of test samples.
             seed: Random seed.
         """
-        df = self.load_df(path)
-
         assert (
             self.stratified_columns is not None and len(self.stratified_columns) > 0
         ), (
@@ -306,9 +304,8 @@ class BaseDataset(ABC):
         train_df: pd.DataFrame = df.iloc[train_idx].reset_index(drop=True)
         test_df: pd.DataFrame = df.iloc[test_idx].reset_index(drop=True)
 
-        if save_path:
-            save_train_path = save_path / f"{self.name}_train_split.parquet"
-            save_test_path = save_path / f"{self.name}_test_split.parquet"
+        if save:
+            save_train_path, save_test_path = self._get_train_test_path()
 
             train_df.to_parquet(save_train_path, index=False)
             test_df.to_parquet(save_test_path, index=False)
@@ -320,10 +317,22 @@ class BaseDataset(ABC):
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Load a pre-split train/test set from disk."""
 
+        default_train_path, default_test_path = self._get_train_test_path()
+
         if train_path is None:
-            train_path = Path(f"{self.name}_train_split.parquet")
+            train_path = default_train_path
         if test_path is None:
-            test_path = Path(f"{self.name}_test_split.parquet")
+            test_path = default_test_path
+
+        if not train_path.exists():
+            raise FileNotFoundError(
+                f"Train split files not found at {train_path}. Please run split_train_test_set() first to create the splits."
+            )
+
+        if not test_path.exists():
+            raise FileNotFoundError(
+                f"Test split files not found at {test_path}. Please run split_train_test_set() first to create the splits."
+            )
 
         train_df = pd.read_parquet(train_path)
         test_df = pd.read_parquet(test_path)

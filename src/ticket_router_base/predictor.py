@@ -1,19 +1,22 @@
 """Predictor and Trainer protocol definitions."""
 
-from typing import Protocol, List
+from abc import ABC
+from typing import List
 
 from .types import Record, Prediction
+from .data import BaseDataset
 
 
-class Predictor(Protocol):
-    supports_tags: bool
-    supports_preliminary_answer: bool
+class Predictor(ABC):
+    dataset: BaseDataset
 
     def predict(self, records: List[Record]) -> List[Prediction]:
         raise NotImplementedError
 
 
-class Trainer(Protocol):
+class Trainer(ABC):
+    dataset: BaseDataset
+
     def train(
         self,
         records: List[Record],

@@ -1,6 +1,7 @@
 """Task-level evaluation with multi-dimension aggregation."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, TypeGuard
+from logging import getLogger
 
 from pydantic import BaseModel
 
@@ -14,6 +15,14 @@ from .metrics import (
     compute_ordinal_metrics,
 )
 from .fairness_metrics import FairnessMetrics, compute_fairness_metrics
+
+logger = getLogger(__name__)
+
+
+def is_ordinal_metrics(
+    x: ClassificationMetrics | OrdinalMetrics,
+) -> TypeGuard[OrdinalMetrics]:
+    return isinstance(x, OrdinalMetrics)
 
 
 class TaskEvaluationResult(BaseModel):
@@ -31,6 +40,7 @@ class TaskEvaluator:
         self, pred_saves: List[PredSave], dataset: BaseDataset
     ) -> List[TaskEvaluationResult]:
         """Evaluate all classification and ordinal tasks defined by the dataset descriptor."""
+
         results: List[TaskEvaluationResult] = []
         for task in dataset.classification_tasks:
             result = self._evaluate_task(
@@ -45,6 +55,27 @@ class TaskEvaluator:
 
         return results
 
+    @staticmethod
+    def _evaluate_perf(
+        y_true: List[str], y_pred: List[str], is_ordinal: bool
+    ) -> ClassificationMetrics | OrdinalMetrics:
+        """Evaluate performance metrics for a single task."""
+        labels = sorted(set(y_true) | set(y_pred))
+        if is_ordinal:
+            return compute_ordinal_metrics(y_true, y_pred, labels=labels)
+        else:
+            return compute_classification_metrics(y_true, y_pred, labels=labels)
+
+    def _evaluate_fairness(
+        self,
+        y_true: List[str],
+        y_pred: List[str],
+        sensitive_lst: List[str],
+        labels: List[str],
+    ) -> FairnessMetrics:
+        # TODO
+        ...
+
     def _evaluate_task(
         self,
         pred_saves: List[PredSave],
@@ -53,14 +84,13 @@ class TaskEvaluator:
         is_ordinal: bool = False,
     ) -> TaskEvaluationResult:
         """Evaluate a single classification or ordinal task with global and breakdown metrics."""
+
+        print(f"Evaluating task '{task_name}' with {len(pred_saves)} samples...")
+
         y_true_all, y_pred_all = self._extract_labels(pred_saves, task_name)
         labels = sorted(set(y_true_all) | set(y_pred_all))
 
-        perf: ClassificationMetrics | OrdinalMetrics | None = None
-        if is_ordinal:
-            perf = compute_ordinal_metrics(y_true_all, y_pred_all, labels=labels)
-        else:
-            perf = compute_classification_metrics(y_true_all, y_pred_all, labels=labels)
+        perf = self._evaluate_perf(y_true_all, y_pred_all, is_ordinal=is_ordinal)
 
         # fairness audit
         fairness_dict: Dict[str, FairnessMetrics] = {}
