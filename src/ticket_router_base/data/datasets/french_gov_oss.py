@@ -29,22 +29,22 @@ class FrenchGovOSSDataset(DFDataset):
 
     classification_tasks = [
         ClassificationTask(
-            "type_ticket",
-            "TYPE TICKET",
-            ["Anomalie", "Demande d'information"],
+            name="type_ticket",
+            target_column="TYPE TICKET",
+            labels=["Anomalie", "Demande d'information"],
         ),
     ]
     ordinal_tasks = [
         OrdinalTask(
-            "priorite",
-            "PRIORITE",
-            ["Non bloquant", "Bloquant"],
+            name="priorite",
+            target_column="PRIORITE",
+            labels=["Non bloquant", "Bloquant"],
         ),
         OrdinalTask(
-            "criticite",
-            "CRITICITE",
-            ["Non-critique", "Critique"],
+            name="criticite",
+            target_column="CRITICITE",
+            labels=["Non-critique", "Critique"],
         ),
     ]
-    generation_task = GenerationTask("etat_reversement", "ETAT REVERSEMENT")
+    generation_task = GenerationTask(name="respond", target_column=None)
     discrete_feature_columns = ["LOGICIEL"]

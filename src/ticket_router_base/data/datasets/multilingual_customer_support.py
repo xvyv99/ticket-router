@@ -7,6 +7,7 @@ from ticket_router_base.data import (
     GenerationTask,
     OrdinalTask,
 )
+from ticket_router_base.types import GroundRecord
 
 DEFAULT_DATASET_PATH = (
     DATASET_DIR
@@ -28,9 +29,9 @@ class MultilingualCustomerSupportDataset(DFDataset):
 
     classification_tasks = [
         ClassificationTask(
-            "queue",
-            "queue",
-            [
+            name="queue",
+            target_column="queue",
+            labels=[
                 "Technical Support",
                 "Product Support",
                 "Customer Service",
@@ -45,9 +46,25 @@ class MultilingualCustomerSupportDataset(DFDataset):
         ),
     ]
     ordinal_tasks = [
-        OrdinalTask("priority", "priority", ["low", "medium", "high"]),
+        OrdinalTask(
+            name="priority", target_column="priority", labels=["low", "medium", "high"]
+        ),
     ]
-    generation_task = GenerationTask("preliminary_answer", "answer")
+    generation_task = GenerationTask(name="preliminary_answer", target_column="answer")
     discrete_feature_columns = ["type", "business_type", "tag_1", "tag_2"]
 
     stratified_columns = ["language", "queue"]
+    sensitive_columns = ["language"]
+
+    def _demo_record(self) -> GroundRecord:
+        """Return a minimal demo record for prompt examples."""
+        labels = {task.name: task.labels[0] for task in self.classification_tasks}
+        labels.update({task.name: task.labels[0] for task in self.ordinal_tasks})
+        return GroundRecord(
+            labels=labels,
+            discrete_features={},
+            generation_target="Thank you for your request. We will get back to you shortly.",
+            sensitive_attributes={
+                "language": "en",
+            },
+        )

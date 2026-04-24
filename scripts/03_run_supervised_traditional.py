@@ -44,66 +44,54 @@ def main():
 
     dataset = get_dataset(args.dataset)
 
-    # Load from JSONL
-    def _load(path_name: str):
+    df_train, df_test = dataset.load_train_test_split()
 
-        path = OUTPUT_DIR / path_name
-        if not path.exists():
-            raise FileNotFoundError(f"{path} not found. Run prepare-data first.")
-        # parse JSONL into Records
-        from ticket_router_base.data.loader import _load_jsonl_records
-        return _load_jsonl_records(path)
+    test_size = 0.2
+    test_num = int(len(df_test) * test_size)
 
-    test_records = _load(args.test_set)
-    train_records = _load(args.train_set)
+    df_train, df_val = dataset.split_train_test_set(df_train, test_num=test_num)
 
     # Stratify by the first task (classification or ordinal)
     all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
-    first_task = all_tasks[0].name if all_tasks else None
-    stratify = None
-    if first_task:
-        stratify = [r.labels.get(first_task, "") for r in train_records]
 
-    train_split, val_split = train_test_split(
-        train_records,
-        test_size=0.2,
-        random_state=SEED,
-        stratify=stratify,
-    )
+    train_split = dataset.df_to_records(df_train)
+    val_split = dataset.df_to_records(df_val)
 
     # Train LR models
     logger.info("Training LR models...")
-    lr_trainer = LRTrainer()
-    lr_predictor = lr_trainer.train(train_split, dataset, val_split)
+    lr_trainer = LRTrainer(dataset=dataset)
+    lr_predictor = lr_trainer.train(train_split, val_split)
     logger.info("LR models trained successfully.")
 
     # Train XGBoost models
     logger.info("Training XGBoost models...")
-    xgb_trainer = XGBTrainer()
-    xgb_predictor = xgb_trainer.train(train_split, dataset, val_split)
+    xgb_trainer = XGBTrainer(dataset=dataset)
+    xgb_predictor = xgb_trainer.train(train_split, val_split)
     logger.info("XGBoost models trained successfully.")
+
+    test_records = dataset.df_to_records(df_test)
 
     # LR predictions
     logger.info("Running LR inference...")
-    lr_batch = lr_predictor.predict(test_records)
+    lr_pred = lr_predictor.predict(test_records)
     prefix = args.output_prefix
     sep = "_" if prefix else ""
     write_pred(
-        lr_batch.predictions,
+        lr_pred,
         test_records,
         OUTPUT_DIR / "supervised" / f"{prefix}{sep}lr_predictions.jsonl",
     )
-    logger.info(f"LR predictions: {len(lr_batch.predictions)} records")
+    logger.info(f"LR predictions: {len(lr_pred)} records")
 
     # XGBoost predictions
     logger.info("Running XGBoost inference...")
-    xgb_batch = xgb_predictor.predict(test_records)
+    xgb_pred = xgb_predictor.predict(test_records)
     write_pred(
-        xgb_batch.predictions,
+        xgb_pred,
         test_records,
         OUTPUT_DIR / "supervised" / f"{prefix}{sep}xgb_predictions.jsonl",
     )
-    logger.info(f"XGBoost predictions: {len(xgb_batch.predictions)} records")
+    logger.info(f"XGBoost predictions: {len(xgb_pred)} records")
 
     logger.info(
         f"Trained and evaluated supervised models. Outputs in {OUTPUT_DIR / 'supervised'}"

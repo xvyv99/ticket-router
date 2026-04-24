@@ -16,10 +16,10 @@ def load_pred_saves(path: Path) -> List[PredSave]:
 
     results: List[PredSave] = []
     with JSONLLogger(path, mode="r") as logger:
-        pred_save_raw = logger.read()
-        pred_save_parsed = PredSave.model_validate_json(
-            pred_save_raw
-        )  # validate against the new format
+        for pred_save_raw in logger.read():
+            pred_save_parsed = PredSave.model_validate_json(
+                pred_save_raw
+            )  # validate against the new format
 
-        results.append(pred_save_parsed)
+            results.append(pred_save_parsed)
     return results
