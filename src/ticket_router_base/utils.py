@@ -2,7 +2,7 @@
 
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 import json
 from dataclasses import asdict
 
@@ -13,14 +13,23 @@ class JSONLLogger:
     path: Path
     file: TextIOWrapper
 
-    def __init__(self, path: Path):
+    mode: Literal["w", "r"]
+
+    def __init__(self, path: Path, mode: Literal["w", "r"] = "w") -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.file = self.path.open("w", encoding="utf-8")
+
+        self.file = self.path.open(mode, encoding="utf-8")
 
     def write(self, record: Dict[str, Any]) -> None:
         self.file.write(json.dumps(record, ensure_ascii=False) + "\n")
         self.file.flush()
+
+    def read(self) -> str:
+        line = self.file.readline()
+        if not line:
+            raise EOFError("End of file reached")
+        return line
 
     def close(self) -> None:
         self.file.close()
@@ -40,7 +49,6 @@ def write_pred(preds: List[Prediction], records: List[Record], save_path: Path) 
     with JSONLLogger(save_path) as logger:
         for p, r in zip(preds, records):
             save_rec = PredSave(
-                language=r.language,
                 predicted=p,
                 ground_truth=r,
             )

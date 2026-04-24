@@ -1,7 +1,8 @@
 """Task-level evaluation with multi-dimension aggregation."""
 
-from dataclasses import dataclass
 from typing import Dict, List, Tuple
+
+from pydantic import BaseModel
 
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import PredSave
@@ -15,8 +16,7 @@ from .metrics import (
 from .fairness_metrics import FairnessMetrics, compute_fairness_metrics
 
 
-@dataclass(frozen=True)
-class TaskEvaluationResult:
+class TaskEvaluationResult(BaseModel):
     """Evaluation result for a single task across multiple dimensions."""
 
     task_name: str

@@ -5,9 +5,10 @@ Classification labels are now stored in a generic `labels: Dict[str, str]` dict,
 making the type system fully decoupled from any particular dataset schema.
 """
 
-from dataclasses import dataclass
 from enum import IntFlag, auto
-from typing import Dict, List
+from typing import Dict
+
+from pydantic import BaseModel
 
 
 class ErrorFlag(IntFlag):
@@ -26,8 +27,7 @@ class ErrorFlag(IntFlag):
     )
 
 
-@dataclass(frozen=True)
-class GroundRecord:
+class GroundRecord(BaseModel):
     """Ground-truth record without request identity.
 
     `labels` holds all classification task outputs (task_name -> label_value).
@@ -42,7 +42,6 @@ class GroundRecord:
     # FIXME: maybe null?
 
 
-@dataclass(frozen=True)
 class Record(GroundRecord):
     """A complete data record with identity and text content."""
 
@@ -51,7 +50,6 @@ class Record(GroundRecord):
     body: str
 
 
-@dataclass(frozen=True)
 class Prediction(GroundRecord):
     """A model prediction with confidence scores and raw output."""
 
@@ -61,15 +59,7 @@ class Prediction(GroundRecord):
     error: ErrorFlag
 
 
-@dataclass(frozen=True)
-class PredictionBatch:
-    """Batch of predictions with parse-error counters."""
-
-    predictions: List[Prediction]
-
-
-@dataclass(frozen=True)
-class PredSave:
+class PredSave(BaseModel):
     """Single prediction paired with its ground truth, as stored in JSONL."""
 
     predicted: Prediction

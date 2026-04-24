@@ -4,9 +4,9 @@ This module re-exports no symbols from eval.metrics.py; it is a clean replacemen
 with strict dataclass typing.
 """
 
-from dataclasses import dataclass
 from typing import Dict, List
 
+from pydantic import BaseModel
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
@@ -18,8 +18,7 @@ from sklearn.metrics import (
 )
 
 
-@dataclass(frozen=True)
-class PerClassMetrics:
+class PerClassMetrics(BaseModel):
     """Per-class classification metrics."""
 
     precision: float
@@ -28,8 +27,7 @@ class PerClassMetrics:
     support: int  # number of ground-truth samples for this class
 
 
-@dataclass(frozen=True)
-class ClassificationMetrics:
+class ClassificationMetrics(BaseModel):
     """Complete classification metrics for a single task."""
 
     accuracy: float
@@ -42,7 +40,6 @@ class ClassificationMetrics:
     labels: List[str]  # label order, matching confusion_matrix rows/cols
 
 
-@dataclass(frozen=True)
 class OrdinalMetrics(ClassificationMetrics):
     """Ordinal classification metrics that respect label ordering."""
 
@@ -160,14 +157,7 @@ def compute_ordinal_metrics(
     qwk = float(cohen_kappa_score(yt_idx, yp_idx, weights="quadratic"))
 
     return OrdinalMetrics(
-        accuracy=cls.accuracy,
-        macro_f1=cls.macro_f1,
-        macro_precision=cls.macro_precision,
-        macro_recall=cls.macro_recall,
+        **cls.model_dump(),
         mae=mae,
         qwk=qwk,
-        per_class=cls.per_class,
-        confusion_matrix=cls.confusion_matrix,
-        support=cls.support,
-        labels=labels,
     )

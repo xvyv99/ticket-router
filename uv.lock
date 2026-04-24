@@ -1782,14 +1782,6 @@ name = "ticket-router-base"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ipykernel" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "tqdm" },
-]
-
-[package.dev-dependencies]
-base = [
     { name = "aif360" },
     { name = "fairlearn" },
     { name = "pandas" },
@@ -1799,8 +1791,16 @@ base = [
     { name = "rich" },
     { name = "scikit-learn" },
 ]
+
+[package.dev-dependencies]
 dev = [
     { name = "pytest" },
+]
+scripts = [
+    { name = "ipykernel" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "tqdm" },
 ]
 supervised = [
     { name = "datasets" },
@@ -1814,15 +1814,6 @@ supervised = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ipykernel", specifier = ">=7.2.0" },
-    { name = "polars", specifier = ">=1.40.1" },
-    { name = "pyarrow", specifier = ">=24.0.0" },
-    { name = "tqdm", specifier = ">=4.67.3" },
-]
-
-[package.metadata.requires-dev]
-agent = []
-base = [
     { name = "aif360", specifier = ">=0.6.1" },
     { name = "fairlearn", specifier = ">=0.13.0" },
     { name = "pandas", specifier = ">=3.0.2" },
@@ -1832,7 +1823,16 @@ base = [
     { name = "rich", specifier = ">=15.0.0" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
 ]
+
+[package.metadata.requires-dev]
+agent = []
 dev = [{ name = "pytest", specifier = ">=9.0.3" }]
+scripts = [
+    { name = "ipykernel", specifier = ">=7.2.0" },
+    { name = "polars", specifier = ">=1.40.1" },
+    { name = "pyarrow", specifier = ">=24.0.0" },
+    { name = "tqdm", specifier = ">=4.67.3" },
+]
 supervised = [
     { name = "datasets", specifier = ">=4.8.4" },
     { name = "joblib", specifier = ">=1.5.3" },

@@ -1,9 +1,9 @@
 """Fairness metrics using fairlearn (primary) and aif360 (supplementary)."""
 
-from dataclasses import dataclass, asdict
 from typing import Dict, List, cast
 import math
 
+from pydantic import BaseModel
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
@@ -14,8 +14,7 @@ from aif360.datasets import BinaryLabelDataset
 from aif360.metrics import ClassificationMetric
 
 
-@dataclass(frozen=True)
-class FairlearnMetrics:
+class FairlearnMetrics(BaseModel):
     """Fairlearn MetricFrame results for performance parity."""
 
     accuracy_by_group: Dict[str, float]
@@ -26,8 +25,7 @@ class FairlearnMetrics:
     macro_f1_ratio: float
 
 
-@dataclass(frozen=True)
-class AIF360Metrics:
+class AIF360Metrics(BaseModel):
     """AIF360 one-vs-rest aggregated metrics for binary classification tasks."""
 
     avg_disparate_impact: float | None
@@ -36,7 +34,6 @@ class AIF360Metrics:
     avg_average_odds_difference: float | None
 
 
-@dataclass(frozen=True)
 class FairnessMetrics(FairlearnMetrics, AIF360Metrics):
     """Fairness audit results for a single task with sensitive attribute."""
 
@@ -45,8 +42,7 @@ class FairnessMetrics(FairlearnMetrics, AIF360Metrics):
         fairlearn: FairlearnMetrics, aif360: AIF360Metrics
     ) -> "FairnessMetrics":
         """Merge separate Fairlearn and AIF360 results into a single dataclass."""
-        data = {**asdict(fairlearn), **asdict(aif360)}
-        return FairnessMetrics(**data)
+        return FairnessMetrics(**fairlearn.model_dump(), **aif360.model_dump())
 
 
 def _fairlearn_metrics(
