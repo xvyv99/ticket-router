@@ -89,12 +89,21 @@ class TaskEvaluator:
 
     def _extract_labels(
         self, pred_saves: List[PredSave], task_col_name: str
-    ) -> Tuple[List[str | None], List[str | None]]:
+    ) -> Tuple[List[str], List[str]]:
         """Extract y_true and y_pred for a specific task from PredSave list."""
-        y_true: List[str | None] = []
-        y_pred: List[str | None] = []
+        y_true: List[str] = []
+        y_pred: List[str] = []
         # TODO: None value handling - currently treated as a separate category, but may want to exclude or impute
         for ps in pred_saves:
-            y_true.append(ps.ground_truth.labels.get(task_col_name, None))
-            y_pred.append(ps.predicted.labels.get(task_col_name, None))
+            ground = ps.ground_truth.labels.get(task_col_name)
+            assert ground is not None, (
+                f"Missing ground truth for task '{task_col_name}' in PredSave with id {ps.predicted.request_id}"
+            )
+            pred = ps.predicted.labels.get(task_col_name)
+            assert pred is not None, (
+                f"Missing prediction for task '{task_col_name}' in PredSave with id {ps.predicted.request_id}"
+            )
+
+            y_true.append(ground)
+            y_pred.append(pred)
         return y_true, y_pred
