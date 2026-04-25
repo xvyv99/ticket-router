@@ -91,7 +91,7 @@ class BaseDataset(ABC):
     def load(self, dataset_path: Path | None, sample_num: int = 0) -> List[Record]:
         raise NotImplementedError("Subclasses must implement load() method")
 
-    def _valid_df(self, df: pd.DataFrame):
+    def _valid_df_columns(self, df: pd.DataFrame):
         # Must call this in load() to validate the raw DataFrame before processing; it checks that all declared columns exist and that classification tasks have valid labels.
 
         assert self.body_column in df.columns, (
@@ -358,6 +358,8 @@ class DFDataset(BaseDataset, skip_check=True):
         Path
     ]  # subclasses must override with default CSV path
 
+    # df_schema: pa.DataFrameSchema
+
     def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None
     ) -> pd.DataFrame:
@@ -395,7 +397,7 @@ class DFDataset(BaseDataset, skip_check=True):
                 f"Unsupported file format '{dataset_path.suffix}' for dataset '{self.name}'"
             )
 
-        self._valid_df(df)  # validate schema before processing
+        self._valid_df_columns(df)  # validate schema before processing
 
         self._init_null_labels(
             df

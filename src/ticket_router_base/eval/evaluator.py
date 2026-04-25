@@ -85,8 +85,6 @@ class TaskEvaluator:
     ) -> TaskEvaluationResult:
         """Evaluate a single classification or ordinal task with global and breakdown metrics."""
 
-        print(f"Evaluating task '{task_name}' with {len(pred_saves)} samples...")
-
         y_true_all, y_pred_all = self._extract_labels(pred_saves, task_name)
         labels = sorted(set(y_true_all) | set(y_pred_all))
 

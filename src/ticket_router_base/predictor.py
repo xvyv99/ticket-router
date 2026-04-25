@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from logging import getLogger
 from abc import ABC
-from typing import List, ClassVar, Tuple, Type, Dict, TypeVar
+from typing import List, ClassVar, Type, Dict, TypeVar, Tuple
 from pathlib import Path
 
-from ticket_router_base.data.datasets import get_dataset
-
 from .types import Record, Prediction, PredSave
-from .data import BaseDataset
+from .data import BaseDataset, get_dataset
 from .utils import write_pred, load_pred
 
 logger = getLogger(__name__)
@@ -42,6 +40,50 @@ def get_model(name: str) -> Type[Predictor]:
     return MODEL_REGISTRY[name]
 
 
+def parse_pred_save_name(
+    save_name: str,
+) -> Tuple[str, str]:
+    """Parse the dataset name and model name from a prediction save file name."""
+    parts = save_name.split("_")
+    if not save_name.endswith("_preds.jsonl"):
+        raise ValueError(
+            f"Invalid save name format: {save_name}. Expected format: <model_name>_<dataset_name>_preds.jsonl"
+        )
+    model_name = parts[0]
+    dataset_name = parts[1]
+
+    return model_name, dataset_name
+
+
+def parse_pred_save_name_safe(
+    save_name: str,
+) -> Tuple[Type[Predictor], Type[BaseDataset]]:
+    """Parse the dataset name and model name from a prediction save file name."""
+    model_name, dataset_name = parse_pred_save_name(save_name)
+
+    return get_model(model_name), get_dataset(dataset_name)
+
+
+def scan_pred_saves(
+    scan_path: Path | None = None,
+) -> Dict[Type[Predictor], List[Type[BaseDataset]]]:
+    result = {}
+
+    for name, model_cls in MODEL_REGISTRY.items():
+        model_saves = model_cls.scan_pred(save_dir=scan_path)
+
+        logger.debug(
+            f"Found {len(model_saves)} saved prediction files for model {name} at {scan_path or model_cls.DEFAULT_SAVE_DIR}"
+        )
+        for save in model_saves:
+            logger.debug(f"\t - {save}")
+            # TODO: should catch value error
+            pred, dataset = parse_pred_save_name_safe(save.name)
+            result.setdefault(pred, []).append(dataset)
+
+    return result
+
+
 class Predictor(ABC):
     name: ClassVar[str]
     DEFAULT_SAVE_DIR: ClassVar[Path]
@@ -65,21 +107,6 @@ class Predictor(ABC):
     @classmethod
     def format_pred_savea_name(cls, dataset: BaseDataset) -> str:
         return f"{cls.name}_{dataset.name}_preds.jsonl"
-
-    @staticmethod
-    def parse_pred_save_name(
-        save_name: str,
-    ) -> Tuple[Type[Predictor], Type[BaseDataset]]:
-        """Parse the dataset name and model name from a prediction save file name."""
-        parts = save_name.split("_")
-        if not save_name.endswith("_preds.jsonl"):
-            raise ValueError(
-                f"Invalid save name format: {save_name}. Expected format: <model_name>_<dataset_name>_preds.jsonl"
-            )
-        model_name = parts[0]
-        dataset_name = parts[1]
-
-        return get_model(model_name), get_dataset(dataset_name)
 
     @classmethod
     def get_save_path(cls, dataset: BaseDataset, save_dir: Path | None = None) -> Path:
@@ -117,6 +144,16 @@ class Predictor(ABC):
         )
 
         return load_pred(save_path)
+
+    @classmethod
+    def scan_pred(cls, save_dir: Path | None = None) -> List[Path]:
+        """Scan a directory for saved prediction files matching this model's naming convention."""
+
+        if save_dir is None:
+            save_dir = cls.DEFAULT_SAVE_DIR
+
+        pattern = f"{cls.name}_*_preds.jsonl"
+        return list(save_dir.glob(pattern))
 
 
 class Trainer(ABC):
