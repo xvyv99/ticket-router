@@ -72,7 +72,10 @@ class BaseDataset(ABC):
     ]  # columns to use for stratified train/test split
     sensitive_columns: ClassVar[List[str]]  # columns to use for fairness evaluation
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, skip_check: bool = False) -> None:
+        if skip_check:
+            return  # skip validation for subclasses that set skip_check=True (e.g. DFDataset which doesn't declare all class vars)
+
         if not hasattr(cls, "name"):
             raise TypeError(f"{cls.__name__} must define 'name'")
 
@@ -350,8 +353,10 @@ class BaseDataset(ABC):
         return train_df, test_df
 
 
-class DFDataset(BaseDataset):
-    DEFAULT_DATASET_PATH: Path  # subclasses must override with default CSV path
+class DFDataset(BaseDataset, skip_check=True):
+    DEFAULT_DATASET_PATH: ClassVar[
+        Path
+    ]  # subclasses must override with default CSV path
 
     def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None
