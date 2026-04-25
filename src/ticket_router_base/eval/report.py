@@ -4,9 +4,15 @@ from dataclasses import dataclass
 from typing import Dict, List
 from pathlib import Path
 
+from rich.console import Console
+from rich.table import Table
+
+
 from ticket_router_base.data import BaseDataset
 
-from .evaluator import TaskEvaluationResult, is_ordinal_metrics
+from .evaluator import TaskEvaluationResult
+
+console = Console()
 
 
 @dataclass
@@ -22,38 +28,89 @@ class EvaluationReport:
     error_summary: Dict[str, int]  # error flag name -> count
     total_samples: int
 
-    def print_summary(self) -> None:
-        """Print a concise summary table to the console."""
-        print(f"\n{'=' * 70}")
-        print(f"Evaluation Report: {self.model_name}")
-        print(f"{'=' * 70}")
-        print(f"Dataset: {self.dataset.name}")
-        print(f"File: {self.file_path}")
-        print(f"Total samples: {self.total_samples}")
-        print(f"Errors: {self.error_summary}")
-        print()
 
-        for task in self.task_results:
-            print(f"Task: {task.task_name}")
-            print(f"  Accuracy:    {task.performance.accuracy:.4f}")
-            print(f"  Macro F1:    {task.performance.macro_f1:.4f}")
-            if is_ordinal_metrics(task.performance):
-                print(f"  MAE:         {task.performance.mae:.4f}")
-                print(f"  QWK:         {task.performance.qwk:.4f}")
+def print_overall_report(reports: List[EvaluationReport]) -> None:
+    if not reports:
+        console.print("[red]No reports provided[/red]")
+        return
 
-                fm = task.fairness
+    dataset_names = set(r.dataset.name for r in reports)
+    if len(dataset_names) != 1:
+        raise ValueError(f"Reports must share same dataset: {dataset_names}")
 
-                for key, fm in task.fairness.items():
-                    print(f"  Fairness ({key}):")
-                    print(f"    Acc Gap:   {fm.accuracy_gap:.4f}")
-                    print(f"    Acc Ratio: {fm.accuracy_ratio:.4f}")
-                    print(f"    F1 Gap:    {fm.macro_f1_gap:.4f}")
-                    print(f"    F1 Ratio:  {fm.macro_f1_ratio:.4f}")
-                    if fm.avg_disparate_impact is not None:
-                        print(f"    Avg DI:    {fm.avg_disparate_impact:.4f}")
-                    if fm.avg_statistical_parity_difference is not None:
-                        print(
-                            f"    Avg SPD:   {fm.avg_statistical_parity_difference:.4f}"
-                        )
+    all_tasks = sorted({t.task_name for r in reports for t in r.task_results})
 
-        print(f"{'=' * 70}\n")
+    fairness_keys = sorted(
+        {key for r in reports for t in r.task_results for key in t.fairness.keys()}
+    )
+
+    def get_task(
+        report: EvaluationReport, task_name: str
+    ) -> TaskEvaluationResult | None:
+        return next(
+            (t for t in report.task_results if t.task_name == task_name),
+            None,
+        )
+
+    for task_name in all_tasks:
+        table = Table(
+            title=f"Task: {task_name}",
+            show_lines=False,
+        )
+
+        table.add_column("Metric")
+
+        for r in reports:
+            table.add_column(r.model_name, justify="right")
+
+        base_metrics = [
+            ("Accuracy", lambda p: p.accuracy),
+            ("Macro F1", lambda p: p.macro_f1),
+            ("MAE", lambda p: getattr(p, "mae", None)),
+            ("QWK", lambda p: getattr(p, "qwk", None)),
+        ]
+
+        for metric_name, getter in base_metrics:
+            row = [metric_name]
+
+            for r in reports:
+                task = get_task(r, task_name)
+                if task is None:
+                    row.append("-")
+                    continue
+
+                val = getter(task.performance)
+                row.append(f"{val:.4f}" if val is not None else "-")
+
+            table.add_row(*row)
+
+        fairness_metrics = [
+            ("Acc Gap", lambda fm: fm.accuracy_gap),
+            ("Acc Ratio", lambda fm: fm.accuracy_ratio),
+            ("F1 Gap", lambda fm: fm.macro_f1_gap),
+            ("F1 Ratio", lambda fm: fm.macro_f1_ratio),
+            ("DI", lambda fm: fm.avg_disparate_impact),
+            ("SPD", lambda fm: fm.avg_statistical_parity_difference),
+        ]
+
+        for key in fairness_keys:
+            for metric_name, getter in fairness_metrics:
+                row = [f"{key} {metric_name}"]
+
+                for r in reports:
+                    task = get_task(r, task_name)
+                    if task is None:
+                        row.append("-")
+                        continue
+
+                    fm = task.fairness.get(key)
+                    if fm is None:
+                        row.append("-")
+                        continue
+
+                    val = getter(fm)
+                    row.append(f"{val:.4f}" if val is not None else "-")
+
+                table.add_row(*row)
+
+        console.print(table)
