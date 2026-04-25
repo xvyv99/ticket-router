@@ -14,7 +14,6 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 TRAIN_SET_PATH = OUTPUT_DIR / "train_set.jsonl"
 TEST_SET_PATH = OUTPUT_DIR / "test_set.jsonl"
 
-TEST_SAMPLE_NUM = 1200
 DIFFICULT_CASE_NUM = 100
 
 SEED = 42

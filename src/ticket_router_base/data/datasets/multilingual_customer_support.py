@@ -21,6 +21,9 @@ class MultilingualCustomerSupportDataset(DFDataset):
 
     DEFAULT_DATASET_PATH = DEFAULT_DATASET_PATH
 
+    TEST_RATIO = 0.25
+    VALID_RATIO = 0.18
+
     name = "multilingual-customer-support"
 
     title_column = "subject"

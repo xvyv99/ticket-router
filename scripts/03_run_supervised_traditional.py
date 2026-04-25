@@ -19,35 +19,12 @@ def main():
         required=True,
         help="Dataset name (e.g. multilingual-customer-support, french-gov-oss)",
     )
-    parser.add_argument(
-        "--train-set",
-        type=str,
-        default="train_set.jsonl",
-        help="Train set JSONL filename (in OUTPUT_DIR)",
-    )
-    parser.add_argument(
-        "--test-set",
-        type=str,
-        default="test_set.jsonl",
-        help="Test set JSONL filename (in OUTPUT_DIR)",
-    )
-    parser.add_argument(
-        "--output-prefix",
-        type=str,
-        default="",
-        help="Prefix for output filenames",
-    )
     args = parser.parse_args()
 
     dataset_type = get_dataset(args.dataset)
     dataset = dataset_type()
 
-    df_train, df_test = dataset.load_train_test_split()
-
-    test_size = 0.2
-    test_num = int(len(df_test) * test_size)
-
-    df_train, df_val = dataset.split_train_test_set(df_train, test_num=test_num)
+    df_train, df_test, df_val = dataset.load_train_test_split()
 
     train_split = dataset.df_to_records(df_train)
     val_split = dataset.df_to_records(df_val)

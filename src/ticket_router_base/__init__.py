@@ -7,7 +7,6 @@ from .config import (
     OUTPUT_DIR,
     PROJECT_ROOT,
     SEED,
-    TEST_SAMPLE_NUM,
     TEST_SET_PATH,
     TRAIN_SET_PATH,
 )
