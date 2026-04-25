@@ -3,13 +3,10 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 
-from sklearn.model_selection import train_test_split
 from ticket_router_base.data import get_dataset
-from ticket_router_base.utils import write_pred
-from ticket_router_base.config import OUTPUT_DIR, SEED, LOGGING_FORMAT
+from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
 
-from ticket_router_supervised.models.lr import LRTrainer
-from ticket_router_supervised.models.xgb import XGBTrainer
+from ticket_router_supervised.models import LRTrainer, XGBTrainer
 
 logger = getLogger(__name__)
 
@@ -51,9 +48,6 @@ def main():
 
     df_train, df_val = dataset.split_train_test_set(df_train, test_num=test_num)
 
-    # Stratify by the first task (classification or ordinal)
-    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
-
     train_split = dataset.df_to_records(df_train)
     val_split = dataset.df_to_records(df_val)
 
@@ -74,23 +68,23 @@ def main():
     # LR predictions
     logger.info("Running LR inference...")
     lr_pred = lr_predictor.predict(test_records)
-    prefix = args.output_prefix
-    sep = "_" if prefix else ""
-    write_pred(
+
+    lr_predictor.save_pred(
         lr_pred,
         test_records,
-        OUTPUT_DIR / "supervised" / f"{prefix}{sep}lr_predictions.jsonl",
     )
+
     logger.info(f"LR predictions: {len(lr_pred)} records")
 
     # XGBoost predictions
     logger.info("Running XGBoost inference...")
     xgb_pred = xgb_predictor.predict(test_records)
-    write_pred(
+
+    xgb_predictor.save_pred(
         xgb_pred,
         test_records,
-        OUTPUT_DIR / "supervised" / f"{prefix}{sep}xgb_predictions.jsonl",
     )
+
     logger.info(f"XGBoost predictions: {len(xgb_pred)} records")
 
     logger.info(
