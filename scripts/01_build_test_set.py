@@ -6,7 +6,6 @@ from ticket_router_base.data import (
     get_dataset,
 )
 from ticket_router_base.config import (
-    OUTPUT_DIR,
     LOGGING_FORMAT,
     TEST_SAMPLE_NUM,
     DIFFICULT_CASE_NUM,

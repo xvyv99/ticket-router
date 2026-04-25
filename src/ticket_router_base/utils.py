@@ -60,6 +60,22 @@ def write_pred(preds: List[Prediction], records: List[Record], save_path: Path) 
             logger.write(save_rec.model_dump())
 
 
+def load_pred(path: Path) -> List[PredSave]:
+    """Load a prediction JSONL file into a list of PredSave instances."""
+    if not path.exists():
+        raise FileNotFoundError(f"Prediction file not found: {path}")
+
+    results: List[PredSave] = []
+    with JSONLLogger(path, mode="r") as logger:
+        for pred_save_raw in logger.read():
+            pred_save_parsed = PredSave.model_validate_json(
+                pred_save_raw
+            )  # validate against the new format
+
+            results.append(pred_save_parsed)
+    return results
+
+
 def combine_text(title: str, body: str) -> str:
     return f"{title}\n{body}" if title else body
 

@@ -14,30 +14,24 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from ticket_router_base.eval import evaluate_file
+from ticket_router_base.eval import evaluate_model
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT
+
+from ticket_router_supervised.models import MODEL_LST
 
 console = Console()
 
 
-def illustrate_metric(dataset_name: str, pred_files: str, pred_dir: Path) -> None:
+def illustrate_metric(
+    dataset_name: str,
+) -> None:
     dataset = get_dataset(dataset_name)
-    stems = [s.strip() for s in pred_files.split(":") if s.strip()]
 
     results = []
-    for stem in stems:
-        path = pred_dir / f"{stem}_predictions.jsonl"
-        if not path.exists():
-            console.print(f"[yellow][SKIP][/yellow] {stem}: {path} not found")
-            continue
-
-        report = evaluate_file(path, dataset, model_name=stem)
-        results.append((stem, report))
-
-    if not results:
-        console.print("[red]No valid prediction files found.[/red]")
-        return
+    for model in MODEL_LST:
+        report = evaluate_model(model)
+        results.append(report)
 
     task_names = [tr.task_name for tr in results[0][1].task_results]
 
@@ -169,7 +163,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    illustrate_metric(args.dataset, args.pred_files, args.pred_dir)
+    illustrate_metric(args.dataset)
 
 
 if __name__ == "__main__":

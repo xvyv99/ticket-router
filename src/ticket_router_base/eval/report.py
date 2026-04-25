@@ -1,19 +1,23 @@
 """Evaluation report serialization and console output."""
 
 from typing import Dict, List
+from pathlib import Path
 
-from pydantic import BaseModel
+from ticket_router_base.predictor import Predictor
+from ticket_router_base.data import BaseDataset
 
 from .evaluator import TaskEvaluationResult, is_ordinal_metrics
 
 
-class EvaluationReport(BaseModel):
+class EvaluationReport:
     """Complete evaluation report for a model across all dataset tasks."""
 
     model_name: str
-    pred_file_path: str
-    dataset_name: str
+    dataset: BaseDataset
+
+    file_path: Path
     task_results: List[TaskEvaluationResult]
+
     error_summary: Dict[str, int]  # error flag name -> count
     total_samples: int
 
@@ -22,8 +26,8 @@ class EvaluationReport(BaseModel):
         print(f"\n{'=' * 70}")
         print(f"Evaluation Report: {self.model_name}")
         print(f"{'=' * 70}")
-        print(f"Dataset: {self.dataset_name}")
-        print(f"File: {self.pred_file_path}")
+        print(f"Dataset: {self.dataset.name}")
+        print(f"File: {self.file_path}")
         print(f"Total samples: {self.total_samples}")
         print(f"Errors: {self.error_summary}")
         print()

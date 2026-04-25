@@ -1,5 +1,7 @@
 """Dataset registry and base classes."""
 
+from typing import Type, Dict, List
+
 from ticket_router_base.data.base import (
     BaseDataset,
     ClassificationTask,
@@ -11,11 +13,13 @@ from .multilingual_customer_support import (
 from .cfpb_complaints import CFPBComplaintsDataset
 from .french_gov_oss import FrenchGovOSSDataset
 
-DATASET_REGISTRY: dict[str, type[BaseDataset]] = {
-    MultilingualCustomerSupportDataset.name: MultilingualCustomerSupportDataset,
-    CFPBComplaintsDataset.name: CFPBComplaintsDataset,
-    FrenchGovOSSDataset.name: FrenchGovOSSDataset,
-}
+DATASET_LST: List[Type[BaseDataset]] = [
+    MultilingualCustomerSupportDataset,
+    CFPBComplaintsDataset,
+    FrenchGovOSSDataset,
+]
+
+DATASET_REGISTRY: Dict[str, Type[BaseDataset]] = {cls.name: cls for cls in DATASET_LST}
 
 
 def get_dataset(name: str) -> BaseDataset:
