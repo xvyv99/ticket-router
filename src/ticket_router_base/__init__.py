@@ -21,6 +21,9 @@ from .types import (
 )
 from .utils import JSONLLogger, combine_text, combine_texts, write_pred
 
+# HACK: import all predictors to register them
+import ticket_router_supervised
+
 __all__ = [
     "PROJECT_ROOT",
     "DATASET_DIR",

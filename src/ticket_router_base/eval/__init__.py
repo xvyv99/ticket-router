@@ -11,10 +11,10 @@ Usage:
 
 from .evaluator import TaskEvaluator
 from .report import EvaluationReport
-from .utils import evaluate_model
+from .utils import evaluate_model_dataset
 
 __all__ = [
-    "evaluate_model",
+    "evaluate_model_dataset",
     "EvaluationReport",
     "TaskEvaluator",
 ]
