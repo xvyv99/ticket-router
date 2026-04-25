@@ -6,7 +6,9 @@ from .evaluator import TaskEvaluator
 from .report import EvaluationReport
 
 
-def evaluate_model(model: Type[Predictor], dataset: BaseDataset) -> EvaluationReport:
+def evaluate_model_dataset(
+    model: Type[Predictor], dataset: BaseDataset
+) -> EvaluationReport:
     pred_saves = model.load_pred(dataset)
     pred_file_path = model.get_save_path(dataset)
 

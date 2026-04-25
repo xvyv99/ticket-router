@@ -14,20 +14,4 @@ def load_dataset(dataset: BaseDataset) -> List[Record]:
     return dataset.load(None)
 
 
-def build_difficult_cases(
-    records: List[Record],
-    dataset: BaseDataset,
-    n: int = 100,
-    seed: int = 42,
-) -> List[Record]:
-    """Heuristic extraction of difficult cases based on small classes, high first-label, long body.
-
-    Args:
-        records: List of Record instances.
-        dataset: Dataset descriptor.
-        n: Number of difficult cases to extract.
-        seed: Random seed.
-    """
-    # TODO: fix it
-
-    return []
+# TODO: difficult case extraction utilities
