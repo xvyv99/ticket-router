@@ -94,37 +94,39 @@ class BaseDataset(ABC):
     def load(self, dataset_path: Path | None, sample_num: int = 0) -> List[Record]:
         raise NotImplementedError("Subclasses must implement load() method")
 
-    def _valid_df_columns(self, df: pd.DataFrame):
+    @classmethod
+    def _valid_df_columns(cls, df: pd.DataFrame):
         # Must call this in load() to validate the raw DataFrame before processing; it checks that all declared columns exist and that classification tasks have valid labels.
 
-        assert self.body_column in df.columns, (
-            f"Required body column '{self.body_column}' not found"
+        assert cls.body_column in df.columns, (
+            f"Required body column '{cls.body_column}' not found"
         )
 
-        if self.title_column:
-            assert self.title_column in df.columns, (
-                f"Declared title column '{self.title_column}' not found"
+        if cls.title_column:
+            assert cls.title_column in df.columns, (
+                f"Declared title column '{cls.title_column}' not found"
             )
-        for task in self.classification_tasks + self.ordinal_tasks:
+        for task in cls.classification_tasks + cls.ordinal_tasks:
             assert task.target_column in df.columns, (
                 f"Declared target column '{task.target_column}' not found"
             )
-        if self.generation_task:
-            assert self.generation_task.target_column in df.columns, (
-                f"Declared generation target column '{self.generation_task.target_column}' not found"
+        if cls.generation_task:
+            assert cls.generation_task.target_column in df.columns, (
+                f"Declared generation target column '{cls.generation_task.target_column}' not found"
             )
 
-        for col in self.discrete_feature_columns:
+        for col in cls.discrete_feature_columns:
             assert col in df.columns, (
                 f"Declared discrete feature column '{col}' not found"
             )
-        for col in self.stratified_columns:
+        for col in cls.stratified_columns:
             assert col in df.columns, f"Declared stratified column '{col}' not found"
-        for col in self.sensitive_columns:
+        for col in cls.sensitive_columns:
             assert col in df.columns, f"Declared sensitive column '{col}' not found"
 
-    def _init_null_labels(self, df: pd.DataFrame):
-        for task in self.classification_tasks + self.ordinal_tasks:
+    @classmethod
+    def _init_null_labels(cls, df: pd.DataFrame):
+        for task in cls.classification_tasks + cls.ordinal_tasks:
             assert len(task.labels) != 1, (
                 f"Task '{task.name}' has only one label '{task.labels[0]}'; this is likely an error. Please check your dataset and task definitions."
             )
