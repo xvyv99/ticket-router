@@ -6,18 +6,18 @@ from .evaluator import TaskEvaluator
 from .report import EvaluationReport
 
 
-def evaluate_model(model: Type[Predictor]):
-    pred_saves = model.load_pred()
-    pred_file_path = model.get_save_path()
+def evaluate_model(model: Type[Predictor], dataset: BaseDataset) -> EvaluationReport:
+    pred_saves = model.load_pred(dataset)
+    pred_file_path = model.get_save_path(dataset)
 
     evaluator = TaskEvaluator()
-    task_results = evaluator.evaluate(pred_saves, model.dataset)
+    task_results = evaluator.evaluate(pred_saves, dataset)
 
     # TODO: error summary
 
     return EvaluationReport(
         model_name=model.name,
-        dataset=model.dataset,
+        dataset=dataset,
         file_path=pred_file_path,
         task_results=task_results,
         error_summary={},

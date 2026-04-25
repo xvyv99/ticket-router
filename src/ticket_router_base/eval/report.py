@@ -1,14 +1,15 @@
 """Evaluation report serialization and console output."""
 
+from dataclasses import dataclass
 from typing import Dict, List
 from pathlib import Path
 
-from ticket_router_base.predictor import Predictor
 from ticket_router_base.data import BaseDataset
 
 from .evaluator import TaskEvaluationResult, is_ordinal_metrics
 
 
+@dataclass
 class EvaluationReport:
     """Complete evaluation report for a model across all dataset tasks."""
 
