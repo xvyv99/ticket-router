@@ -9,7 +9,7 @@ from pydantic import BaseModel, model_validator
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router_base.config import SEED, TEST_SAMPLE_NUM, OUTPUT_DIR
+from ticket_router_base.config import SEED, OUTPUT_DIR
 from ticket_router_base.types import Record, GroundRecord
 
 logger = getLogger(__name__)
@@ -52,6 +52,9 @@ class BaseDataset(ABC):
 
     DELIMITER: str = ","
     ENCODING: str = "utf-8"
+
+    TEST_RATIO: ClassVar[float]
+    VALID_RATIO: ClassVar[float]
 
     # --- schema declarations (subclasses override) ---
     name: ClassVar[str]
@@ -237,11 +240,12 @@ class BaseDataset(ABC):
         return [t.name for t in self.ordinal_tasks]
 
     @classmethod
-    def _get_train_test_path(cls) -> Tuple[Path, Path]:
+    def _get_train_test_path(cls) -> Tuple[Path, Path, Path]:
         """Get default train/test split paths for this dataset."""
         train_path = OUTPUT_DIR / f"{cls.name}_train_split.parquet"
         test_path = OUTPUT_DIR / f"{cls.name}_test_split.parquet"
-        return train_path, test_path
+        valid_path = OUTPUT_DIR / f"{cls.name}_valid_split.parquet"
+        return train_path, test_path, valid_path
 
     def build_system_prompt(
         self, few_shot_examples: List[GroundRecord] | None = None
@@ -280,9 +284,8 @@ class BaseDataset(ABC):
         self,
         df: pd.DataFrame,
         save: bool = False,
-        test_num: int = TEST_SAMPLE_NUM,
         seed: int = SEED,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Stratified split using all classification tasks + language as the stratification key.
 
         Args:
@@ -290,6 +293,11 @@ class BaseDataset(ABC):
             dataset: Dataset descriptor providing task and column definitions.
             test_num: Number of test samples.
             seed: Random seed.
+
+        Returns:
+            train_records: List of training Record instances.
+            test_records: List of test Record instances.
+            valid_records: List of validation Record instances.
         """
         assert (
             self.stratified_columns is not None and len(self.stratified_columns) > 0
@@ -306,36 +314,57 @@ class BaseDataset(ABC):
             df[self.stratified_columns].itertuples(index=False, name=None)
         )
 
-        sss = StratifiedShuffleSplit(
+        sss1 = StratifiedShuffleSplit(
             n_splits=1,
-            test_size=test_num,
+            test_size=self.TEST_RATIO,
             random_state=seed,
         )
 
-        train_idx, test_idx = next(sss.split(df, strat_labels))
+        train_valid_idx, test_idx = next(sss1.split(df, strat_labels))
 
-        train_df: pd.DataFrame = df.iloc[train_idx].reset_index(drop=True)
+        train_valid_df: pd.DataFrame = df.iloc[train_valid_idx].reset_index(drop=True)
         test_df: pd.DataFrame = df.iloc[test_idx].reset_index(drop=True)
 
+        relative_test_size = self.VALID_RATIO / (1 - self.TEST_RATIO)
+
+        sss2 = StratifiedShuffleSplit(
+            n_splits=1, test_size=relative_test_size, random_state=seed
+        )
+        train_idx, valid_idx = next(
+            sss2.split(train_valid_df, train_valid_df[self.stratified_columns])
+        )
+        train_df: pd.DataFrame = train_valid_df.iloc[train_idx].reset_index(drop=True)
+        valid_df: pd.DataFrame = train_valid_df.iloc[valid_idx].reset_index(drop=True)
+
         if save:
-            save_train_path, save_test_path = self._get_train_test_path()
+            save_train_path, save_test_path, save_valid_path = (
+                self._get_train_test_path()
+            )
 
             train_df.to_parquet(save_train_path, index=False)
             test_df.to_parquet(save_test_path, index=False)
+            valid_df.to_parquet(save_valid_path, index=False)
 
-        return train_df, test_df
+        return train_df, test_df, valid_df
 
     def load_train_test_split(
-        self, train_path: Path | None = None, test_path: Path | None = None
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self,
+        train_path: Path | None = None,
+        test_path: Path | None = None,
+        valid_path: Path | None = None,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Load a pre-split train/test set from disk."""
 
-        default_train_path, default_test_path = self._get_train_test_path()
+        default_train_path, default_test_path, default_valid_path = (
+            self._get_train_test_path()
+        )
 
         if train_path is None:
             train_path = default_train_path
         if test_path is None:
             test_path = default_test_path
+        if valid_path is None:
+            valid_path = default_valid_path
 
         if not train_path.exists():
             raise FileNotFoundError(
@@ -349,8 +378,9 @@ class BaseDataset(ABC):
 
         train_df = pd.read_parquet(train_path)
         test_df = pd.read_parquet(test_path)
+        valid_df = pd.read_parquet(valid_path)
 
-        return train_df, test_df
+        return train_df, test_df, valid_df
 
 
 class DFDataset(BaseDataset, skip_check=True):
