@@ -13,7 +13,7 @@ from ticket_router_base.types import (
     ErrorFlag,
 )
 from ticket_router_base.utils import combine_texts
-from ticket_router_base.predictor import Predictor, Trainer
+from ticket_router_base.predictor import Predictor, Trainer, register_model
 
 from ticket_router_supervised.features import build_tfidf_pipeline
 from ticket_router_supervised.utils import save_model, SKModel
@@ -50,6 +50,7 @@ def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
     return model
 
 
+@register_model
 class XGBPredictor(Predictor):
     name = "xgb"
     dataset: BaseDataset
@@ -58,8 +59,8 @@ class XGBPredictor(Predictor):
 
     _models: Dict[str, SKModel]
 
-    def __init__(self, models: Dict[str, SKModel], dataset: BaseDataset):
-        super().__init__(dataset)
+    def __init__(self, dataset: BaseDataset, models: Dict[str, SKModel]):
+        self.dataset = dataset
         self._models = models
 
     def predict(self, records: List[Record]) -> List[Prediction]:

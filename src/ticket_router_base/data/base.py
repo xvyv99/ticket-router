@@ -1,7 +1,7 @@
 """BaseDataset abstract base class for dataset-agnostic loading and task definition."""
 
 from abc import ABC
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, ClassVar
 from pathlib import Path
 from logging import getLogger
 
@@ -54,21 +54,31 @@ class BaseDataset(ABC):
     ENCODING: str = "utf-8"
 
     # --- schema declarations (subclasses override) ---
-    name: str
+    name: ClassVar[str]
 
-    title_column: str | None = None  # maps to Record.title; None = no title
-    body_column: str  # maps to Record.body; required
+    title_column: ClassVar[str | None] = None  # maps to Record.title; None = no title
+    body_column: ClassVar[str]  # maps to Record.body; required
 
-    id_column: str | None = None  # None = auto-generate request_id
+    id_column: ClassVar[str | None] = None  # None = auto-generate request_id
 
-    classification_tasks: List[ClassificationTask] = []
-    ordinal_tasks: List[OrdinalTask] = []
-    generation_task: GenerationTask | None = None
+    classification_tasks: ClassVar[List[ClassificationTask]]
+    ordinal_tasks: ClassVar[List[OrdinalTask]]
+    generation_task: ClassVar[GenerationTask | None]
 
-    discrete_feature_columns: List[str] = []
+    discrete_feature_columns: ClassVar[List[str]]
 
-    stratified_columns: List[str]  # columns to use for stratified train/test split
-    sensitive_columns: List[str]  # columns to use for fairness evaluation
+    stratified_columns: ClassVar[
+        List[str]
+    ]  # columns to use for stratified train/test split
+    sensitive_columns: ClassVar[List[str]]  # columns to use for fairness evaluation
+
+    def __init_subclass__(cls) -> None:
+        if not hasattr(cls, "name"):
+            raise TypeError(f"{cls.__name__} must define 'name'")
+
+        assert "_" not in cls.name, (
+            "Model name cannot contain underscores (used for parsing save file names)"
+        )
 
     def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None

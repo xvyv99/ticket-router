@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 
 from ticket_router_base.data import BaseDataset
-from ticket_router_base.predictor import Trainer, Predictor
+from ticket_router_base.predictor import Trainer, Predictor, register_model
 from ticket_router_base.types import (
     ErrorFlag,
     Record,
@@ -18,6 +18,7 @@ from ticket_router_base.config import SEED
 from ticket_router_supervised.features import build_tfidf_pipeline
 from ticket_router_supervised.utils import save_model, SKModel
 from ticket_router_supervised.config import SAVE_DIR
+
 
 def train_lr(texts: List[str], labels: List[str], save_name: str) -> SKModel:
     """Train a single LR model for one classification task."""
@@ -35,6 +36,7 @@ def train_lr(texts: List[str], labels: List[str], save_name: str) -> SKModel:
     return model
 
 
+@register_model
 class LRPredictor(Predictor):
     name = "lr"
     dataset: BaseDataset
@@ -43,8 +45,12 @@ class LRPredictor(Predictor):
 
     _models: Dict[str, SKModel]
 
-    def __init__(self, models: Dict[str, SKModel], dataset: BaseDataset):
-        super().__init__(dataset)
+    def __init__(
+        self,
+        dataset: BaseDataset,
+        models: Dict[str, SKModel],
+    ):
+        self.dataset = dataset
 
         self._models = models
 
@@ -99,4 +105,4 @@ class LRTrainer(Trainer):
             model = train_lr(texts, labels, f"lr_{task.name}")
             models[task.name] = model
 
-        return LRPredictor(models=models, dataset=self.dataset)
+        return LRPredictor(dataset=self.dataset, models=models)
