@@ -255,6 +255,45 @@ class BaseDataset(ABC):
 
         return "\n".join(lines)
 
+    def sample_few_shot_examples(
+        self,
+        max_per_stratum: int = 3,
+        max_total: int = 12,
+        seed: int = SEED,
+    ) -> List[Record]:
+        """Sample stratified few-shot examples from training data.
+
+        Groups training data by stratified_columns, samples up to
+        max_per_stratum records from each group using pandas, then
+        converts the result to Record objects.
+
+        Subclasses may override this method to provide custom sampling strategies.
+        """
+        train_df, _, _ = self.load_train_test_split()
+
+        if train_df.empty:
+            return []
+
+        # Group by stratified columns and sample from each group via pandas
+        sampled_dfs: List[pd.DataFrame] = []
+        for _, group in train_df.groupby(self.stratified_columns):
+            n = min(max_per_stratum, len(group))
+            if n > 0:
+                sampled = group.sample(n=n, random_state=seed)
+                sampled_dfs.append(sampled)
+
+        if not sampled_dfs:
+            logger.warning(
+                "No few-shot examples sampled; all groups are empty. Check your dataset and stratified_columns."
+            )
+            return []
+
+        result_df = pd.concat(sampled_dfs)
+        # Shuffle and limit total count
+        result_df = result_df.sample(frac=1, random_state=seed).head(max_total)
+
+        return self.df_to_records(result_df)
+
     @classmethod
     def split_train_test_set(
         cls,

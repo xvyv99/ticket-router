@@ -1,13 +1,11 @@
 """System prompt builder using TaskDescriptor and PromptDescriptor."""
 
 import json
-import random
 from typing import Dict, List
 
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.data.desc import TaskDescriptor, PromptDescriptor
 from ticket_router_base.types import Record, GroundRecord
-from ticket_router_base.config import SEED
 
 
 def _build_task_definitions(
@@ -184,60 +182,4 @@ def build_conversation(
     ]
 
 
-def sample_few_shot_examples(
-    task_descriptor: TaskDescriptor,
-    train_records: List[Record],
-    stratify_task: str | None = None,
-    max_per_lang: int = 3,
-    max_total: int = 12,
-    seed: int = SEED,
-) -> List[Record]:
-    """Sample stratified few-shot examples from training records.
 
-    Groups by language, then by the specified classification task's label,
-    and samples up to max_per_lang examples per language.
-
-    Args:
-        task_descriptor: Task definitions.
-        train_records: Training records to sample from.
-        stratify_task: Name of the classification task to stratify by.
-            If None, uses the first classification task.
-        max_per_lang: Max examples to sample per language.
-        max_total: Max total examples to return.
-        seed: Random seed.
-    """
-    random.seed(seed)
-
-    if not task_descriptor.classification_tasks:
-        return []
-
-    if stratify_task is None:
-        stratify_task = task_descriptor.classification_tasks[0].name
-
-    # Group by language -> stratify task label
-    lang_groups: Dict[str, Dict[str, List[Record]]] = {}
-    for rec in train_records:
-        lang = rec.language.value if rec.language is not None else ""
-        label = rec.labels.get(stratify_task, "")
-        if not label:
-            continue
-        lang_groups.setdefault(lang, {}).setdefault(label, []).append(rec)
-
-    examples: List[Record] = []
-
-    for lang, label_map in lang_groups.items():
-        labels = list(label_map.keys())
-        if not labels:
-            continue
-
-        n_sample = min(max_per_lang, len(labels))
-        selected_labels = random.sample(labels, n_sample)
-
-        for lbl in selected_labels:
-            candidates = label_map[lbl]
-            if not candidates:
-                continue
-            examples.append(random.choice(candidates))
-
-    random.shuffle(examples)
-    return examples[:max_total]
