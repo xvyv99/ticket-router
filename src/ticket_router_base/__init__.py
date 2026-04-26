@@ -29,7 +29,6 @@ __all__ = [
     "OUTPUT_DIR",
     "TRAIN_SET_PATH",
     "TEST_SET_PATH",
-    "TEST_SAMPLE_NUM",
     "DIFFICULT_CASE_NUM",
     "SEED",
     "LOGGING_FORMAT",
