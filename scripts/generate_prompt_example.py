@@ -10,11 +10,10 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
-from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.data import get_dataset
 from ticket_router_base.data.datasets import DATASET_REGISTRY
 from ticket_router_base.types import Record
-from ticket_router_agent.prompt import build_conversation, sample_few_shot_examples
+from ticket_router_agent.prompt import build_conversation
 
 OUTPUT_DIR = Path("outputs/goal_based")
 DEFAULT_OUTPUT = OUTPUT_DIR / "prompt_example.txt"
@@ -57,11 +56,8 @@ def generate_prompt_examples(
 
     few_shot_examples: List[Record] | None = None
     if few_shot:
-        train_records = dataset.df_to_records(train_df)
-        few_shot_examples = sample_few_shot_examples(
-            dataset.task_descriptor,
-            train_records,
-            max_per_lang=3,
+        few_shot_examples = dataset.sample_few_shot_examples(
+            max_per_stratum=3,
             max_total=12,
         )
 
