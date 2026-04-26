@@ -8,6 +8,9 @@ PROJECT_ROOT = Path.cwd()
 DATASET_DIR = PROJECT_ROOT / "dataset"
 assert DATASET_DIR.exists(), f"Dataset directory not found at {DATASET_DIR}"
 
+MODEL_DIR = PROJECT_ROOT / "models"
+MODEL_DIR.mkdir(exist_ok=True)
+
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
