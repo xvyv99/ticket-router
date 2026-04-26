@@ -26,10 +26,7 @@ def run_infer(dataset_name: str, sample_num: int, model_choice: str, few_shot: b
 
     llm_batch = vllm_predictor.predict(test_records)
 
-    vllm_predictor.save_pred(
-        llm_batch,
-        test_records,
-    )
+    vllm_predictor.save_pred_inst(llm_batch, test_records)
 
 
 def main():

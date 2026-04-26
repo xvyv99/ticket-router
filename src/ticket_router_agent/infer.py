@@ -8,7 +8,7 @@ from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
 from ticket_router_base.data import BaseDataset
-from ticket_router_base.predictor import Predictor
+from ticket_router_base.predictor import Predictor, register_model
 from ticket_router_base.types import (
     ErrorFlag,
     Record,
@@ -34,6 +34,7 @@ def parse_llm_output(raw: str, dataset: BaseDataset) -> Dict[str, str]:
     return labels
 
 
+@register_model
 class vLLMPredictor(Predictor):
     name = "vllm"
     sub_name_required = True  # require sub_name to distinguish different model choices

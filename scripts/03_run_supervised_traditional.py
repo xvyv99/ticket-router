@@ -47,7 +47,7 @@ def main():
     logger.info("Running LR inference...")
     lr_pred = lr_predictor.predict(test_records)
 
-    lr_predictor.save_pred(
+    lr_predictor.save_pred_inst(
         lr_pred,
         test_records,
     )
@@ -58,7 +58,7 @@ def main():
     logger.info("Running XGBoost inference...")
     xgb_pred = xgb_predictor.predict(test_records)
 
-    xgb_predictor.save_pred(
+    xgb_predictor.save_pred_inst(
         xgb_pred,
         test_records,
     )

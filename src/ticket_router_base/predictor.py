@@ -128,7 +128,27 @@ class Predictor(ABC):
 
         return save_dir / formated_name
 
+    @classmethod
     def save_pred(
+        cls,
+        dataset: BaseDataset,
+        preds: List[Prediction],
+        records: List[Record],
+        sub_name: str | None = None,
+        save_path: Path | None = None,
+    ) -> None:
+        if cls.sub_name_required:
+            assert sub_name is not None, (
+                "sub_name is required for this model but not set on instance"
+            )
+
+        if save_path is None:
+            save_path = cls.get_save_path(dataset=dataset, sub_name=sub_name)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        write_pred(preds, records, save_path)
+
+    def save_pred_inst(
         self,
         preds: List[Prediction],
         records: List[Record],
@@ -145,14 +165,17 @@ class Predictor(ABC):
 
         write_pred(preds, records, save_path)
 
-    def load_pred(self, save_path: Path | None = None) -> List[PredSave]:
-        if self.sub_name_required:
-            assert self.sub_name is not None, (
+    @classmethod
+    def load_pred(
+        cls, dataset: BaseDataset, sub_name: str | None, save_path: Path | None = None
+    ) -> List[PredSave]:
+        if cls.sub_name_required:
+            assert sub_name is not None, (
                 "sub_name is required for this model but not set on instance"
             )
 
         if save_path is None:
-            save_path = self.get_save_path(dataset=self.dataset, sub_name=self.sub_name)
+            save_path = cls.get_save_path(dataset=dataset, sub_name=sub_name)
 
         assert save_path.exists(), (
             f"Prediction file not found at {save_path}. Did you run inference and save predictions first?"
