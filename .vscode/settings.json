@@ -4,5 +4,6 @@
     ".worktrees/": true,
     ".ruff_cache/": true,
     ".venv": true
-  }
+  },
+  "git.addAICoAuthor": "off"
 }
