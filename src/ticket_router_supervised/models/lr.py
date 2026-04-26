@@ -73,10 +73,11 @@ class LRPredictor(Predictor):
 
             pred = Prediction(
                 request_id=rec.request_id,
-                labels=labels,
-                discrete_features={},
-                generation_target=None,
                 sensitive_attributes=rec.sensitive_attributes,
+                discrete_features=rec.discrete_features,
+                # results
+                labels=labels,
+                generation_target=None,
                 confidences=confidences,
                 raw_output=None,
                 error=ErrorFlag.SUCCESS,
