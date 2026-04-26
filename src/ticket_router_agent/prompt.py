@@ -1,19 +1,21 @@
-"""System prompt builder using TaskDescriptor."""
+"""System prompt builder using TaskDescriptor and PromptDescriptor."""
 
 import json
 import random
 from typing import Dict, List
 
 from ticket_router_base.data import BaseDataset
-from ticket_router_base.data.desc import TaskDescriptor
+from ticket_router_base.data.desc import TaskDescriptor, PromptDescriptor
 from ticket_router_base.types import Record, GroundRecord
 from ticket_router_base.config import SEED
 
 
-def _build_task_definitions(task_descriptor: TaskDescriptor) -> str:
+def _build_task_definitions(
+    task_descriptor: TaskDescriptor, prompt_descriptor: PromptDescriptor
+) -> str:
     """Build human-readable definitions for all tasks."""
     lines: List[str] = []
-    descs = task_descriptor.prompt_descriptor.label_descriptions
+    descs = prompt_descriptor.label_descriptions
 
     if task_descriptor.classification_tasks:
         lines.append("=== Queue / Category Definitions ===")
@@ -58,22 +60,24 @@ def _format_example(record: Record, task_descriptor: TaskDescriptor) -> str:
 
 def build_system_prompt(
     task_descriptor: TaskDescriptor,
+    prompt_descriptor: PromptDescriptor,
     few_shot_examples: List[Record] | None = None,
     demo_record: GroundRecord | None = None,
 ) -> str:
     """Build a rich system prompt with task definitions and examples.
 
     Args:
-        task_descriptor: Task definitions and prompt descriptors.
+        task_descriptor: Task definitions (classification, ordinal, generation).
+        prompt_descriptor: Prompt text descriptors (role, label descriptions, fairness notes).
         few_shot_examples: Optional list of Record examples to include.
         demo_record: Optional demo record used when few_shot_examples is empty.
     """
-    pd = task_descriptor.prompt_descriptor
+    pd = prompt_descriptor
 
     parts: List[str] = [
         pd.system_role,
         "",
-        _build_task_definitions(task_descriptor),
+        _build_task_definitions(task_descriptor, prompt_descriptor),
         "",
         "=== Output Format ===",
         "Respond ONLY with a valid JSON object. Do not include markdown formatting (no ```json code blocks).",
@@ -168,6 +172,7 @@ def build_conversation(
     """
     system_content = build_system_prompt(
         dataset.task_descriptor,
+        dataset.prompt_descriptor,
         few_shot_examples,
         dataset._demo_record(),
     )
@@ -182,43 +187,54 @@ def build_conversation(
 def sample_few_shot_examples(
     task_descriptor: TaskDescriptor,
     train_records: List[Record],
+    stratify_task: str | None = None,
     max_per_lang: int = 3,
     max_total: int = 12,
     seed: int = SEED,
 ) -> List[Record]:
     """Sample stratified few-shot examples from training records.
 
-    Groups by language, then by the first classification task's label,
+    Groups by language, then by the specified classification task's label,
     and samples up to max_per_lang examples per language.
+
+    Args:
+        task_descriptor: Task definitions.
+        train_records: Training records to sample from.
+        stratify_task: Name of the classification task to stratify by.
+            If None, uses the first classification task.
+        max_per_lang: Max examples to sample per language.
+        max_total: Max total examples to return.
+        seed: Random seed.
     """
     random.seed(seed)
 
     if not task_descriptor.classification_tasks:
         return []
 
-    queue_task_name = task_descriptor.classification_tasks[0].name
+    if stratify_task is None:
+        stratify_task = task_descriptor.classification_tasks[0].name
 
-    # Group by language -> queue label
+    # Group by language -> stratify task label
     lang_groups: Dict[str, Dict[str, List[Record]]] = {}
     for rec in train_records:
         lang = rec.language.value if rec.language is not None else ""
-        queue_label = rec.labels.get(queue_task_name, "")
-        if not queue_label:
+        label = rec.labels.get(stratify_task, "")
+        if not label:
             continue
-        lang_groups.setdefault(lang, {}).setdefault(queue_label, []).append(rec)
+        lang_groups.setdefault(lang, {}).setdefault(label, []).append(rec)
 
     examples: List[Record] = []
 
-    for lang, queue_map in lang_groups.items():
-        queues = list(queue_map.keys())
-        if not queues:
+    for lang, label_map in lang_groups.items():
+        labels = list(label_map.keys())
+        if not labels:
             continue
 
-        n_sample = min(max_per_lang, len(queues))
-        selected_queues = random.sample(queues, n_sample)
+        n_sample = min(max_per_lang, len(labels))
+        selected_labels = random.sample(labels, n_sample)
 
-        for q in selected_queues:
-            candidates = queue_map[q]
+        for lbl in selected_labels:
+            candidates = label_map[lbl]
             if not candidates:
                 continue
             examples.append(random.choice(candidates))

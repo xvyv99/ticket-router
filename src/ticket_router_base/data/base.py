@@ -255,8 +255,9 @@ class BaseDataset(ABC):
 
         return "\n".join(lines)
 
+    @classmethod
     def split_train_test_set(
-        self,
+        cls,
         df: pd.DataFrame,
         save: bool = False,
         seed: int = SEED,
@@ -274,24 +275,22 @@ class BaseDataset(ABC):
             test_records: List of test Record instances.
             valid_records: List of validation Record instances.
         """
-        assert (
-            self.stratified_columns is not None and len(self.stratified_columns) > 0
-        ), (
+        assert cls.stratified_columns is not None and len(cls.stratified_columns) > 0, (
             "stratified_columns must be defined with at least one column for stratified splitting"
         )
 
-        for strat_col in self.stratified_columns:
+        for strat_col in cls.stratified_columns:
             assert strat_col in df.columns, (
                 f"Stratification column '{strat_col}' not found"
             )
 
         strat_labels = list(
-            df[self.stratified_columns].itertuples(index=False, name=None)
+            df[cls.stratified_columns].itertuples(index=False, name=None)
         )
 
         sss1 = StratifiedShuffleSplit(
             n_splits=1,
-            test_size=self.TEST_RATIO,
+            test_size=cls.TEST_RATIO,
             random_state=seed,
         )
 
@@ -300,20 +299,20 @@ class BaseDataset(ABC):
         train_valid_df: pd.DataFrame = df.iloc[train_valid_idx].reset_index(drop=True)
         test_df: pd.DataFrame = df.iloc[test_idx].reset_index(drop=True)
 
-        relative_test_size = self.VALID_RATIO / (1 - self.TEST_RATIO)
+        relative_test_size = cls.VALID_RATIO / (1 - cls.TEST_RATIO)
 
         sss2 = StratifiedShuffleSplit(
             n_splits=1, test_size=relative_test_size, random_state=seed
         )
         train_idx, valid_idx = next(
-            sss2.split(train_valid_df, train_valid_df[self.stratified_columns])
+            sss2.split(train_valid_df, train_valid_df[cls.stratified_columns])
         )
         train_df: pd.DataFrame = train_valid_df.iloc[train_idx].reset_index(drop=True)
         valid_df: pd.DataFrame = train_valid_df.iloc[valid_idx].reset_index(drop=True)
 
         if save:
             save_train_path, save_test_path, save_valid_path = (
-                self._get_train_test_path()
+                cls._get_train_test_path()
             )
 
             train_df.to_parquet(save_train_path, index=False)
@@ -322,8 +321,9 @@ class BaseDataset(ABC):
 
         return train_df, test_df, valid_df
 
+    @classmethod
     def load_train_test_split(
-        self,
+        cls,
         train_path: Path | None = None,
         test_path: Path | None = None,
         valid_path: Path | None = None,
@@ -331,7 +331,7 @@ class BaseDataset(ABC):
         """Load a pre-split train/test set from disk."""
 
         default_train_path, default_test_path, default_valid_path = (
-            self._get_train_test_path()
+            cls._get_train_test_path()
         )
 
         if train_path is None:
