@@ -4,11 +4,12 @@ from abc import ABC
 from typing import Dict, List, Tuple, ClassVar
 from pathlib import Path
 from logging import getLogger
+import json
 
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router_base.config import SEED, OUTPUT_DIR
+from ticket_router_base.config import SEED, OUTPUT_DIR, INFERRED_MODEL_CHOICE
 from ticket_router_base.types import Record, GroundRecord, Language
 from .desc import PromptDescriptor, TaskDescriptor
 from .tasks import ClassificationTask, OrdinalTask
@@ -52,6 +53,9 @@ class BaseDataset(ABC):
         List[str]
     ]  # columns to use for stratified train/test split
     sensitive_columns: ClassVar[List[str]]  # columns to use for fairness evaluation
+    inferred_sensitive: ClassVar[bool] = (
+        False  # whether to load inferred sensitive attrs from external JSONL
+    )
 
     def __init_subclass__(cls, skip_check: bool = False) -> None:
         if skip_check:
@@ -101,7 +105,9 @@ class BaseDataset(ABC):
             assert col in df.columns, f"Declared sensitive column '{col}' not found"
 
     @classmethod
-    def df_to_records(cls, df: pd.DataFrame) -> List[Record]:
+    def df_to_records(
+        cls, df: pd.DataFrame, need_inject_inferred: bool = False
+    ) -> List[Record]:
         """Convert a DataFrame to Record list using this dataset's column mapping."""
         records: List[Record] = []
 
@@ -137,14 +143,13 @@ class BaseDataset(ABC):
                 discrete[col] = str(val) if pd.notna(val) else None
 
             # sensitive attributes (for fairness evaluation)
-            sensitive: Dict[str, str] = {}
+            sensitive: Dict[str, str | None] = {}
             for col in cls.sensitive_columns:
                 val = row.get(col)
-                assert pd.notna(val), (
-                    f"Sensitive attribute '{col}' cannot be null for record {req_id}"
-                )
-                # FIXME: Maybe null in some cases? If so, need to decide how to handle nulls in sensitive attributes for fairness eval.
-                sensitive[col] = str(val)
+                if pd.notna(val):
+                    sensitive[col] = str(val)
+                else:
+                    sensitive[col] = None
 
             # generation target
             gen_target: str | None = None
@@ -175,7 +180,46 @@ class BaseDataset(ABC):
             )
 
             records.append(rec)
+
+        # Inject inferred sensitive attributes if enabled
+        if cls.inferred_sensitive and need_inject_inferred:
+            cls._inject_inferred_attrs(records)
+
         return records
+
+    @classmethod
+    def _inject_inferred_attrs(cls, records: List[Record]) -> None:
+        """Load inferred sensitive attributes from external JSONL and merge into records."""
+        model_name = INFERRED_MODEL_CHOICE
+
+        if not model_name:
+            logger.warning(
+                "inferred_sensitive=True but INFERRED_MODEL_CHOICE not set in .env or environment"
+            )
+            return
+
+        infer_path = OUTPUT_DIR / f"infer_{cls.name}_{model_name}.jsonl"
+        if not infer_path.exists():
+            logger.warning(f"Inferred attributes file not found: {infer_path}")
+            return
+
+        inferred: Dict[str, Dict[str, str]] = {}
+        with infer_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                obj = json.loads(line)
+                req_id = obj.pop("request_id")
+                obj.pop("reason", None)
+                inferred[req_id] = {k: str(v) for k, v in obj.items()}
+
+        injected = 0
+        for rec in records:
+            if rec.request_id in inferred:
+                rec.sensitive_attributes.update(inferred[rec.request_id])
+                injected += 1
+
+        logger.info(
+            f"Injected inferred sensitive attrs for {injected}/{len(records)} records from {infer_path}"
+        )
 
     def _demo_record(self) -> GroundRecord:
         """Return a minimal demo record for prompt examples."""

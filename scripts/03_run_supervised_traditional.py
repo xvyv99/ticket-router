@@ -41,7 +41,7 @@ def main():
     xgb_predictor = xgb_trainer.train(train_split, val_split)
     logger.info("XGBoost models trained successfully.")
 
-    test_records = dataset.df_to_records(df_test)
+    test_records = dataset.df_to_records(df_test, need_inject_inferred=True)
 
     # LR predictions
     logger.info("Running LR inference...")
