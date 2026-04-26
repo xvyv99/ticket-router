@@ -94,16 +94,26 @@ class vLLMPredictor(Predictor[vLLMCfg]):
             max_model_len=MAX_TOKEN_LENGTH,
         )
 
+        # tokenizer = self._llm.get_tokenizer()
+
         # Pre-build schema since it doesn't change across runs
         self._schema = build_ticket_schema(self.dataset.task_descriptor)
 
         self.cfg = vLLMCfg(few_shot=few_shot)
 
     def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
+        # Sample few-shot examples once (shared across all records in this batch)
+        few_shot_examples = None
+        if self.few_shot:
+            few_shot_examples = self.dataset.sample_few_shot_examples(
+                max_per_stratum=1,
+                max_total=5,
+            )
+
         # Build conversation prompts for vLLM chat API
-        conversations = []
+        conversations: List[List[Dict[str, str]]] = []
         for rec in records:
-            conv = build_conversation(rec, self.dataset)
+            conv = build_conversation(rec, self.dataset, few_shot_examples)
             conversations.append(conv)
 
         td = self.dataset.task_descriptor
@@ -116,7 +126,9 @@ class vLLMPredictor(Predictor[vLLMCfg]):
         )
 
         outputs = self._llm.chat(
-            conversations, sampling_params=sampling_params, use_tqdm=True
+            conversations,  # type: ignore
+            sampling_params=sampling_params,
+            use_tqdm=True,  # type: ignore
         )
 
         json_err_count = 0
