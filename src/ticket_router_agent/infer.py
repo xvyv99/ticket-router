@@ -8,6 +8,7 @@ from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
 from ticket_router_base.data import BaseDataset
+from ticket_router_base.data.desc import TaskDescriptor
 from ticket_router_base.predictor import Predictor, register_model
 from ticket_router_base.types import (
     ErrorFlag,
@@ -21,14 +22,14 @@ from .types import build_ticket_schema
 from .utils import normalize_model_id
 
 
-def parse_llm_output(raw: str, dataset: BaseDataset) -> Dict[str, str]:
+def parse_llm_output(raw: str, task_descriptor: TaskDescriptor) -> Dict[str, str]:
     """Parse vLLM structured JSON output into a labels dict.
 
     Raises JSONDecodeError on failure.
     """
     loaded = json.loads(raw)
     labels: Dict[str, str] = {}
-    for task in dataset.classification_tasks + dataset.ordinal_tasks:
+    for task in task_descriptor.classification_tasks + task_descriptor.ordinal_tasks:
         val = loaded.get(task.name)
         if val is not None:
             labels[task.name] = str(val)
@@ -83,7 +84,8 @@ class vLLMPredictor(Predictor):
             max_model_len=MAX_TOKEN_LENGTH,
         )
 
-        schema = build_ticket_schema(self.dataset)
+        td = self.dataset.task_descriptor
+        schema = build_ticket_schema(td)
         sampling_params = SamplingParams(
             max_tokens=512,
             temperature=0.7,
@@ -101,16 +103,14 @@ class vLLMPredictor(Predictor):
         for rec, output in zip(records, outputs):
             raw = output.outputs[0].text.strip()
             try:
-                labels = parse_llm_output(raw, self.dataset)
+                labels = parse_llm_output(raw, td)
 
                 # generation target
                 gen_target = None
-                if self.dataset.generation_task:
-                    gen_target = json.loads(raw).get(self.dataset.generation_task.name)
+                if td.generation_task:
+                    gen_target = json.loads(raw).get(td.generation_task.name)
 
-                all_tasks = (
-                    self.dataset.classification_tasks + self.dataset.ordinal_tasks
-                )
+                all_tasks = td.classification_tasks + td.ordinal_tasks
                 pred = Prediction(
                     request_id=rec.request_id,
                     discrete_features=rec.discrete_features,
@@ -125,9 +125,7 @@ class vLLMPredictor(Predictor):
                 results.append(pred)
             except json.JSONDecodeError:
                 json_err_count += 1
-                all_tasks = (
-                    self.dataset.classification_tasks + self.dataset.ordinal_tasks
-                )
+                all_tasks = td.classification_tasks + td.ordinal_tasks
 
                 pred = Prediction(
                     request_id=rec.request_id,

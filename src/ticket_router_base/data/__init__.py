@@ -1,12 +1,7 @@
 # ticket_router.data package
-from .base import (
-    BaseDataset,
-    DFDataset,
-    ClassificationTask,
-    GenerationTask,
-    OrdinalTask,
-)
-from .prompt_descriptor import PromptDescriptor
+from .base import BaseDataset, DFDataset
+from .tasks import ClassificationTask, GenerationTask, OrdinalTask
+from .desc import PromptDescriptor, TaskDescriptor
 from .datasets import (
     MultilingualCustomerSupportDataset,
     CFPBComplaintsDataset,
@@ -24,6 +19,7 @@ __all__ = [
     "GenerationTask",
     "OrdinalTask",
     "PromptDescriptor",
+    "TaskDescriptor",
     # datasets
     "MultilingualCustomerSupportDataset",
     "CFPBComplaintsDataset",
