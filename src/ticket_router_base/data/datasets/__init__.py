@@ -4,8 +4,6 @@ from typing import Type, Dict, List
 
 from ticket_router_base.data.base import (
     BaseDataset,
-    ClassificationTask,
-    GenerationTask,
 )
 from .multilingual_customer_support import (
     MultilingualCustomerSupportDataset,
@@ -32,9 +30,6 @@ def get_dataset(name: str) -> Type[BaseDataset]:
 
 
 __all__ = [
-    "BaseDataset",
-    "ClassificationTask",
-    "GenerationTask",
     "MultilingualCustomerSupportDataset",
     "CFPBComplaintsDataset",
     "FrenchGovOSSDataset",
