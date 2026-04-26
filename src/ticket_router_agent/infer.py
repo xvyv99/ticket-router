@@ -16,6 +16,7 @@ from ticket_router_base.types import (
 )
 
 from .config import MAX_TOKEN_LENGTH, SAVE_DIR
+from .prompt import build_conversation
 from .types import build_ticket_schema
 from .utils import normalize_model_id
 
@@ -69,17 +70,18 @@ class vLLMPredictor(Predictor):
         self.few_shot = few_shot
 
     def predict(self, records: List[Record]) -> List[Prediction]:
-        # Build prompts from records
-        prompts = []
+        # Build conversation prompts for vLLM chat API
+        conversations = []
         for rec in records:
-            prompt = self.dataset.build_system_prompt()
-            prompts.append(prompt)
+            conv = build_conversation(rec, self.dataset)
+            conversations.append(conv)
 
         llm = LLM(
             model=str(self.model_name_or_path),
             trust_remote_code=True,
             gpu_memory_utilization=0.85,
             max_model_len=MAX_TOKEN_LENGTH,
+            quantization="bitsandbytes",
         )
 
         schema = build_ticket_schema(self.dataset)
@@ -90,7 +92,9 @@ class vLLMPredictor(Predictor):
             structured_outputs=StructuredOutputsParams(json=schema),
         )
 
-        outputs = llm.generate(prompts, sampling_params, use_tqdm=True)
+        outputs = llm.chat(
+            conversations, sampling_params=sampling_params, use_tqdm=True
+        )
 
         json_err_count = 0
         results: List[Prediction] = []
