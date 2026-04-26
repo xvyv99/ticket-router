@@ -22,9 +22,9 @@ class AttributePrediction(BaseModel):
     """Single ticket attribute inference result."""
 
     request_id: str
-    user_type: UserType
+    user_type: UserType | None
     industry: str
-    tech_proficiency: TechProficiency
+    tech_proficiency: TechProficiency | None
     reason: str
 
 

@@ -7,7 +7,7 @@ from vllm import LLM, SamplingParams
 from vllm.sampling_params import StructuredOutputsParams
 
 from .base import get_inferrer
-from .schema import AttributePrediction, InferenceResult, UserType
+from .schema import AttributePrediction, InferenceResult, UserType, TechProficiency
 
 
 def infer_attributes(
@@ -16,7 +16,7 @@ def infer_attributes(
     dataset_path: Optional[Path] = None,
     limit: Optional[int] = None,
     split: Literal["train", "test", "valid"] = "test",
-    max_tokens: int = 512,
+    max_tokens: int = 1024,
     temperature: float = 0.3,
     output_path: Optional[Path] = None,
 ) -> InferenceResult:
@@ -38,8 +38,6 @@ def infer_attributes(
     inferrer = get_inferrer(dataset_name)
 
     print(f"Loading records from dataset '{dataset_name}' (split={split})...")
-
-    assert split in {"train", "test", "valid"}, f"Invalid split: {split}"
 
     records = inferrer.load_records(
         dataset_path=dataset_path,
@@ -78,8 +76,15 @@ def infer_attributes(
         raw = output.outputs[0].text.strip()
         pred = inferrer.parse_output(raw, rec.request_id)
 
-        if pred.user_type == UserType.UNKNOWN and "parse failed" in pred.reason.lower():
-            error_count += 1
+        if pred.user_type == UserType.UNKNOWN:
+            pred.user_type = None
+            if "parse failed" in pred.reason.lower():
+                error_count += 1
+
+        if pred.tech_proficiency == TechProficiency.UNKNOWN:
+            pred.tech_proficiency = None
+            if "parse failed" in pred.reason.lower():
+                error_count += 1
 
         predictions.append(pred)
 
