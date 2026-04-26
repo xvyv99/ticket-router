@@ -16,7 +16,7 @@ from ticket_router_base.eval import evaluate_model_dataset, EvaluationReport
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.eval.report import print_overall_report
-from ticket_router_base.predictor import scan_pred_saves
+from ticket_router_base.predictor import scan_pred_saves, get_model
 
 console = Console()
 
@@ -25,17 +25,18 @@ def illustrate_metric(
     dataset_name: str,
 ) -> None:
     dataset_type = get_dataset(dataset_name)
+    # FIXME: unsupport multi dataset for now, need to refactor to support multiple datasets in the future
 
     results = scan_pred_saves()
 
     reports: List[EvaluationReport] = []
-    for model, dataset_lst in results.items():
-        for dataset_type in dataset_lst:
-            if dataset_type.name != dataset_name:
-                continue
-            dataset = dataset_type()
-            report = evaluate_model_dataset(model, dataset)
-            reports.append(report)
+    for r in results:
+        if r.dataset_name != dataset_name:
+            continue
+        dataset = dataset_type()
+        pred_type = get_model(r.predictor_name)
+        report = evaluate_model_dataset(pred_type, dataset, r.sub_name)
+        reports.append(report)
 
     print_overall_report(reports)
 

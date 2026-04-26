@@ -18,7 +18,7 @@ def evaluate_model_dataset(
     # TODO: error summary
 
     return EvaluationReport(
-        model_name=model.name,
+        model_name=sub_name or model.name,
         dataset=dataset,
         file_path=pred_file_path,
         task_results=task_results,
