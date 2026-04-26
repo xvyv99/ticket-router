@@ -11,12 +11,16 @@ from ticket_router_agent.infer import vLLMPredictor
 logger = getLogger(__name__)
 
 
-def run_infer(dataset_name: str, sample_num: int, model_choice: str, few_shot: bool, n_runs: int):
+def run_infer(
+    dataset_name: str, sample_num: int, model_choice: str, few_shot: bool, n_runs: int
+):
     dataset_type = get_dataset(dataset_name)
     dataset = dataset_type()
 
     _, df_test, _ = dataset.load_train_test_split()
-    test_records = dataset.df_to_records(df_test)[:sample_num]
+    test_records = dataset.df_to_records(df_test, need_inject_inferred=True)[
+        :sample_num
+    ]
 
     vllm_predictor = vLLMPredictor(
         model_name_or_path=model_choice,
@@ -68,7 +72,9 @@ def main():
 
     for model_choice in args.model_choice:
         logger.info(f"Running inference with {model_choice}...")
-        run_infer(args.dataset, args.sample_num, model_choice, args.few_shot, args.n_runs)
+        run_infer(
+            args.dataset, args.sample_num, model_choice, args.few_shot, args.n_runs
+        )
         logger.info(f"Inference complete for {model_choice}")
 
 

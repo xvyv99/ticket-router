@@ -174,7 +174,7 @@ class Predictor(ABC, Generic[CfgT]):
     sub_name: str | None = None  # defined in subclasses instance
 
     dataset: BaseDataset
-    cfg: CfgT
+    cfg: CfgT | None = None
 
     def __init_subclass__(cls) -> None:
         if not hasattr(cls, "name"):
