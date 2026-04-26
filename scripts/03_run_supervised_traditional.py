@@ -48,7 +48,6 @@ def main():
     lr_pred = lr_predictor.predict(test_records)
 
     lr_predictor.save_pred(
-        dataset,
         lr_pred,
         test_records,
     )
@@ -60,7 +59,6 @@ def main():
     xgb_pred = xgb_predictor.predict(test_records)
 
     xgb_predictor.save_pred(
-        dataset,
         xgb_pred,
         test_records,
     )

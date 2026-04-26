@@ -88,6 +88,9 @@ class Predictor(ABC):
     name: ClassVar[str]
     DEFAULT_SAVE_DIR: ClassVar[Path]
 
+    sub_name_required: ClassVar[bool] = False
+    sub_name: str | None = None  # defined in subclasses instance
+
     dataset: BaseDataset
 
     def __init_subclass__(cls) -> None:
@@ -105,39 +108,51 @@ class Predictor(ABC):
         raise NotImplementedError
 
     @classmethod
-    def format_pred_savea_name(cls, dataset: BaseDataset) -> str:
-        return f"{cls.name}_{dataset.name}_preds.jsonl"
+    def format_pred_save_name(cls, dataset: BaseDataset, sub_name: str | None) -> str:
+        if sub_name:
+            name = f"{cls.name}_{sub_name}_{dataset.name}_preds.jsonl"
+        else:
+            name = f"{cls.name}_{dataset.name}_preds.jsonl"
+
+        return name
 
     @classmethod
-    def get_save_path(cls, dataset: BaseDataset, save_dir: Path | None = None) -> Path:
+    def get_save_path(
+        cls, dataset: BaseDataset, sub_name: str | None, save_dir: Path | None = None
+    ) -> Path:
         """Generate a prediction save path based on the dataset and model name."""
-        formated_name = cls.format_pred_savea_name(dataset=dataset)
+        formated_name = cls.format_pred_save_name(dataset=dataset, sub_name=sub_name)
 
         if save_dir is None:
             save_dir = cls.DEFAULT_SAVE_DIR
 
         return save_dir / formated_name
 
-    @classmethod
     def save_pred(
-        cls,
-        dataset: BaseDataset,
+        self,
         preds: List[Prediction],
         records: List[Record],
         save_path: Path | None = None,
     ) -> None:
+        if self.sub_name_required:
+            assert self.sub_name is not None, (
+                "sub_name is required for this model but not set on instance"
+            )
+
         if save_path is None:
-            save_path = cls.get_save_path(dataset=dataset)
+            save_path = self.get_save_path(dataset=self.dataset, sub_name=self.sub_name)
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_pred(preds, records, save_path)
 
-    @classmethod
-    def load_pred(
-        cls, dataset: BaseDataset, save_path: Path | None = None
-    ) -> List[PredSave]:
+    def load_pred(self, save_path: Path | None = None) -> List[PredSave]:
+        if self.sub_name_required:
+            assert self.sub_name is not None, (
+                "sub_name is required for this model but not set on instance"
+            )
+
         if save_path is None:
-            save_path = cls.get_save_path(dataset=dataset)
+            save_path = self.get_save_path(dataset=self.dataset, sub_name=self.sub_name)
 
         assert save_path.exists(), (
             f"Prediction file not found at {save_path}. Did you run inference and save predictions first?"

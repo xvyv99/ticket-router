@@ -8,16 +8,16 @@ from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
 from ticket_router_base.data import BaseDataset
+from ticket_router_base.predictor import Predictor
 from ticket_router_base.types import (
     ErrorFlag,
     Record,
-    PredictionBatch,
     Prediction,
 )
 
-from .config import MAX_TOKEN_LENGTH
-from .prompt import build_prompt
+from .config import MAX_TOKEN_LENGTH, SAVE_DIR
 from .types import build_ticket_schema
+from .utils import normalize_model_id
 
 
 def parse_llm_output(raw: str, dataset: BaseDataset) -> Dict[str, str]:
@@ -34,13 +34,17 @@ def parse_llm_output(raw: str, dataset: BaseDataset) -> Dict[str, str]:
     return labels
 
 
-class vLLMPredictor:
-    supports_tags: bool = True
-    supports_preliminary_answer: bool = True
+class vLLMPredictor(Predictor):
+    name = "vllm"
+    sub_name_required = True  # require sub_name to distinguish different model choices
 
     model_name_or_path: Path | str
+    sub_name: str | None  # set to model choice for save name formatting
+
     dataset: BaseDataset
     few_shot: bool
+
+    DEFAULT_SAVE_DIR = SAVE_DIR
 
     def __init__(
         self,
@@ -54,19 +58,20 @@ class vLLMPredictor:
             )
 
         self.model_name_or_path = model_name_or_path
+        self.sub_name = normalize_model_id(
+            model_name_or_path.stem
+            if isinstance(model_name_or_path, Path)
+            else model_name_or_path
+        )
+
         self.dataset = dataset
         self.few_shot = few_shot
 
-    def predict(self, records: List[Record]) -> PredictionBatch:
+    def predict(self, records: List[Record]) -> List[Prediction]:
         # Build prompts from records
         prompts = []
         for rec in records:
-            prompt = build_prompt(
-                self.dataset,
-                rec.title or "",
-                rec.body,
-                rec.language,
-            )
+            prompt = self.dataset.build_system_prompt()
             prompts.append(prompt)
 
         llm = LLM(
@@ -99,32 +104,38 @@ class vLLMPredictor:
                 if self.dataset.generation_task:
                     gen_target = json.loads(raw).get(self.dataset.generation_task.name)
 
-                all_tasks = self.dataset.classification_tasks + self.dataset.ordinal_tasks
+                all_tasks = (
+                    self.dataset.classification_tasks + self.dataset.ordinal_tasks
+                )
                 pred = Prediction(
                     request_id=rec.request_id,
+                    discrete_features=rec.discrete_features,
+                    sensitive_attributes=rec.sensitive_attributes,
+                    # results
                     labels=labels,
-                    discrete_features={},
                     generation_target=gen_target,
-                    confidences={task.name: None for task in all_tasks},
+                    confidences=None,
                     raw_output=raw,
                     error=ErrorFlag.SUCCESS,
                 )
                 results.append(pred)
             except json.JSONDecodeError:
                 json_err_count += 1
-                all_tasks = self.dataset.classification_tasks + self.dataset.ordinal_tasks
+                all_tasks = (
+                    self.dataset.classification_tasks + self.dataset.ordinal_tasks
+                )
 
                 pred = Prediction(
                     request_id=rec.request_id,
-                    labels={
-                        task.name: task.labels[0] for task in all_tasks
-                    },
-                    discrete_features={},
+                    discrete_features=rec.discrete_features,
+                    sensitive_attributes=rec.sensitive_attributes,
+                    # results
+                    labels={task.name: "" for task in all_tasks},
                     generation_target=None,
-                    confidences={task.name: None for task in all_tasks},
+                    confidences=None,
                     raw_output=None,
                     error=ErrorFlag.JSON_ERR,
                 )
                 results.append(pred)
 
-        return PredictionBatch(predictions=results)
+        return results
