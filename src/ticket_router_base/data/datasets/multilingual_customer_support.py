@@ -7,7 +7,7 @@ from ticket_router_base.data import (
     GenerationTask,
     OrdinalTask,
 )
-from ticket_router_base.types import GroundRecord
+from ticket_router_base.types import GroundRecord, Language
 
 DEFAULT_DATASET_PATH = (
     DATASET_DIR
@@ -29,6 +29,14 @@ class MultilingualCustomerSupportDataset(DFDataset):
     title_column = "subject"
     body_column = "body"
     language_column = "language"
+
+    str2lang = {
+        "en": Language.ENGLISH,
+        "es": Language.SPANISH,
+        "fr": Language.FRENCH,
+        "de": Language.GERMAN,
+        "pt": Language.PORTUGUESE,
+    }
 
     classification_tasks = [
         ClassificationTask(

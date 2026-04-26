@@ -5,10 +5,20 @@ Classification labels are now stored in a generic `labels: Dict[str, str]` dict,
 making the type system fully decoupled from any particular dataset schema.
 """
 
-from enum import IntFlag, auto
+from enum import IntFlag, auto, StrEnum
 from typing import Dict
 
 from pydantic import BaseModel
+
+
+class Language(StrEnum):
+    """Supported languages for tickets."""
+
+    ENGLISH = "English"
+    SPANISH = "Spanish"
+    FRENCH = "French"
+    GERMAN = "German"
+    PORTUGUESE = "Portuguese"
 
 
 class ErrorFlag(IntFlag):
@@ -48,6 +58,7 @@ class Record(GroundRecord):
     request_id: str
     title: str | None  # optional subject line
     body: str
+    language: Language | None
 
 
 class Prediction(GroundRecord):
