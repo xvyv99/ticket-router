@@ -209,9 +209,11 @@ __marimo__/
 .worktrees/
 
 *.pdf
-dataset/
-outputs/
-outputs_bak/
+/dataset/
+/outputs/
+/outputs_bak/
 
-docs/REQUIREMENTS.md
-models/
+/docs/REQUIREMENTS.md
+/models/
+
+.env*
