@@ -141,6 +141,7 @@ class Predictor(ABC):
             raise TypeError(f"{cls.__name__} must define 'DEFAULT_SAVE_DIR'")
 
     def predict(self, records: List[Record]) -> List[Prediction]:
+        # TODO: add multi-run
         raise NotImplementedError
 
     @classmethod

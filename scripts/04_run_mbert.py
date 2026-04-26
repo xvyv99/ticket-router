@@ -10,49 +10,33 @@ from ticket_router_supervised.models.mbert import (
 )
 from ticket_router_base.utils import write_pred
 from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
-from ticket_router_base.data import load_test_set, load_train_set
 from ticket_router_base.data import MultilingualCustomerSupportDataset
 
 logger = getLogger(__name__)
 
 
 def run_smoke_test():
-    logger.info("Smoke Test: 200 samples, 1 epoch")
+    logger.info("Smoke Test: 100 samples, 1 epoch")
     dataset = MultilingualCustomerSupportDataset()
-    records = load_train_set()[:200]
+    df_train, df_test, df_val = dataset.load_train_test_split()
+    train_split = dataset.df_to_records(df_train)
+    val_split = dataset.df_to_records(df_val)
 
-    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
-    first_task = all_tasks[0].name if all_tasks else None
-    stratify = None
-    if first_task:
-        stratify = [r.labels.get(first_task, "") for r in records]
-
-    train_split, val_split = train_test_split(
-        records, test_size=0.2, stratify=stratify, random_state=42
-    )
-    logger.info(f"Train: {len(train_split)}, Val: {len(val_split)}")
-    trainer = MBERTTrainer()
-    trainer.train(train_split, dataset, val_split)
+    trainer = MBERTTrainer(dataset)
+    trainer.train(train_split, val_split, 1)
     logger.info("Smoke test passed!")
 
 
 def run_full_training():
     logger.info("Full Training: 4k minus test_set")
     dataset = MultilingualCustomerSupportDataset()
-    records = load_train_set()
+    df_train, df_test, df_val = dataset.load_train_test_split()
+    train_split = dataset.df_to_records(df_train)
+    val_split = dataset.df_to_records(df_val)
 
-    all_tasks = dataset.classification_tasks + dataset.ordinal_tasks
-    first_task = all_tasks[0].name if all_tasks else None
-    stratify = None
-    if first_task:
-        stratify = [r.labels.get(first_task, "") for r in records]
-
-    train_split, val_split = train_test_split(
-        records, test_size=0.2, stratify=stratify, random_state=42
-    )
     logger.info(f"Train: {len(train_split)}, Val: {len(val_split)}")
-    trainer = MBERTTrainer()
-    trainer.train(train_split, dataset, val_split)
+    trainer = MBERTTrainer(dataset)
+    trainer.train(train_split, val_split)
     logger.info("Full training done!")
 
 
@@ -65,15 +49,16 @@ def run_inference():
         model_paths[task.name] = path
 
     predictor = MBERTPredictor(model_paths=model_paths, dataset=dataset)
-    test_records = load_test_set()
+    df_train, df_test, df_val = dataset.load_train_test_split()
+    test_records = dataset.df_to_records(df_test)
 
     logger.info(f"Running inference on {len(test_records)} test records...")
-    batch = predictor.predict(test_records)
+    preds = predictor.predict(test_records)
 
     output_path = OUTPUT_DIR / "supervised" / "mbert_predictions.jsonl"
-    write_pred(batch.predictions, test_records, output_path)
+    write_pred(preds, test_records, output_path)
 
-    logger.info(f"Processed {len(batch.predictions)} records. Output: {output_path}")
+    logger.info(f"Processed {len(preds)} records. Output: {output_path}")
 
 
 def main():

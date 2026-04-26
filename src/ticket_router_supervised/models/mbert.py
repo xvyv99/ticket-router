@@ -1,37 +1,41 @@
 """mBERT fine-tuning training and inference for arbitrary classification tasks."""
 
+from logging import getLogger
 from pathlib import Path
 from typing import Dict, List, Tuple
-from logging import getLogger
 
 import torch
-from tqdm import tqdm
-from transformers import (
-    RemBertTokenizer,
-    RemBertForSequenceClassification,
-    AutoTokenizer,
-    AutoModelForSequenceClassification,
-    TrainingArguments,
-    Trainer,
-)
 from datasets import Dataset
-
-from ticket_router_base.config import OUTPUT_DIR, SEED
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import (
-    Record,
-    Prediction,
-    ErrorFlag,
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    RemBertForSequenceClassification,
+    RemBertTokenizer,
+    Trainer as HFTrainer,
+    TrainingArguments,
 )
-from ticket_router_base.predictor import Predictor, Trainer as TrainerProtocol
+from tqdm import tqdm
+
+from ticket_router_base.config import MODEL_DIR, SEED
+from ticket_router_base.data import BaseDataset
+from ticket_router_base.predictor import (
+    Predictor,
+    Trainer as TrainerProtocol,
+    register_model,
+)
+from ticket_router_base.types import (
+    ErrorFlag,
+    Prediction,
+    Record,
+)
 from ticket_router_base.utils import combine_texts
 
+from ticket_router_supervised.config import TORCH_DEVICE, SAVE_DIR
 from ticket_router_supervised.utils import create_datasets
-from ticket_router_supervised.config import TORCH_DEVICE
 
 logger = getLogger(__name__)
 
-MODEL_DIR = OUTPUT_DIR / "supervised" / "models" / "mbert"
+MODEL_DIR = MODEL_DIR / "mbert"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 MBERT_INFER_BATCH_SIZE = 64
@@ -49,7 +53,7 @@ DEFAULT_TRAIN_ARGS = TrainingArguments(
     load_best_model_at_end=True,
     metric_for_best_model="eval_loss",
     seed=SEED,
-    logging_steps=50,
+    logging_steps=30,
     report_to=["none"],
 )
 
@@ -69,7 +73,7 @@ def train_mbert(
     save_path: Path,
     model_name: str = "google/rembert",
     epochs: int = 3,
-):
+) -> HFTrainer:
     tokenizer = RemBertTokenizer.from_pretrained(model_name)
     model = RemBertForSequenceClassification.from_pretrained(
         model_name, num_labels=len(label2id)
@@ -87,7 +91,7 @@ def train_mbert(
     args = DEFAULT_TRAIN_ARGS
     args.output_dir = str(MODEL_DIR / target_col)
     args.num_train_epochs = epochs
-    trainer = Trainer(
+    trainer = HFTrainer(
         model=model, args=args, train_dataset=train_tok, eval_dataset=val_tok
     )
     trainer.train()
@@ -134,36 +138,38 @@ def predict_mbert(
     return results
 
 
+@register_model
 class MBERTPredictor(Predictor):
-    supports_tags = False
-    supports_preliminary_answer = False
+    name = "mbert"
+    DEFAULT_SAVE_DIR = SAVE_DIR
 
     _model_paths: Dict[str, Path]
-    _dataset: BaseDataset
+    dataset: BaseDataset
 
     def __init__(self, model_paths: Dict[str, Path], dataset: BaseDataset):
         self._model_paths = model_paths
-        self._dataset = dataset
+        self.dataset = dataset
 
-    def predict(self, records: List[Record]) -> PredictionBatch:
+    def predict(self, records: List[Record]) -> List[Prediction]:
         task_results: Dict[str, List[Tuple[str, float]]] = {}
         for task_name, model_path in self._model_paths.items():
-            id2label = self._dataset.get_id2label(task_name)
+            id2label = self.dataset.get_id2label(task_name)
             task_results[task_name] = predict_mbert(model_path, records, id2label)
 
         predictions = []
         for i, rec in enumerate(records):
             labels: Dict[str, str] = {}
-            confidences: Dict[str, float | None] = {}
-            for task_name in self._dataset.task_names:
+            confidences: Dict[str, float] = {}
+            for task_name in self.dataset.task_names:
                 result = task_results[task_name]
                 labels[task_name] = result[i][0]
                 confidences[task_name] = result[i][1]
 
             pred = Prediction(
                 request_id=rec.request_id,
+                sensitive_attributes=rec.sensitive_attributes,
                 labels=labels,
-                discrete_features={},
+                discrete_features=rec.discrete_features,
                 generation_target=None,
                 confidences=confidences,
                 raw_output=None,
@@ -171,34 +177,40 @@ class MBERTPredictor(Predictor):
             )
             predictions.append(pred)
 
-        return PredictionBatch(predictions=predictions)
+        return predictions
 
 
 class MBERTTrainer(TrainerProtocol):
+    dataset: BaseDataset
+
+    def __init__(self, dataset: BaseDataset):
+        self.dataset = dataset
+
     def train(
         self,
         records: List[Record],
-        dataset: BaseDataset,
         val_records: List[Record] | None = None,
+        epochs: int = 3,
     ) -> MBERTPredictor:
         if val_records is None:
             raise ValueError("MBERTTrainer requires val_records for early stopping")
-        train_ds = create_datasets(records, dataset)
-        val_ds = create_datasets(val_records, dataset)
+        train_ds = create_datasets(records, self.dataset)
+        val_ds = create_datasets(val_records, self.dataset)
 
         model_paths: Dict[str, Path] = {}
-        for task in dataset.classification_tasks + dataset.ordinal_tasks:
+        for task in self.dataset.classification_tasks + self.dataset.ordinal_tasks:
             logger.info(f"Starting remBERT training for {task.name}...")
             save_path = MODEL_DIR / f"{task.name}_best"
             train_mbert(
                 train_ds,
                 val_ds,
-                id2label=dataset.get_id2label(task.name),
-                label2id=dataset.get_label2id(task.name),
+                id2label=self.dataset.get_id2label(task.name),
+                label2id=self.dataset.get_label2id(task.name),
                 target_col=task.name,
                 save_path=save_path,
+                epochs=epochs,
             )
             logger.info(f"{task.name} model training complete!")
             model_paths[task.name] = save_path
 
-        return MBERTPredictor(model_paths=model_paths, dataset=dataset)
+        return MBERTPredictor(model_paths=model_paths, dataset=self.dataset)
