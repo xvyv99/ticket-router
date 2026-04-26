@@ -2,7 +2,9 @@
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
+from dataclasses import dataclass, asdict
+from logging import getLogger
 
 from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
@@ -16,11 +18,14 @@ from ticket_router_base.types import (
     Record,
     Prediction,
 )
+from ticket_router_base.cfg import Cfg
 
 from .config import MAX_TOKEN_LENGTH, SAVE_DIR
 from .prompt import build_conversation
 from .types import build_ticket_schema
 from .utils import normalize_model_id
+
+logger = getLogger(__name__)
 
 
 def parse_llm_output(raw: str, task_descriptor: TaskDescriptor) -> Dict[str, str]:
@@ -37,8 +42,16 @@ def parse_llm_output(raw: str, task_descriptor: TaskDescriptor) -> Dict[str, str
     return labels
 
 
+@dataclass(frozen=True)
+class vLLMCfg(Cfg):
+    few_shot: bool
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 @register_model
-class vLLMPredictor(Predictor):
+class vLLMPredictor(Predictor[vLLMCfg]):
     name = "vllm"
     sub_name_required = True  # require sub_name to distinguish different model choices
 
@@ -46,7 +59,6 @@ class vLLMPredictor(Predictor):
     sub_name: str | None  # set to model choice for save name formatting
 
     dataset: BaseDataset
-    few_shot: bool
 
     DEFAULT_SAVE_DIR = SAVE_DIR
 
@@ -84,6 +96,8 @@ class vLLMPredictor(Predictor):
 
         # Pre-build schema since it doesn't change across runs
         self._schema = build_ticket_schema(self.dataset.task_descriptor)
+
+        self.cfg = vLLMCfg(few_shot=few_shot)
 
     def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         # Build conversation prompts for vLLM chat API
@@ -147,5 +161,9 @@ class vLLMPredictor(Predictor):
                     error=ErrorFlag.JSON_ERR,
                 )
                 results.append(pred)
+
+        logger.info(
+            f"vLLM prediction completed with {json_err_count} JSON decode errors out of {len(records)} samples"
+        )
 
         return results

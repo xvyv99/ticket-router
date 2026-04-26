@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from logging import getLogger
 from abc import ABC
-from typing import List, ClassVar, Type, Dict, TypeVar
+from typing import List, ClassVar, Type, Dict, TypeVar, Any, Generic
 from pathlib import Path
 from dataclasses import dataclass
+import json
 
 from .types import Record, Prediction, PredSave
-from .data import BaseDataset, get_dataset, DATASET_REGISTRY
+from .data import BaseDataset, DATASET_REGISTRY
 from .utils import write_pred, load_pred
+from .cfg import Cfg
 
 logger = getLogger(__name__)
 
@@ -23,6 +25,7 @@ class PredictorKey:
     dataset_name: str
     sub_name: str | None = None
     run_id: int = 0
+    cfg_id: str | None = None
     path: Path
 
 
@@ -51,17 +54,43 @@ def get_model(name: str) -> Type[Predictor]:
     return MODEL_REGISTRY[name]
 
 
+def update_index_json(save_dir: Path, cfg: Cfg) -> None:
+    """Write or update index.json in save_dir with cfg_id -> cfg mapping."""
+    index_path = save_dir / "index.json"
+    data: dict[str, dict[str, Any]] = {}
+
+    cfg_id = cfg.cfg_id()
+
+    if index_path.exists():
+        with index_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    if cfg_id not in data:
+        data[cfg_id] = cfg.to_dict()
+        with index_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_index_json(save_dir: Path) -> dict[str, dict[str, Any]]:
+    """Load index.json from save_dir, returning empty dict if absent."""
+    index_path = save_dir / "index.json"
+    if not index_path.exists():
+        return {}
+    with index_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def parse_pred_path(path: Path, base_dir: Path) -> PredictorKey:
     """Parse a prediction file path into a PredictorKey.
 
-    Expected structure under base_dir:
-        {model_name}/{sub_name_or_}/{dataset_name}/preds_{run_id}.jsonl
+    Expected filenames:
+        preds_{run_id}_{cfg_id}.jsonl  (new, with cfg_id)
+        preds_{run_id}.jsonl           (legacy, no cfg_id)
     """
     rel = path.relative_to(base_dir)
     parts = rel.parts
     if len(parts) != 4:
         raise ValueError(
-            f"Invalid prediction path structure: {rel}. Expected: model/sub/dataset/preds_N.jsonl"
+            f"Invalid prediction path structure: {rel}. Expected: model/sub/dataset/preds_*.jsonl"
         )
 
     model_name = parts[0]
@@ -69,17 +98,29 @@ def parse_pred_path(path: Path, base_dir: Path) -> PredictorKey:
     dataset_name = parts[2]
     filename = parts[3]
 
-    # e.g. "preds_0.jsonl" -> run_id 0
     stem = filename.replace(".jsonl", "")
     if not stem.startswith("preds_"):
-        raise ValueError(f"Invalid prediction filename: {filename}. Expected preds_N.jsonl")
-    run_id = int(stem.split("_", 1)[1])
+        raise ValueError(
+            f"Invalid prediction filename: {filename}. Expected preds_*.jsonl"
+        )
+
+    # Parse: preds_0  or  preds_0_a3f7c2d1
+    tokens = stem.split("_")
+    if len(tokens) == 2:  # preds_run_id (legacy)
+        run_id = int(tokens[1])
+        cfg_id = None
+    elif len(tokens) == 3:  # preds_run_id_cfg_id
+        run_id = int(tokens[1])
+        cfg_id = tokens[2]
+    else:
+        raise ValueError(f"Invalid prediction filename: {filename}")
 
     return PredictorKey(
         predictor_name=model_name,
         dataset_name=dataset_name,
         sub_name=sub_name,
         run_id=run_id,
+        cfg_id=cfg_id,
         path=path,
     )
 
@@ -109,6 +150,7 @@ def scan_pred_saves(
                     dataset_name=key.dataset_name,
                     sub_name=None,
                     run_id=key.run_id,
+                    cfg_id=key.cfg_id,
                     path=key.path,
                 )
 
@@ -121,7 +163,10 @@ def scan_pred_saves(
     return results
 
 
-class Predictor(ABC):
+CfgT = TypeVar("CfgT", bound=Cfg)
+
+
+class Predictor(ABC, Generic[CfgT]):
     name: ClassVar[str]
     DEFAULT_SAVE_DIR: ClassVar[Path]
 
@@ -129,6 +174,7 @@ class Predictor(ABC):
     sub_name: str | None = None  # defined in subclasses instance
 
     dataset: BaseDataset
+    cfg: CfgT
 
     def __init_subclass__(cls) -> None:
         if not hasattr(cls, "name"):
@@ -153,15 +199,20 @@ class Predictor(ABC):
         dataset: BaseDataset,
         sub_name: str | None = None,
         run_id: int = 0,
+        cfg_id: str | None = None,
         save_dir: Path | None = None,
     ) -> Path:
         """Generate a prediction save path based on directory hierarchy.
 
-        Structure: {save_dir}/{model_name}/{sub_or_}/{dataset_name}/preds_{run_id}.jsonl
+        Structure:
+            {save_dir}/{model_name}/{sub_or_}/{dataset_name}/preds_{run_id}_{cfg_id}.jsonl
+            {save_dir}/{model_name}/{sub_or_}/{dataset_name}/preds_{run_id}.jsonl  (legacy)
         """
         base = (save_dir or cls.DEFAULT_SAVE_DIR) / cls.name
         sub = sub_name if sub_name else "_"
         base = base / sub / dataset.name
+        if cfg_id is not None:
+            return base / f"preds_{run_id}_{cfg_id}.jsonl"
         return base / f"preds_{run_id}.jsonl"
 
     @classmethod
@@ -172,6 +223,7 @@ class Predictor(ABC):
         records: List[Record],
         sub_name: str | None = None,
         run_id: int = 0,
+        cfg: Cfg | None = None,
         save_path: Path | None = None,
     ) -> None:
         if cls.sub_name_required:
@@ -179,13 +231,19 @@ class Predictor(ABC):
                 "sub_name is required for this model but not set on instance"
             )
 
+        cfg_id = cfg.cfg_id() if cfg is not None else None
+
         if save_path is None:
             save_path = cls.get_save_path(
-                dataset=dataset, sub_name=sub_name, run_id=run_id
+                dataset=dataset, sub_name=sub_name, run_id=run_id, cfg_id=cfg_id
             )
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_pred(preds, records, save_path)
+
+        # Update index.json if cfg is provided
+        if cls.cfg is not None:
+            update_index_json(save_path.parent, cls.cfg)
 
     def save_pred_inst(
         self,
@@ -194,18 +252,15 @@ class Predictor(ABC):
         run_id: int = 0,
         save_path: Path | None = None,
     ) -> None:
-        if self.sub_name_required:
-            assert self.sub_name is not None, (
-                "sub_name is required for this model but not set on instance"
-            )
-
-        if save_path is None:
-            save_path = self.get_save_path(
-                dataset=self.dataset, sub_name=self.sub_name, run_id=run_id
-            )
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-
-        write_pred(preds, records, save_path)
+        self.save_pred(
+            dataset=self.dataset,
+            preds=preds,
+            records=records,
+            sub_name=self.sub_name,
+            run_id=run_id,
+            cfg=self.cfg,
+            save_path=save_path,
+        )
 
     @classmethod
     def load_pred(
@@ -213,6 +268,7 @@ class Predictor(ABC):
         dataset: BaseDataset,
         sub_name: str | None = None,
         run_id: int = 0,
+        cfg_id: str | None = None,
         save_path: Path | None = None,
     ) -> List[PredSave]:
         if cls.sub_name_required:
@@ -222,7 +278,7 @@ class Predictor(ABC):
 
         if save_path is None:
             save_path = cls.get_save_path(
-                dataset=dataset, sub_name=sub_name, run_id=run_id
+                dataset=dataset, sub_name=sub_name, run_id=run_id, cfg_id=cfg_id
             )
 
         assert save_path.exists(), (
