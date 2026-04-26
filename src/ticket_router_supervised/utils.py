@@ -7,13 +7,13 @@ import joblib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 
-from ticket_router_base.config import OUTPUT_DIR
+from ticket_router_base.config import MODEL_DIR
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import Record
 from ticket_router_base.utils import combine_texts
 
 
-MODEL_DIR = OUTPUT_DIR / "supervised" / "models"
+MODEL_DIR = MODEL_DIR / "supervised"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
