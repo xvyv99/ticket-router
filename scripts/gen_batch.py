@@ -6,10 +6,10 @@ from ticket_router_base.data import load_test_set
 from ticket_router_base.types import Record
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.utils import JSONLLogger
-from ticket_router_base.data import MultilingualCustomerSupportDataset
+# MultilingualCustomerSupportDataset imported locally in build_messages
 
 from ticket_router_agent.config import SAVE_DIR
-from ticket_router_agent.prompt import build_system_prompt
+from ticket_router_agent.prompt import build_conversation
 
 logger = getLogger(__name__)
 
@@ -59,13 +59,26 @@ MODELS_CFG = [
 
 
 def build_messages(subject: str, body: str, language: str):
+    from ticket_router_base.data.datasets import MultilingualCustomerSupportDataset
+    from ticket_router_base.types import Record, Language
     dataset = MultilingualCustomerSupportDataset()
-    system_content = build_system_prompt(dataset)
-    user_content = f"Language: {language}\nSubject: {subject}\nBody: {body}"
-    return [
-        {"role": "system", "content": system_content},
-        {"role": "user", "content": user_content},
-    ]
+    # Create a temporary Record for prompt building
+    lang_enum = None
+    for k, v in dataset.str2lang.items():
+        if k == language or v.value == language:
+            lang_enum = v
+            break
+    rec = Record(
+        request_id="tmp",
+        title=subject,
+        body=body,
+        language=lang_enum,
+        labels={},
+        discrete_features={},
+        generation_target=None,
+        sensitive_attributes={"language": language},
+    )
+    return build_conversation(rec, dataset)
 
 
 def build_request_body(model_cfg: ModelConfig, messages: list) -> dict:
