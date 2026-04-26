@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from ticket_router_base.config import SEED, OUTPUT_DIR
-from ticket_router_base.types import Record, GroundRecord
+from ticket_router_base.types import Record, GroundRecord, Language
 
 logger = getLogger(__name__)
 
@@ -61,6 +61,12 @@ class BaseDataset(ABC):
 
     title_column: ClassVar[str | None] = None  # maps to Record.title; None = no title
     body_column: ClassVar[str]  # maps to Record.body; required
+    language_column: ClassVar[str | None] = (
+        None  # optional column for language (used in prompts and stratification)
+    )
+
+    str2lang: Dict[str, Language]
+    DEFAULT_LANGUAGE: ClassVar[Language]  # used if language_column is not defined
 
     id_column: ClassVar[str | None] = None  # None = auto-generate request_id
 
@@ -106,6 +112,11 @@ class BaseDataset(ABC):
             assert cls.title_column in df.columns, (
                 f"Declared title column '{cls.title_column}' not found"
             )
+        if cls.language_column:
+            assert cls.language_column in df.columns, (
+                f"Declared language column '{cls.language_column}' not found"
+            )
+
         for task in cls.classification_tasks + cls.ordinal_tasks:
             assert task.target_column in df.columns, (
                 f"Declared target column '{task.target_column}' not found"
@@ -192,10 +203,22 @@ class BaseDataset(ABC):
                 val = row.get(cls.generation_task.target_column)
                 gen_target = str(val) if pd.notna(val) else None
 
+            language = None
+
+            if cls.language_column:
+                lang_str = row[cls.language_column]
+
+                if pd.notna(lang_str):
+                    language = cls.str2lang.get(lang_str)
+                    assert language is not None, (
+                        f"Unrecognized language '{lang_str}' in record {req_id}. Valid languages are: {list(cls.str2lang.keys())}"
+                    )
+
             rec = Record(
                 request_id=req_id,
                 title=title,
                 body=body,
+                language=language,
                 labels=labels,
                 discrete_features=discrete,
                 sensitive_attributes=sensitive,
