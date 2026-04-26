@@ -150,7 +150,7 @@ class MBERTPredictor(Predictor):
         self._model_paths = model_paths
         self.dataset = dataset
 
-    def predict(self, records: List[Record]) -> List[Prediction]:
+    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         task_results: Dict[str, List[Tuple[str, float]]] = {}
         for task_name, model_path in self._model_paths.items():
             id2label = self.dataset.get_id2label(task_name)

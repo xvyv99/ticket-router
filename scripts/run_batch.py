@@ -11,7 +11,7 @@ from ticket_router_agent.infer import vLLMPredictor
 logger = getLogger(__name__)
 
 
-def run_infer(dataset_name: str, sample_num: int, model_choice: str, few_shot: bool):
+def run_infer(dataset_name: str, sample_num: int, model_choice: str, few_shot: bool, n_runs: int):
     dataset_type = get_dataset(dataset_name)
     dataset = dataset_type()
 
@@ -24,9 +24,11 @@ def run_infer(dataset_name: str, sample_num: int, model_choice: str, few_shot: b
         few_shot=few_shot,
     )
 
-    llm_batch = vllm_predictor.predict(test_records)
-
-    vllm_predictor.save_pred_inst(llm_batch, test_records)
+    for run_id in range(n_runs):
+        logger.info(f"Running inference run {run_id} with {model_choice}...")
+        llm_batch = vllm_predictor.predict(test_records, run_id=run_id)
+        vllm_predictor.save_pred_inst(llm_batch, test_records, run_id=run_id)
+        logger.info(f"Inference run {run_id} complete for {model_choice}")
 
 
 def main():
@@ -56,11 +58,17 @@ def main():
         default=1200,
         help="Number of samples to run inference on",
     )
+    parser.add_argument(
+        "--n-runs",
+        type=int,
+        default=1,
+        help="Number of inference runs per model (default: 1)",
+    )
     args = parser.parse_args()
 
     for model_choice in args.model_choice:
         logger.info(f"Running inference with {model_choice}...")
-        run_infer(args.dataset, args.sample_num, model_choice, args.few_shot)
+        run_infer(args.dataset, args.sample_num, model_choice, args.few_shot, args.n_runs)
         logger.info(f"Inference complete for {model_choice}")
 
 

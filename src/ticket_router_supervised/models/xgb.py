@@ -63,7 +63,7 @@ class XGBPredictor(Predictor):
         self.dataset = dataset
         self._models = models
 
-    def predict(self, records: List[Record]) -> List[Prediction]:
+    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         texts = combine_texts(records)
 
         task_preds: Dict[str, List[tuple]] = {}

@@ -54,7 +54,7 @@ class LRPredictor(Predictor):
 
         self._models = models
 
-    def predict(self, records: List[Record]) -> List[Prediction]:
+    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         texts = combine_texts(records)
 
         # Run inference for each task
