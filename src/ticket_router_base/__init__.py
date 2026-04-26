@@ -7,8 +7,6 @@ from .config import (
     OUTPUT_DIR,
     PROJECT_ROOT,
     SEED,
-    TEST_SET_PATH,
-    TRAIN_SET_PATH,
 )
 from .predictor import Predictor, Trainer
 from .types import (
@@ -22,13 +20,12 @@ from .utils import JSONLLogger, combine_text, combine_texts, write_pred
 
 # HACK: import all predictors to register them
 import ticket_router_supervised
+import ticket_router_agent
 
 __all__ = [
     "PROJECT_ROOT",
     "DATASET_DIR",
     "OUTPUT_DIR",
-    "TRAIN_SET_PATH",
-    "TEST_SET_PATH",
     "DIFFICULT_CASE_NUM",
     "SEED",
     "LOGGING_FORMAT",
