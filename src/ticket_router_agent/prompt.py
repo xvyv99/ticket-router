@@ -4,47 +4,22 @@ import json
 import random
 from typing import Dict, List
 
-import pandas as pd
-
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import Record
 from ticket_router_base.config import SEED
 
 
-# --- Task semantic descriptions by dataset name ---
-
-QUEUE_DESCRIPTIONS: Dict[str, Dict[str, str]] = {
-    "multilingual-customer-support": {
-        "Technical Support": "Software bugs, feature malfunctions, system errors, crashes, technical glitches",
-        "Product Support": "Usage questions, how-to guides, product feature inquiries, documentation help",
-        "Customer Service": "General complaints, policy questions, account issues, feedback, satisfaction concerns",
-        "IT Support": "Internal infrastructure, network problems, hardware failures, VPN, email outages",
-        "Billing and Payments": "Invoices, refunds, payment failures, subscription issues, charge disputes",
-        "Returns and Exchanges": "Refund requests, product returns, swap orders, defective or damaged items",
-        "Sales and Pre-Sales": "Pricing inquiries, demos, purchase questions, upgrades, contract negotiations",
-        "Service Outages and Maintenance": "Downtime alerts, scheduled maintenance, system-wide unavailability",
-        "General Inquiry": "Miscellaneous requests that do not fit any specific category above",
-        "Human Resources": "Employee-related issues, payroll, benefits, hiring, internal HR policies",
-    }
-}
-
-PRIORITY_DESCRIPTIONS: Dict[str, str] = {
-    "low": "Non-urgent, informational, no immediate business impact. Example: feature suggestions, general questions.",
-    "medium": "Moderate impact, workaround exists, respond within standard SLA. Example: minor bugs, non-critical issues.",
-    "high": "Critical business impact, no workaround, requires immediate attention. Example: system down, data loss, security breach.",
-}
-
-
 def _build_task_definitions(dataset: BaseDataset) -> str:
     """Build human-readable definitions for all tasks."""
     lines: List[str] = []
+    descs = dataset.prompt_descriptor.label_descriptions
 
     if dataset.classification_tasks:
         lines.append("=== Queue / Category Definitions ===")
-        descs = QUEUE_DESCRIPTIONS.get(dataset.name, {})
         for task in dataset.classification_tasks:
+            task_descs = descs.get(task.name, {})
             for label in task.labels:
-                desc = descs.get(label, "")
+                desc = task_descs.get(label, "")
                 lines.append(f"- {label}: {desc}" if desc else f"- {label}")
 
     if dataset.ordinal_tasks:
@@ -52,20 +27,19 @@ def _build_task_definitions(dataset: BaseDataset) -> str:
         lines.append("=== Priority Definitions ===")
         for task in dataset.ordinal_tasks:
             lines.append(f"{task.name} is ordered from lowest to highest urgency:")
+            task_descs = descs.get(task.name, {})
             for label in task.labels:
-                desc = PRIORITY_DESCRIPTIONS.get(label, "")
+                desc = task_descs.get(label, "")
                 lines.append(f"  - {label}: {desc}" if desc else f"  - {label}")
 
     return "\n".join(lines)
 
 
-def _format_example(example: Dict) -> str:
+def _format_example(record: Record, dataset: BaseDataset) -> str:
     """Format a single few-shot example for the prompt."""
-    lang = example.get("language", "")
-    title = example.get("title", "")
-    body = example.get("body", "")
-    labels = example.get("labels", {})
-    gen = example.get("generation_target", "")
+    lang = record.language.value if record.language is not None else ""
+    title = record.title or ""
+    body = record.body
 
     # Truncate body for prompt brevity
     body_short = body[:200] + "..." if len(body) > 200 else body
@@ -74,24 +48,21 @@ def _format_example(example: Dict) -> str:
         f"Input [Language: {lang} | Subject: {title} | Body: {body_short}]",
         "Output:",
     ]
-    output = dict(labels)
-    if gen:
-        output["preliminary_answer"] = gen
+    output = dict(record.labels)
+    if record.generation_target and dataset.generation_task:
+        output[dataset.generation_task.name] = record.generation_target
     lines.append(json.dumps(output, ensure_ascii=False))
     return "\n".join(lines)
 
 
 def build_system_prompt(
-    dataset: BaseDataset, few_shot_examples: List[Dict] | None = None
+    dataset: BaseDataset, few_shot_examples: List[Record] | None = None
 ) -> str:
     """Build a rich system prompt with task definitions and examples."""
+    prompt_desc = dataset.prompt_descriptor
+
     parts: List[str] = [
-        "You are a multilingual customer support routing assistant.",
-        "Your job is to:",
-        "1. Read the customer's request carefully",
-        "2. Classify it into the most appropriate queue/category",
-        "3. Assess urgency level (priority)",
-        "4. Draft a brief, polite preliminary reply in the SAME language as the customer",
+        prompt_desc.system_role,
         "",
         _build_task_definitions(dataset),
         "",
@@ -112,15 +83,17 @@ def build_system_prompt(
             f"in the same language as the customer's request"
         )
 
+    if prompt_desc.fairness_notes:
+        parts.extend(
+            [
+                "",
+                "=== Fairness & Consistency ===",
+                prompt_desc.fairness_notes,
+            ]
+        )
+
     parts.extend(
         [
-            "",
-            "=== Fairness & Consistency ===",
-            "The customer may write in any supported language.",
-            "The semantic content of the request — not the language — determines the queue and priority.",
-            "Please ensure your classification is consistent across languages.",
-            "Requests with similar meaning should receive the same queue and priority regardless of language.",
-            "Pay special attention to small queues (e.g., Human Resources, General Inquiry) — do not default to large queues.",
             "",
             "=== Examples ===",
         ]
@@ -128,21 +101,21 @@ def build_system_prompt(
 
     if few_shot_examples:
         for ex in few_shot_examples:
-            parts.append(_format_example(ex))
+            parts.append(_format_example(ex, dataset))
             parts.append("")
     else:
         demo = dataset._demo_record()
-        parts.append(
-            _format_example(
-                {
-                    "language": demo.sensitive_attributes.get("language", "en"),
-                    "title": "Example request title",
-                    "body": "Example request body describing the issue.",
-                    "labels": demo.labels,
-                    "generation_target": demo.generation_target,
-                }
-            )
+        demo_record = Record(
+            request_id="demo",
+            title="Example request title",
+            body="Example request body describing the issue.",
+            language=None,
+            labels=demo.labels,
+            discrete_features=demo.discrete_features,
+            sensitive_attributes=demo.sensitive_attributes,
+            generation_target=demo.generation_target,
         )
+        parts.append(_format_example(demo_record, dataset))
 
     return "\n".join(parts)
 
@@ -168,7 +141,7 @@ def build_user_prompt(record: Record) -> str:
 def build_conversation(
     record: Record,
     dataset: BaseDataset,
-    few_shot_examples: List[Dict] | None = None,
+    few_shot_examples: List[Record] | None = None,
 ) -> List[Dict[str, str]]:
     """Build a conversation list for vLLM llm.chat().
 
@@ -186,26 +159,36 @@ def build_conversation(
 
 def sample_few_shot_examples(
     dataset: BaseDataset,
-    train_df: pd.DataFrame,
+    train_records: List[Record],
     max_per_lang: int = 3,
     max_total: int = 12,
     seed: int = SEED,
-) -> List[Dict]:
-    """Sample stratified few-shot examples from training data."""
+) -> List[Record]:
+    """Sample stratified few-shot examples from training records.
+
+    Groups by language, then by the first classification task's label,
+    and samples up to max_per_lang examples per language.
+    """
     random.seed(seed)
 
-    lang_col = dataset.language_column
-    if not lang_col or not dataset.classification_tasks:
+    if not dataset.language_column or not dataset.classification_tasks:
         return []
 
-    queue_col = dataset.classification_tasks[0].target_column
-    if queue_col not in train_df.columns:
-        return []
+    queue_task_name = dataset.classification_tasks[0].name
 
-    examples: List[Dict] = []
+    # Group by language -> queue label
+    lang_groups: Dict[str, Dict[str, List[Record]]] = {}
+    for rec in train_records:
+        lang = rec.language.value if rec.language is not None else ""
+        queue_label = rec.labels.get(queue_task_name, "")
+        if not queue_label:
+            continue
+        lang_groups.setdefault(lang, {}).setdefault(queue_label, []).append(rec)
 
-    for lang, group in train_df.groupby(lang_col):
-        queues = group[queue_col].dropna().unique().tolist()
+    examples: List[Record] = []
+
+    for lang, queue_map in lang_groups.items():
+        queues = list(queue_map.keys())
         if not queues:
             continue
 
@@ -213,31 +196,10 @@ def sample_few_shot_examples(
         selected_queues = random.sample(queues, n_sample)
 
         for q in selected_queues:
-            rows = group[group[queue_col] == q]
-            if len(rows) == 0:
+            candidates = queue_map[q]
+            if not candidates:
                 continue
-            row = rows.sample(1, random_state=seed).iloc[0]
-
-            ex: Dict = {
-                "language": str(lang),
-                "title": str(row.get(dataset.title_column, ""))
-                if dataset.title_column
-                else "",
-                "body": str(row.get(dataset.body_column, "")),
-                "labels": {},
-                "generation_target": None,
-            }
-
-            for task in dataset.classification_tasks:
-                ex["labels"][task.name] = str(row.get(task.target_column, ""))
-            for task in dataset.ordinal_tasks:
-                ex["labels"][task.name] = str(row.get(task.target_column, ""))
-            if dataset.generation_task and dataset.generation_task.target_column:
-                ex["generation_target"] = str(
-                    row.get(dataset.generation_task.target_column, "")
-                )
-
-            examples.append(ex)
+            examples.append(random.choice(candidates))
 
     random.shuffle(examples)
     return examples[:max_total]

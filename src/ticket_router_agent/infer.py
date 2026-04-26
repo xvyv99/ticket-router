@@ -81,7 +81,6 @@ class vLLMPredictor(Predictor):
             trust_remote_code=True,
             gpu_memory_utilization=0.85,
             max_model_len=MAX_TOKEN_LENGTH,
-            quantization="bitsandbytes",
         )
 
         schema = build_ticket_schema(self.dataset)
