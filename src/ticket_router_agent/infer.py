@@ -118,7 +118,7 @@ class vLLMPredictor(Predictor[vLLMCfg]):
 
         td = self.dataset.task_descriptor
         sampling_params = SamplingParams(
-            max_tokens=512,
+            max_tokens=1024,
             temperature=0.7,
             seed=SEED + run_id,
             stop=["<|im_end|>"],

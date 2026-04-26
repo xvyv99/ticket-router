@@ -48,8 +48,7 @@ class GroundRecord(BaseModel):
     labels: Dict[str, str]
     discrete_features: Dict[str, str | None]
     generation_target: str | None
-    sensitive_attributes: Dict[str, str]  # for fairness evaluation
-    # FIXME: maybe null?
+    sensitive_attributes: Dict[str, str | None]  # for fairness evaluation
 
 
 class Record(GroundRecord):

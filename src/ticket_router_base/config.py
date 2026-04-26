@@ -1,9 +1,18 @@
 """Shared constants and paths."""
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path.cwd()
+
+# Load .env into environment variables
+load_dotenv()
+
+INFERRED_MODEL_CHOICE = os.getenv("INFERRED_MODEL_CHOICE")
+assert INFERRED_MODEL_CHOICE, "INFERRED_MODEL_CHOICE not set in environment variables"
 
 DATASET_DIR = PROJECT_ROOT / "dataset"
 assert DATASET_DIR.exists(), f"Dataset directory not found at {DATASET_DIR}"
