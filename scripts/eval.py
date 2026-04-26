@@ -21,7 +21,7 @@ from ticket_router_base.eval import (
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.eval.report import print_overall_report
-from ticket_router_base.predictor import scan_pred_saves, get_model
+from ticket_router_base.predictor import scan_pred_saves, get_model, load_index_json
 
 console = Console()
 
@@ -34,34 +34,44 @@ def illustrate_metric(
 
     results = scan_pred_saves(scan_path=pred_dir)
 
-    # Group by (predictor_name, dataset_name, sub_name)
+    # Group by (predictor_name, dataset_name, sub_name, cfg_id)
     groups = defaultdict(list)
     for key in results:
         if key.dataset_name != dataset_name:
             continue
-        groups[(key.predictor_name, key.dataset_name, key.sub_name)].append(key)
+        groups[(key.predictor_name, key.dataset_name, key.sub_name, key.cfg_id)].append(key)
 
     reports: List[EvaluationReport] = []
-    for (pred_name, ds_name, sub_name), keys in groups.items():
+    for (pred_name, ds_name, sub_name, cfg_id), keys in groups.items():
         dataset = dataset_type()
         pred_type = get_model(pred_name)
+
+        # Load cfg info from index.json
+        cfg_info = None
+        if cfg_id is not None and keys:
+            index = load_index_json(keys[0].path.parent)
+            cfg_info = index.get(cfg_id)
 
         if len(keys) == 1:
             # Single run
             report = evaluate_model_dataset(
-                pred_type, dataset, sub_name, run_id=keys[0].run_id
+                pred_type, dataset, sub_name, run_id=keys[0].run_id, cfg_id=cfg_id
             )
+            report.cfg_id = cfg_id
+            report.cfg_info = cfg_info
             reports.append(report)
         else:
             # Multiple runs: evaluate each and aggregate
             run_reports = []
             for key in sorted(keys, key=lambda k: k.run_id):
                 run_report = evaluate_model_dataset(
-                    pred_type, dataset, sub_name, run_id=key.run_id
+                    pred_type, dataset, sub_name, run_id=key.run_id, cfg_id=cfg_id
                 )
                 run_reports.append(run_report)
 
             aggregated = aggregate_reports(run_reports)
+            aggregated.cfg_id = cfg_id
+            aggregated.cfg_info = cfg_info
             reports.append(aggregated)
 
     print_overall_report(reports)

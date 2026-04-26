@@ -1,7 +1,7 @@
 """Evaluation report serialization and console output."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Any
 from pathlib import Path
 
 from rich.console import Console
@@ -32,6 +32,10 @@ class EvaluationReport:
     task_stds: List[TaskEvaluationResult] = field(default_factory=list)
     run_results: List[List[TaskEvaluationResult]] = field(default_factory=list)
     n_runs: int = 1
+
+    # Config discovery fields
+    cfg_id: str | None = None
+    cfg_info: Dict[str, Any] | None = None
 
 
 def print_overall_report(reports: List[EvaluationReport]) -> None:
@@ -83,7 +87,17 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
         table.add_column("Metric")
 
         for r in reports:
-            col_name = f"{r.model_name} (n={r.n_runs})" if r.n_runs > 1 else r.model_name
+            if r.cfg_id is not None and r.cfg_info:
+                # Show first 2 config entries as summary
+                cfg_summary = ", ".join(
+                    f"{k}={v}" for k, v in list(r.cfg_info.items())[:2]
+                )
+                # Escape '[' for rich markup; wrap in parens instead of brackets
+                col_name = f"{r.model_name}\n{r.cfg_id} (n={r.n_runs})\n({cfg_summary})"
+            elif r.n_runs > 1:
+                col_name = f"{r.model_name} (n={r.n_runs})"
+            else:
+                col_name = r.model_name
             table.add_column(col_name, justify="right")
 
         base_metrics = [

@@ -8,6 +8,7 @@ from .config import (
     PROJECT_ROOT,
     SEED,
 )
+from .cfg import Cfg
 from .predictor import Predictor, Trainer
 from .types import (
     ErrorFlag,
@@ -40,4 +41,5 @@ __all__ = [
     "write_pred",
     "combine_text",
     "combine_texts",
+    "Cfg",
 ]
