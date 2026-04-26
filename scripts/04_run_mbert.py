@@ -42,7 +42,7 @@ def run_full_training():
 def run_inference():
     dataset = MultilingualCustomerSupportDataset()
     model_paths: dict[str, Path] = {}
-    for task in dataset.classification_tasks + dataset.ordinal_tasks:
+    for task in dataset.task_descriptor.classification_tasks + dataset.task_descriptor.ordinal_tasks:
         path = MODEL_DIR / f"{task.name}_best"
         assert path.exists(), f"Model for {task.name} not found at {path}"
         model_paths[task.name] = path
@@ -54,10 +54,9 @@ def run_inference():
     logger.info(f"Running inference on {len(test_records)} test records...")
     preds = predictor.predict(test_records)
 
-    output_path = OUTPUT_DIR / "supervised" / "mbert_predictions.jsonl"
-    write_pred(preds, test_records, output_path)
+    predictor.save_pred_inst(preds, test_records)
 
-    logger.info(f"Processed {len(preds)} records. Output: {output_path}")
+    logger.info(f"Processed {len(preds)} records. Output: {predictor.get_save_path(dataset=dataset)}")
 
 
 def main():

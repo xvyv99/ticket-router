@@ -1,6 +1,6 @@
 """Evaluation report serialization and console output."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List
 from pathlib import Path
 
@@ -22,11 +22,16 @@ class EvaluationReport:
     model_name: str
     dataset: BaseDataset
 
-    file_path: Path
+    file_path: Path | None
     task_results: List[TaskEvaluationResult]
 
     error_summary: Dict[str, int]  # error flag name -> count
     total_samples: int
+
+    # Multi-run aggregation fields
+    task_stds: List[TaskEvaluationResult] = field(default_factory=list)
+    run_results: List[List[TaskEvaluationResult]] = field(default_factory=list)
+    n_runs: int = 1
 
 
 def print_overall_report(reports: List[EvaluationReport]) -> None:
@@ -52,6 +57,23 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
             None,
         )
 
+    def get_std_task(
+        report: EvaluationReport, task_name: str
+    ) -> TaskEvaluationResult | None:
+        if not report.task_stds:
+            return None
+        return next(
+            (t for t in report.task_stds if t.task_name == task_name),
+            None,
+        )
+
+    def format_metric(val: float | None, std: float | None) -> str:
+        if val is None:
+            return "-"
+        if std is not None and std > 0:
+            return f"{val:.4f} ± {std:.4f}"
+        return f"{val:.4f}"
+
     for task_name in all_tasks:
         table = Table(
             title=f"Task: {task_name}",
@@ -61,16 +83,17 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
         table.add_column("Metric")
 
         for r in reports:
-            table.add_column(r.model_name, justify="right")
+            col_name = f"{r.model_name} (n={r.n_runs})" if r.n_runs > 1 else r.model_name
+            table.add_column(col_name, justify="right")
 
         base_metrics = [
-            ("Accuracy", lambda p: p.accuracy),
-            ("Macro F1", lambda p: p.macro_f1),
-            ("MAE", lambda p: getattr(p, "mae", None)),
-            ("QWK", lambda p: getattr(p, "qwk", None)),
+            ("Accuracy", "accuracy"),
+            ("Macro F1", "macro_f1"),
+            ("MAE", "mae"),
+            ("QWK", "qwk"),
         ]
 
-        for metric_name, getter in base_metrics:
+        for metric_name, metric_key in base_metrics:
             row = [metric_name]
 
             for r in reports:
@@ -79,22 +102,24 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
                     row.append("-")
                     continue
 
-                val = getter(task.performance)
-                row.append(f"{val:.4f}" if val is not None else "-")
+                val = getattr(task.performance, metric_key, None)
+                std_task = get_std_task(r, task_name)
+                std = getattr(std_task.performance, metric_key, None) if std_task is not None else None
+                row.append(format_metric(val, std))
 
             table.add_row(*row)
 
         fairness_metrics = [
-            ("Acc Gap", lambda fm: fm.accuracy_gap),
-            ("Acc Ratio", lambda fm: fm.accuracy_ratio),
-            ("F1 Gap", lambda fm: fm.macro_f1_gap),
-            ("F1 Ratio", lambda fm: fm.macro_f1_ratio),
-            ("DI", lambda fm: fm.avg_disparate_impact),
-            ("SPD", lambda fm: fm.avg_statistical_parity_difference),
+            ("Acc Gap", "accuracy_gap"),
+            ("Acc Ratio", "accuracy_ratio"),
+            ("F1 Gap", "macro_f1_gap"),
+            ("F1 Ratio", "macro_f1_ratio"),
+            ("DI", "avg_disparate_impact"),
+            ("SPD", "avg_statistical_parity_difference"),
         ]
 
         for key in fairness_keys:
-            for metric_name, getter in fairness_metrics:
+            for metric_name, field_name in fairness_metrics:
                 row = [f"{key} {metric_name}"]
 
                 for r in reports:
@@ -108,8 +133,11 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
                         row.append("-")
                         continue
 
-                    val = getter(fm)
-                    row.append(f"{val:.4f}" if val is not None else "-")
+                    val = getattr(fm, field_name, None)
+                    std_task = get_std_task(r, task_name)
+                    std_fm = std_task.fairness.get(key) if std_task is not None else None
+                    std = getattr(std_fm, field_name, None) if std_fm is not None else None
+                    row.append(format_metric(val, std))
 
                 table.add_row(*row)
 

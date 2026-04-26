@@ -7,6 +7,7 @@ from typing import Dict, List
 from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
+from ticket_router_base.config import SEED
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.data.desc import TaskDescriptor
 from ticket_router_base.predictor import Predictor, register_model
@@ -49,6 +50,9 @@ class vLLMPredictor(Predictor):
 
     DEFAULT_SAVE_DIR = SAVE_DIR
 
+    _llm: LLM
+    _schema: dict
+
     def __init__(
         self,
         model_name_or_path: Path | str,
@@ -70,30 +74,34 @@ class vLLMPredictor(Predictor):
         self.dataset = dataset
         self.few_shot = few_shot
 
-    def predict(self, records: List[Record]) -> List[Prediction]:
-        # Build conversation prompts for vLLM chat API
-        conversations = []
-        for rec in records:
-            conv = build_conversation(rec, self.dataset)
-            conversations.append(conv)
-
-        llm = LLM(
+        # Load model once during init to avoid reloading on every predict() call
+        self._llm = LLM(
             model=str(self.model_name_or_path),
             trust_remote_code=True,
             gpu_memory_utilization=0.85,
             max_model_len=MAX_TOKEN_LENGTH,
         )
 
+        # Pre-build schema since it doesn't change across runs
+        self._schema = build_ticket_schema(self.dataset.task_descriptor)
+
+    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
+        # Build conversation prompts for vLLM chat API
+        conversations = []
+        for rec in records:
+            conv = build_conversation(rec, self.dataset)
+            conversations.append(conv)
+
         td = self.dataset.task_descriptor
-        schema = build_ticket_schema(td)
         sampling_params = SamplingParams(
             max_tokens=512,
             temperature=0.7,
+            seed=SEED + run_id,
             stop=["<|im_end|>"],
-            structured_outputs=StructuredOutputsParams(json=schema),
+            structured_outputs=StructuredOutputsParams(json=self._schema),
         )
 
-        outputs = llm.chat(
+        outputs = self._llm.chat(
             conversations, sampling_params=sampling_params, use_tqdm=True
         )
 

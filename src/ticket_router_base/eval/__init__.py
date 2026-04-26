@@ -12,8 +12,10 @@ Usage:
 from .evaluator import TaskEvaluator
 from .report import EvaluationReport
 from .utils import evaluate_model_dataset
+from .aggregate import aggregate_reports
 
 __all__ = [
+    "aggregate_reports",
     "evaluate_model_dataset",
     "EvaluationReport",
     "TaskEvaluator",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from logging import getLogger
 from abc import ABC
-from typing import List, ClassVar, Type, Dict, TypeVar, Tuple
+from typing import List, ClassVar, Type, Dict, TypeVar
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -22,6 +22,7 @@ class PredictorKey:
     predictor_name: str
     dataset_name: str
     sub_name: str | None = None
+    run_id: int = 0
     path: Path
 
 
@@ -50,40 +51,37 @@ def get_model(name: str) -> Type[Predictor]:
     return MODEL_REGISTRY[name]
 
 
-def parse_pred_save_name(
-    save_name: str,
-) -> Tuple[str, str, str | None]:
-    """Parse the dataset name and model name from a prediction save file name."""
-    parts = save_name.split("_")
-    if not save_name.endswith("_preds.jsonl"):
+def parse_pred_path(path: Path, base_dir: Path) -> PredictorKey:
+    """Parse a prediction file path into a PredictorKey.
+
+    Expected structure under base_dir:
+        {model_name}/{sub_name_or_}/{dataset_name}/preds_{run_id}.jsonl
+    """
+    rel = path.relative_to(base_dir)
+    parts = rel.parts
+    if len(parts) != 4:
         raise ValueError(
-            f"Invalid save name format: {save_name}. Expected format: <model_name>_<dataset_name>_preds.jsonl"
+            f"Invalid prediction path structure: {rel}. Expected: model/sub/dataset/preds_N.jsonl"
         )
 
-    sub_name = None
+    model_name = parts[0]
+    sub_name = parts[1] if parts[1] != "_" else None
+    dataset_name = parts[2]
+    filename = parts[3]
 
-    if len(parts) == 3:
-        model_name = parts[0]
-        dataset_name = parts[1]
-    elif len(parts) == 4:
-        model_name = parts[0]
-        sub_name = parts[1]
-        dataset_name = parts[2]
-    else:
-        raise ValueError(
-            f"Invalid save name format: {save_name}. Expected format: <model_name>_<dataset_name>_preds.jsonl or <model_name>_<sub_name>_<dataset_name>_preds.jsonl"
-        )
+    # e.g. "preds_0.jsonl" -> run_id 0
+    stem = filename.replace(".jsonl", "")
+    if not stem.startswith("preds_"):
+        raise ValueError(f"Invalid prediction filename: {filename}. Expected preds_N.jsonl")
+    run_id = int(stem.split("_", 1)[1])
 
-    return model_name, dataset_name, sub_name
-
-
-def parse_pred_save_name_safe(
-    save_name: str,
-) -> Tuple[Type[Predictor], Type[BaseDataset], str | None]:
-    """Parse the dataset name and model name from a prediction save file name."""
-    model_name, dataset_name, sub_name = parse_pred_save_name(save_name)
-
-    return get_model(model_name), get_dataset(dataset_name), sub_name
+    return PredictorKey(
+        predictor_name=model_name,
+        dataset_name=dataset_name,
+        sub_name=sub_name,
+        run_id=run_id,
+        path=path,
+    )
 
 
 def scan_pred_saves(
@@ -99,20 +97,23 @@ def scan_pred_saves(
         )
 
         for path in model_saves:
-            _, dataset, sub_name = parse_pred_save_name(path.name)
+            try:
+                key = parse_pred_path(path, scan_path or model_cls.DEFAULT_SAVE_DIR)
+            except ValueError as e:
+                logger.warning(f"Skipping malformed prediction path {path}: {e}")
+                continue
 
             if not model_cls.sub_name_required:
-                sub_name = None
+                key = PredictorKey(
+                    predictor_name=key.predictor_name,
+                    dataset_name=key.dataset_name,
+                    sub_name=None,
+                    run_id=key.run_id,
+                    path=key.path,
+                )
 
-            assert dataset in DATASET_REGISTRY.keys(), (
-                f"Dataset {dataset} from save name {path.name} not found in registry"
-            )
-
-            key = PredictorKey(
-                predictor_name=model_cls.name,
-                dataset_name=dataset,
-                sub_name=sub_name,
-                path=path,
+            assert key.dataset_name in DATASET_REGISTRY.keys(), (
+                f"Dataset {key.dataset_name} from path {path} not found in registry"
             )
 
             results.append(key)
@@ -133,37 +134,35 @@ class Predictor(ABC):
         if not hasattr(cls, "name"):
             raise TypeError(f"{cls.__name__} must define 'name'")
 
-        assert "_" not in cls.name, (
-            "Model name cannot contain underscores (used for parsing save file names)"
-        )
-
         if not hasattr(cls, "DEFAULT_SAVE_DIR"):
             raise TypeError(f"{cls.__name__} must define 'DEFAULT_SAVE_DIR'")
 
-    def predict(self, records: List[Record]) -> List[Prediction]:
-        # TODO: add multi-run
+    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
+        """Single-run prediction. Subclasses may use run_id to vary seeds/temperature."""
         raise NotImplementedError
 
-    @classmethod
-    def format_pred_save_name(cls, dataset: BaseDataset, sub_name: str | None) -> str:
-        if sub_name:
-            name = f"{cls.name}_{sub_name}_{dataset.name}_preds.jsonl"
-        else:
-            name = f"{cls.name}_{dataset.name}_preds.jsonl"
-
-        return name
+    def predict_multi(
+        self, records: List[Record], n_runs: int = 1
+    ) -> List[List[Prediction]]:
+        """Run predict() n_runs times, returning a list of prediction batches."""
+        return [self.predict(records, run_id=i) for i in range(n_runs)]
 
     @classmethod
     def get_save_path(
-        cls, dataset: BaseDataset, sub_name: str | None, save_dir: Path | None = None
+        cls,
+        dataset: BaseDataset,
+        sub_name: str | None = None,
+        run_id: int = 0,
+        save_dir: Path | None = None,
     ) -> Path:
-        """Generate a prediction save path based on the dataset and model name."""
-        formated_name = cls.format_pred_save_name(dataset=dataset, sub_name=sub_name)
+        """Generate a prediction save path based on directory hierarchy.
 
-        if save_dir is None:
-            save_dir = cls.DEFAULT_SAVE_DIR
-
-        return save_dir / formated_name
+        Structure: {save_dir}/{model_name}/{sub_or_}/{dataset_name}/preds_{run_id}.jsonl
+        """
+        base = (save_dir or cls.DEFAULT_SAVE_DIR) / cls.name
+        sub = sub_name if sub_name else "_"
+        base = base / sub / dataset.name
+        return base / f"preds_{run_id}.jsonl"
 
     @classmethod
     def save_pred(
@@ -172,6 +171,7 @@ class Predictor(ABC):
         preds: List[Prediction],
         records: List[Record],
         sub_name: str | None = None,
+        run_id: int = 0,
         save_path: Path | None = None,
     ) -> None:
         if cls.sub_name_required:
@@ -180,7 +180,9 @@ class Predictor(ABC):
             )
 
         if save_path is None:
-            save_path = cls.get_save_path(dataset=dataset, sub_name=sub_name)
+            save_path = cls.get_save_path(
+                dataset=dataset, sub_name=sub_name, run_id=run_id
+            )
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_pred(preds, records, save_path)
@@ -189,6 +191,7 @@ class Predictor(ABC):
         self,
         preds: List[Prediction],
         records: List[Record],
+        run_id: int = 0,
         save_path: Path | None = None,
     ) -> None:
         if self.sub_name_required:
@@ -197,14 +200,20 @@ class Predictor(ABC):
             )
 
         if save_path is None:
-            save_path = self.get_save_path(dataset=self.dataset, sub_name=self.sub_name)
+            save_path = self.get_save_path(
+                dataset=self.dataset, sub_name=self.sub_name, run_id=run_id
+            )
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_pred(preds, records, save_path)
 
     @classmethod
     def load_pred(
-        cls, dataset: BaseDataset, sub_name: str | None, save_path: Path | None = None
+        cls,
+        dataset: BaseDataset,
+        sub_name: str | None = None,
+        run_id: int = 0,
+        save_path: Path | None = None,
     ) -> List[PredSave]:
         if cls.sub_name_required:
             assert sub_name is not None, (
@@ -212,7 +221,9 @@ class Predictor(ABC):
             )
 
         if save_path is None:
-            save_path = cls.get_save_path(dataset=dataset, sub_name=sub_name)
+            save_path = cls.get_save_path(
+                dataset=dataset, sub_name=sub_name, run_id=run_id
+            )
 
         assert save_path.exists(), (
             f"Prediction file not found at {save_path}. Did you run inference and save predictions first?"
@@ -223,12 +234,10 @@ class Predictor(ABC):
     @classmethod
     def scan_pred(cls, save_dir: Path | None = None) -> List[Path]:
         """Scan a directory for saved prediction files matching this model's naming convention."""
-
         if save_dir is None:
             save_dir = cls.DEFAULT_SAVE_DIR
 
-        pattern = f"{cls.name}_*_preds.jsonl"
-        return list(save_dir.glob(pattern))
+        return list((save_dir / cls.name).rglob("preds_*.jsonl"))
 
 
 class Trainer(ABC):
