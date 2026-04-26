@@ -242,8 +242,8 @@ class Predictor(ABC, Generic[CfgT]):
         write_pred(preds, records, save_path)
 
         # Update index.json if cfg is provided
-        if cls.cfg is not None:
-            update_index_json(save_path.parent, cls.cfg)
+        if cfg is not None:
+            update_index_json(save_path.parent, cfg)
 
     def save_pred_inst(
         self,
