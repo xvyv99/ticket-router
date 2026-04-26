@@ -6,6 +6,7 @@ from .base import (
     GenerationTask,
     OrdinalTask,
 )
+from .prompt_descriptor import PromptDescriptor
 from .datasets import (
     MultilingualCustomerSupportDataset,
     CFPBComplaintsDataset,
@@ -22,6 +23,7 @@ __all__ = [
     "ClassificationTask",
     "GenerationTask",
     "OrdinalTask",
+    "PromptDescriptor",
     # datasets
     "MultilingualCustomerSupportDataset",
     "CFPBComplaintsDataset",

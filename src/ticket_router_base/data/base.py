@@ -11,6 +11,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 
 from ticket_router_base.config import SEED, OUTPUT_DIR
 from ticket_router_base.types import Record, GroundRecord, Language
+from .prompt_descriptor import PromptDescriptor
 
 logger = getLogger(__name__)
 
@@ -80,6 +81,8 @@ class BaseDataset(ABC):
         List[str]
     ]  # columns to use for stratified train/test split
     sensitive_columns: ClassVar[List[str]]  # columns to use for fairness evaluation
+
+    prompt_descriptor: ClassVar[PromptDescriptor]
 
     def __init_subclass__(cls, skip_check: bool = False) -> None:
         if skip_check:
