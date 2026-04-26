@@ -49,33 +49,6 @@ JSON must contain:
 """
 
 
-OUTPUT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "user_type": {
-            "type": "string",
-            "enum": ["individual", "enterprise", "unknown"],
-        },
-        "industry": {
-            "type": "string",
-        },
-        "tech_proficiency": {
-            "type": "string",
-            "enum": ["low", "high", "unknown"],
-        },
-        "reason": {
-            "type": "string",
-        },
-    },
-    "required": [
-        "user_type",
-        "industry",
-        "tech_proficiency",
-        "reason",
-    ],
-}
-
-
 def _clean_raw_output(raw: str) -> str:
     """Remove markdown formatting if present."""
     raw = raw.strip()
@@ -92,13 +65,7 @@ def _clean_raw_output(raw: str) -> str:
 class MultilingualAttributeInferrer(AttributeInferrer):
     """Attribute inferrer for multilingual customer support tickets."""
 
-    @property
-    def dataset_name(self) -> str:
-        return "multilingual-customer-support"
-
-    @property
-    def output_schema(self) -> Dict[str, Any]:
-        return OUTPUT_SCHEMA
+    dataset_name = "multilingual-customer-support"
 
     def build_system_prompt(self) -> str:
         return SYSTEM_PROMPT
