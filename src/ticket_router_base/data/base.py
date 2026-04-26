@@ -5,43 +5,15 @@ from typing import Dict, List, Tuple, ClassVar
 from pathlib import Path
 from logging import getLogger
 
-from pydantic import BaseModel, model_validator
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from ticket_router_base.config import SEED, OUTPUT_DIR
 from ticket_router_base.types import Record, GroundRecord, Language
-from .prompt_descriptor import PromptDescriptor
+from .desc import PromptDescriptor, TaskDescriptor
+from .tasks import ClassificationTask, OrdinalTask
 
 logger = getLogger(__name__)
-
-
-class ClassificationTask(BaseModel):
-    """Definition of a single classification task."""
-
-    name: str  # task name, e.g. "queue", "priority", "product"
-    target_column: str  # column name in the raw CSV
-    labels: List[str]  # ordered list of valid label values
-
-
-class OrdinalTask(ClassificationTask):
-    """Definition of a single ordinal (ordered) classification task.
-
-    Labels must be listed in ascending order (lowest to highest).
-    """
-
-    @model_validator(mode="after")
-    def check_ordinal_labels(self):
-        if len(self.labels) < 2:
-            raise ValueError(f"Ordinal task '{self.name}' must have at least 2 labels")
-        return self
-
-
-class GenerationTask(BaseModel):
-    """Definition of a single generation (text-output) task."""
-
-    name: str
-    target_column: str | None
 
 
 class BaseDataset(ABC):
@@ -71,9 +43,8 @@ class BaseDataset(ABC):
 
     id_column: ClassVar[str | None] = None  # None = auto-generate request_id
 
-    classification_tasks: ClassVar[List[ClassificationTask]]
-    ordinal_tasks: ClassVar[List[OrdinalTask]]
-    generation_task: ClassVar[GenerationTask | None]
+    task_descriptor: ClassVar[TaskDescriptor]
+    prompt_descriptor: ClassVar[PromptDescriptor]
 
     discrete_feature_columns: ClassVar[List[str]]
 
@@ -81,8 +52,6 @@ class BaseDataset(ABC):
         List[str]
     ]  # columns to use for stratified train/test split
     sensitive_columns: ClassVar[List[str]]  # columns to use for fairness evaluation
-
-    prompt_descriptor: ClassVar[PromptDescriptor]
 
     def __init_subclass__(cls, skip_check: bool = False) -> None:
         if skip_check:
@@ -120,14 +89,7 @@ class BaseDataset(ABC):
                 f"Declared language column '{cls.language_column}' not found"
             )
 
-        for task in cls.classification_tasks + cls.ordinal_tasks:
-            assert task.target_column in df.columns, (
-                f"Declared target column '{task.target_column}' not found"
-            )
-        if cls.generation_task:
-            assert cls.generation_task.target_column in df.columns, (
-                f"Declared generation target column '{cls.generation_task.target_column}' not found"
-            )
+        cls.task_descriptor._valid_df_columns(df)
 
         for col in cls.discrete_feature_columns:
             assert col in df.columns, (
@@ -137,23 +99,6 @@ class BaseDataset(ABC):
             assert col in df.columns, f"Declared stratified column '{col}' not found"
         for col in cls.sensitive_columns:
             assert col in df.columns, f"Declared sensitive column '{col}' not found"
-
-    @classmethod
-    def _init_null_labels(cls, df: pd.DataFrame):
-        for task in cls.classification_tasks + cls.ordinal_tasks:
-            assert len(task.labels) != 1, (
-                f"Task '{task.name}' has only one label '{task.labels[0]}'; this is likely an error. Please check your dataset and task definitions."
-            )
-
-            if len(task.labels) == 0:
-                # if no labels were declared, infer them from the data
-                unique_labels = df[task.target_column].dropna().unique()
-                task.labels.extend(sorted(unique_labels.astype(str)))
-
-                logger.debug(f"Inferred labels for task '{task.name}': {task.labels}")
-                logger.debug(
-                    f"Label counts for task '{task.name}':\n{df[task.target_column].value_counts()}"
-                )
 
     @classmethod
     def df_to_records(cls, df: pd.DataFrame) -> List[Record]:
@@ -177,10 +122,11 @@ class BaseDataset(ABC):
 
             # classification labels (nominal + ordinal are both stored in labels dict)
             labels: Dict[str, str] = {}
-            for task in cls.classification_tasks:
+            td = cls.task_descriptor
+            for task in td.classification_tasks:
                 val = row.get(task.target_column)
                 labels[task.name] = str(val) if pd.notna(val) else ""
-            for task in cls.ordinal_tasks:
+            for task in td.ordinal_tasks:
                 val = row.get(task.target_column)
                 labels[task.name] = str(val) if pd.notna(val) else ""
 
@@ -202,8 +148,8 @@ class BaseDataset(ABC):
 
             # generation target
             gen_target: str | None = None
-            if cls.generation_task:
-                val = row.get(cls.generation_task.target_column)
+            if td.generation_task:
+                val = row.get(td.generation_task.target_column)
                 gen_target = str(val) if pd.notna(val) else None
 
             language = None
@@ -239,13 +185,7 @@ class BaseDataset(ABC):
 
     def _get_task(self, task_name: str) -> ClassificationTask | OrdinalTask:
         """Look up a classification or ordinal task by name."""
-        for task in self.classification_tasks:
-            if task.name == task_name:
-                return task
-        for task in self.ordinal_tasks:
-            if task.name == task_name:
-                return task
-        raise ValueError(f"Task '{task_name}' not found in dataset '{self.name}'")
+        return self.task_descriptor.get_task(task_name)
 
     def get_label2id(self, task_name: str) -> Dict[str, int]:
         """Label -> int mapping for a classification task (used by supervised training)."""
@@ -260,12 +200,17 @@ class BaseDataset(ABC):
     @property
     def task_names(self) -> List[str]:
         """Return all classification + ordinal task names."""
-        return [t.name for t in self.classification_tasks + self.ordinal_tasks]
+        return self.task_descriptor.get_task_names()
 
     @property
     def ord_task_names(self) -> List[str]:
         """Return all ordinal task names."""
-        return [t.name for t in self.ordinal_tasks]
+        return self.task_descriptor.get_ord_task_names()
+
+    @property
+    def all_tasks(self) -> List[ClassificationTask | OrdinalTask]:
+        """Return all classification and ordinal tasks."""
+        return self.task_descriptor.all_tasks
 
     @classmethod
     def _get_train_test_path(cls) -> Tuple[Path, Path, Path]:
@@ -278,6 +223,7 @@ class BaseDataset(ABC):
     def build_system_prompt(
         self, few_shot_examples: List[GroundRecord] | None = None
     ) -> str:
+        # TODO: remove it
         """Build an Agent system prompt from this dataset's task definitions.
 
         Subclasses may override for custom prompt wording.
@@ -289,13 +235,14 @@ class BaseDataset(ABC):
             "ONLY with a valid JSON object. Do not include markdown formatting outside the JSON.\n",
             "The JSON must have these exact keys:",
         ]
-        for task in self.classification_tasks:
+        td = self.task_descriptor
+        for task in td.classification_tasks:
             lines.append(f"- {task.name}: one of {', '.join(task.labels)}")
-        for task in self.ordinal_tasks:
+        for task in td.ordinal_tasks:
             lines.append(f"- {task.name}: one of {', '.join(task.labels)} (ordered)")
-        if self.generation_task:
+        if td.generation_task:
             lines.append(
-                f"- {self.generation_task.name}: a polite, helpful reply in the same language "
+                f"- {td.generation_task.name}: a polite, helpful reply in the same language "
                 f"as the user's request"
             )
 
@@ -457,7 +404,7 @@ class DFDataset(BaseDataset, skip_check=True):
 
         self._valid_df_columns(df)  # validate schema before processing
 
-        self._init_null_labels(
+        self.task_descriptor._init_null_labels(
             df
         )  # initialize any missing labels, e.g. by inferring from data
 

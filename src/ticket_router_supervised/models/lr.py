@@ -101,7 +101,7 @@ class LRTrainer(Trainer):
         texts = combine_texts(records)
 
         models: Dict[str, SKModel] = {}
-        for task in self.dataset.classification_tasks + self.dataset.ordinal_tasks:
+        for task in self.dataset.all_tasks:
             labels = [r.labels.get(task.name, "") for r in records]
             model = train_lr(texts, labels, f"lr_{task.name}")
             models[task.name] = model

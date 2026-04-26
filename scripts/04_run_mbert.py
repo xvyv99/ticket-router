@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 from pathlib import Path
 
-from sklearn.model_selection import train_test_split
 from ticket_router_supervised.models.mbert import (
     MBERTTrainer,
     MBERTPredictor,

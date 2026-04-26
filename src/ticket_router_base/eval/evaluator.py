@@ -42,12 +42,13 @@ class TaskEvaluator:
         """Evaluate all classification and ordinal tasks defined by the dataset descriptor."""
 
         results: List[TaskEvaluationResult] = []
-        for task in dataset.classification_tasks:
+        td = dataset.task_descriptor
+        for task in td.classification_tasks:
             result = self._evaluate_task(
                 pred_saves, task.name, dataset, is_ordinal=False
             )
             results.append(result)
-        for task in dataset.ordinal_tasks:
+        for task in td.ordinal_tasks:
             result = self._evaluate_task(
                 pred_saves, task.name, dataset, is_ordinal=True
             )

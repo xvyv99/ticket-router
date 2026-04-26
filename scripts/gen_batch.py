@@ -2,11 +2,11 @@ from typing import List, Dict
 from logging import getLogger, basicConfig
 from dataclasses import dataclass
 
-from ticket_router_base.data import load_test_set
+from ticket_router_base.data import BaseDataset, load_test_set
+from ticket_router_base.data.descriptor import TaskDescriptor
 from ticket_router_base.types import Record
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.utils import JSONLLogger
-# MultilingualCustomerSupportDataset imported locally in build_messages
 
 from ticket_router_agent.config import SAVE_DIR
 from ticket_router_agent.prompt import build_conversation
@@ -58,16 +58,16 @@ MODELS_CFG = [
 ]
 
 
-def build_messages(subject: str, body: str, language: str):
-    from ticket_router_base.data.datasets import MultilingualCustomerSupportDataset
-    from ticket_router_base.types import Record, Language
-    dataset = MultilingualCustomerSupportDataset()
-    # Create a temporary Record for prompt building
+def build_messages(subject: str, body: str, language: str, task_descriptor: TaskDescriptor, dataset: BaseDataset):
+    from ticket_router_base.types import Record
+
+    # Map string language to Language enum if needed
     lang_enum = None
     for k, v in dataset.str2lang.items():
         if k == language or v.value == language:
             lang_enum = v
             break
+
     rec = Record(
         request_id="tmp",
         title=subject,
@@ -93,13 +93,17 @@ def build_request_body(model_cfg: ModelConfig, messages: list) -> dict:
     return body
 
 
-def generate_batch_jsonl(model_cfg: ModelConfig, records: List[Record]) -> List[Dict]:
+def generate_batch_jsonl(
+    model_cfg: ModelConfig, records: List[Record], task_descriptor: TaskDescriptor, dataset: BaseDataset
+) -> List[Dict]:
     requests = []
     for rec in records:
         messages = build_messages(
             rec.title or "",
             rec.body,
-            rec.language or "",
+            rec.language.value if rec.language is not None else "",
+            task_descriptor,
+            dataset,
         )
         body = build_request_body(model_cfg, messages)
         request = {
@@ -113,11 +117,14 @@ def generate_batch_jsonl(model_cfg: ModelConfig, records: List[Record]) -> List[
 
 
 def main():
+    from ticket_router_base.data.datasets import MultilingualCustomerSupportDataset
+
+    dataset = MultilingualCustomerSupportDataset()
     test_records = load_test_set()
 
     for cfg in MODELS_CFG:
         file_path = BATCH_SAVE_DIR / f"batch_{cfg.name}_fewshot.jsonl"
-        requests = generate_batch_jsonl(cfg, test_records)
+        requests = generate_batch_jsonl(cfg, test_records, dataset.task_descriptor, dataset)
         with JSONLLogger(file_path) as jsonl:
             for req in requests:
                 jsonl.write(req)

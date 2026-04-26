@@ -109,7 +109,7 @@ class XGBTrainer(Trainer):
         texts = combine_texts(records)
 
         models: Dict[str, SKModel] = {}
-        for task in self.dataset.classification_tasks + self.dataset.ordinal_tasks:
+        for task in self.dataset.all_tasks:
             labels = []
             for r in records:
                 if task.name not in r.labels:

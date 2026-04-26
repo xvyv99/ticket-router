@@ -1,12 +1,8 @@
 """French government open-source software support tickets dataset."""
 
 from ticket_router_base.config import DATASET_DIR
-from ticket_router_base.data import (
-    DFDataset,
-    ClassificationTask,
-    GenerationTask,
-    OrdinalTask,
-)
+from ticket_router_base.data import DFDataset, ClassificationTask, GenerationTask, OrdinalTask
+from ticket_router_base.data.desc import TaskDescriptor
 
 DEFAULT_DATASET_PATH = (
     DATASET_DIR / "tickets-de-support-logiciels-libres-interministeriel.csv"
@@ -27,24 +23,30 @@ class FrenchGovOSSDataset(DFDataset):
     language_column = None
     id_column = "ID TICKET"
 
-    classification_tasks = [
-        ClassificationTask(
-            name="type_ticket",
-            target_column="TYPE TICKET",
-            labels=["Anomalie", "Demande d'information"],
-        ),
-    ]
-    ordinal_tasks = [
-        OrdinalTask(
-            name="priorite",
-            target_column="PRIORITE",
-            labels=["Non bloquant", "Bloquant"],
-        ),
-        OrdinalTask(
-            name="criticite",
-            target_column="CRITICITE",
-            labels=["Non-critique", "Critique"],
-        ),
-    ]
-    generation_task = GenerationTask(name="respond", target_column=None)
+    task_descriptor = TaskDescriptor(
+        classification_tasks=[
+            ClassificationTask(
+                name="type_ticket",
+                target_column="TYPE TICKET",
+                labels=["Anomalie", "Demande d'information"],
+            ),
+        ],
+        ordinal_tasks=[
+            OrdinalTask(
+                name="priorite",
+                target_column="PRIORITE",
+                labels=["Non bloquant", "Bloquant"],
+            ),
+            OrdinalTask(
+                name="criticite",
+                target_column="CRITICITE",
+                labels=["Non-critique", "Critique"],
+            ),
+        ],
+        generation_task=GenerationTask(name="respond", target_column=None),
+    )
+
     discrete_feature_columns = ["LOGICIEL"]
+
+    stratified_columns = ["TYPE TICKET"]
+    sensitive_columns = ["TYPE TICKET"]

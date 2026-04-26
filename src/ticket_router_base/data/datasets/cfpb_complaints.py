@@ -3,11 +3,8 @@
 from logging import getLogger
 
 from ticket_router_base.config import DATASET_DIR
-from ticket_router_base.data import (
-    DFDataset,
-    ClassificationTask,
-    GenerationTask,
-)
+from ticket_router_base.data import DFDataset, ClassificationTask, GenerationTask
+from ticket_router_base.data.desc import TaskDescriptor
 
 DEFAULT_DATASET_PATH = DATASET_DIR / "complaints.parquet"
 
@@ -26,18 +23,20 @@ class CFPBComplaintsDataset(DFDataset):
     language_column = None
     id_column = "Complaint ID"
 
-    # label lists are shortened for brevity; full lists should be inferred from data
-    classification_tasks = [
-        ClassificationTask(name="issue", target_column="Issue", labels=[]),
-        ClassificationTask(
-            name="sub_issue",
-            target_column="Sub-issue",
-            labels=[],  # populated dynamically in load() from data
+    task_descriptor = TaskDescriptor(
+        classification_tasks=[
+            ClassificationTask(name="issue", target_column="Issue", labels=[]),
+            ClassificationTask(
+                name="sub_issue",
+                target_column="Sub-issue",
+                labels=[],  # populated dynamically in load() from data
+            ),
+        ],
+        generation_task=GenerationTask(
+            name="company_response", target_column="Company response to consumer"
         ),
-    ]
-    generation_task = GenerationTask(
-        name="company_response", target_column="Company response to consumer"
     )
+
     discrete_feature_columns = [
         "State",
         "ZIP code",
@@ -45,3 +44,6 @@ class CFPBComplaintsDataset(DFDataset):
         "Submitted via",
         "Company",
     ]
+
+    stratified_columns = ["Issue"]
+    sensitive_columns = ["State", "ZIP code"]

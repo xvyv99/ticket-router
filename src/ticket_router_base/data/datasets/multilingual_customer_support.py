@@ -7,7 +7,7 @@ from ticket_router_base.data import (
     GenerationTask,
     OrdinalTask,
 )
-from ticket_router_base.data.prompt_descriptor import PromptDescriptor
+from ticket_router_base.data.desc import PromptDescriptor, TaskDescriptor
 from ticket_router_base.types import GroundRecord, Language
 
 DEFAULT_DATASET_PATH = (
@@ -16,6 +16,34 @@ DEFAULT_DATASET_PATH = (
     / "dataset-tickets-multi-lang3-4k.csv"
 )
 
+TASK_DESC = TaskDescriptor(
+    classification_tasks=[
+        ClassificationTask(
+            name="queue",
+            target_column="queue",
+            labels=[
+                "Technical Support",
+                "Product Support",
+                "Customer Service",
+                "IT Support",
+                "Billing and Payments",
+                "Returns and Exchanges",
+                "Sales and Pre-Sales",
+                "Service Outages and Maintenance",
+                "General Inquiry",
+                "Human Resources",
+            ],
+        ),
+    ],
+    ordinal_tasks=[
+        OrdinalTask(
+            name="priority",
+            target_column="priority",
+            labels=["low", "medium", "high"],
+        ),
+    ],
+    generation_task=GenerationTask(name="preliminary_answer", target_column="answer"),
+)
 
 PROMPT_DESC = PromptDescriptor(
     system_role=(
@@ -77,41 +105,23 @@ class MultilingualCustomerSupportDataset(DFDataset):
         "pt": Language.PORTUGUESE,
     }
 
-    classification_tasks = [
-        ClassificationTask(
-            name="queue",
-            target_column="queue",
-            labels=[
-                "Technical Support",
-                "Product Support",
-                "Customer Service",
-                "IT Support",
-                "Billing and Payments",
-                "Returns and Exchanges",
-                "Sales and Pre-Sales",
-                "Service Outages and Maintenance",
-                "General Inquiry",
-                "Human Resources",
-            ],
-        ),
-    ]
-    ordinal_tasks = [
-        OrdinalTask(
-            name="priority", target_column="priority", labels=["low", "medium", "high"]
-        ),
-    ]
-    generation_task = GenerationTask(name="preliminary_answer", target_column="answer")
+    task_descriptor = TASK_DESC
+    prompt_descriptor = PROMPT_DESC
+
     discrete_feature_columns = ["type", "business_type", "tag_1", "tag_2"]
 
     stratified_columns = ["language", "queue"]
     sensitive_columns = ["language"]
 
-    prompt_descriptor = PROMPT_DESC
-
     def _demo_record(self) -> GroundRecord:
         """Return a minimal demo record for prompt examples."""
-        labels = {task.name: task.labels[0] for task in self.classification_tasks}
-        labels.update({task.name: task.labels[0] for task in self.ordinal_tasks})
+        labels = {
+            task.name: task.labels[0]
+            for task in self.task_descriptor.classification_tasks
+        }
+        labels.update(
+            {task.name: task.labels[0] for task in self.task_descriptor.ordinal_tasks}
+        )
         return GroundRecord(
             labels=labels,
             discrete_features={},

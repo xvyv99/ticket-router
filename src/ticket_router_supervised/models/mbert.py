@@ -198,7 +198,7 @@ class MBERTTrainer(TrainerProtocol):
         val_ds = create_datasets(val_records, self.dataset)
 
         model_paths: Dict[str, Path] = {}
-        for task in self.dataset.classification_tasks + self.dataset.ordinal_tasks:
+        for task in self.dataset.all_tasks:
             logger.info(f"Starting remBERT training for {task.name}...")
             save_path = MODEL_DIR / f"{task.name}_best"
             train_mbert(
