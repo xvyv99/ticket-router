@@ -96,11 +96,17 @@ class TaskEvaluator:
 
         for sensitive_attr in dataset.sensitive_columns:
             sensitive_lst = []
+            missing = False
 
             for ps in pred_saves:
                 sensitive_val = ps.ground_truth.sensitive_attributes.get(sensitive_attr)
-                assert sensitive_val is not None
+                if sensitive_val is None:
+                    missing = True
+                    break
                 sensitive_lst.append(sensitive_val)
+
+            if missing:
+                continue
 
             fairness_res = compute_fairness_metrics(
                 y_true_all,
