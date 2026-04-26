@@ -1,14 +1,10 @@
 default-dataset := "multilingual-customer-support"
-default-test-num := "1200"
-default-difficult-num := "100"
 
 # Data preparation
 
-prepare-data DATASET=default-dataset TEST_NUM=default-test-num DIFFICULT_NUM=default-difficult-num:
+prepare-data DATASET=default-dataset:
     uv run ./scripts/01_build_test_set.py \
-        --dataset {{DATASET}} \
-        --test-num {{TEST_NUM}} \
-        --difficult-num {{DIFFICULT_NUM}}
+        --dataset {{DATASET}} 
 
 # Supervised learning
 run-ml DATASET=default-dataset OUTPUT_PREFIX="":
@@ -20,11 +16,9 @@ run-mbert *ARGS:
     uv run ./scripts/04_run_mbert.py {{ARGS}}
 
 # Evaluation
-eval DATASET=default-dataset PRED_FILES="lr:xgb" PRED_DIR="outputs/supervised":
+eval DATASET=default-dataset:
     uv run ./scripts/eval.py \
-        --dataset {{DATASET}} \
-        --pred-files {{PRED_FILES}} \
-        --pred-dir {{PRED_DIR}}
+        --dataset {{DATASET}}
 
 # LLM-based
 quan-qwen *ARGS:
