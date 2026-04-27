@@ -15,15 +15,15 @@ from ticket_router_base.types import (
 from ticket_router_base.utils import combine_texts
 from ticket_router_base.config import SEED
 
-from ticket_router_supervised.features import build_tfidf_pipeline
 from ticket_router_supervised.utils import save_model, SKModel
 from ticket_router_supervised.config import SAVE_DIR
+from ticket_router_supervised.encoder import TextEncoder
+from ticket_router_supervised.cfg import SupervisedCfg
 
 
-def train_lr(texts: List[str], labels: List[str], save_name: str) -> SKModel:
+def train_lr(texts: List[str], labels: List[str], save_name: str, encoder: TextEncoder) -> SKModel:
     """Train a single LR model for one classification task."""
-    pipe = build_tfidf_pipeline()
-    X_t = pipe.fit_transform(texts)
+    X_t = encoder.fit_transform(texts)
 
     le = LabelEncoder()
     y = le.fit_transform(labels)
@@ -31,13 +31,13 @@ def train_lr(texts: List[str], labels: List[str], save_name: str) -> SKModel:
     clf = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=SEED)
     clf.fit(X_t, y)
 
-    model = SKModel(pipe, clf, le=le)
+    model = SKModel(encoder, clf, le=le)
     save_model(save_name, model)
     return model
 
 
 @register_model
-class LRPredictor(Predictor):
+class LRPredictor(Predictor[SupervisedCfg]):
     name = "lr"
     dataset: BaseDataset
 
@@ -45,14 +45,19 @@ class LRPredictor(Predictor):
 
     _models: Dict[str, SKModel]
 
+    cfg: SupervisedCfg | None
+
     def __init__(
         self,
         dataset: BaseDataset,
         models: Dict[str, SKModel],
+        cfg: SupervisedCfg,
     ):
         self.dataset = dataset
-
         self._models = models
+        self.cfg = cfg
+
+        assert self.cfg is not None, "Predictor must be initialized with a config."
 
     def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         texts = combine_texts(records)
@@ -90,8 +95,9 @@ class LRPredictor(Predictor):
 class LRTrainer(Trainer):
     dataset: BaseDataset
 
-    def __init__(self, dataset: BaseDataset):
+    def __init__(self, dataset: BaseDataset, cfg: SupervisedCfg):
         self.dataset = dataset
+        self.cfg = cfg
 
     def train(
         self,
@@ -99,11 +105,12 @@ class LRTrainer(Trainer):
         val_records: List[Record] | None = None,
     ) -> LRPredictor:
         texts = combine_texts(records)
+        encoder = self.cfg.encoder
 
         models: Dict[str, SKModel] = {}
         for task in self.dataset.all_tasks:
             labels = [r.labels.get(task.name, "") for r in records]
-            model = train_lr(texts, labels, f"lr_{task.name}")
+            model = train_lr(texts, labels, f"lr_{task.name}", encoder=encoder)
             models[task.name] = model
 
-        return LRPredictor(dataset=self.dataset, models=models)
+        return LRPredictor(dataset=self.dataset, models=models, cfg=self.cfg)

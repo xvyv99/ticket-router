@@ -4,12 +4,13 @@ Each predictor declares its own frozen dataclass Cfg subclass alongside its impl
 Serialization and deterministic cfg_id hashing are centralized in the base class.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from dataclasses import dataclass, asdict
 from typing import Any
 import hashlib
 import json
 
-
+@dataclass(frozen=True)
 class Cfg(ABC):
     """Base configuration class for predictors.
 
@@ -17,10 +18,9 @@ class Cfg(ABC):
     Serialization and cfg_id hashing logic lives in the base class.
     """
 
-    @abstractmethod
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dict representation."""
-        ...
+        return asdict(self)
 
     def cfg_id(self) -> str:
         """Deterministic 8-char hex hash."""

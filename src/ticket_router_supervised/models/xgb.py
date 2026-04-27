@@ -15,9 +15,10 @@ from ticket_router_base.types import (
 from ticket_router_base.utils import combine_texts
 from ticket_router_base.predictor import Predictor, Trainer, register_model
 
-from ticket_router_supervised.features import build_tfidf_pipeline
 from ticket_router_supervised.utils import save_model, SKModel
 from ticket_router_supervised.config import SAVE_DIR
+from ticket_router_supervised.encoder import TextEncoder
+from ticket_router_supervised.cfg import SupervisedCfg
 
 XGBCfg = {
     "objective": "multi:softprob",
@@ -29,12 +30,11 @@ XGBCfg = {
 }
 
 
-def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
+def train_xgb(texts: List[str], labels: List[str], save_name: str, encoder: TextEncoder) -> SKModel:
     """Train a single XGB model for one classification task."""
     le = LabelEncoder()
     y = le.fit_transform(labels)
-    pipe = build_tfidf_pipeline()
-    X_t = pipe.fit_transform(texts)
+    X_t = encoder.fit_transform(texts)
 
     n_classes = len(le.classes_)
     if n_classes == 2:
@@ -45,13 +45,13 @@ def train_xgb(texts: List[str], labels: List[str], save_name: str) -> SKModel:
         clf = xgb.XGBClassifier(num_class=n_classes, **XGBCfg)
     clf.fit(X_t, y)
 
-    model = SKModel(pipe, clf, le=le)
+    model = SKModel(encoder, clf, le=le)
     save_model(save_name, model)
     return model
 
 
 @register_model
-class XGBPredictor(Predictor):
+class XGBPredictor(Predictor[SupervisedCfg]):
     name = "xgb"
     dataset: BaseDataset
 
@@ -59,9 +59,14 @@ class XGBPredictor(Predictor):
 
     _models: Dict[str, SKModel]
 
-    def __init__(self, dataset: BaseDataset, models: Dict[str, SKModel]):
+    cfg: SupervisedCfg | None
+
+    def __init__(self, dataset: BaseDataset, models: Dict[str, SKModel], cfg: SupervisedCfg):
         self.dataset = dataset
         self._models = models
+        self.cfg = cfg 
+
+        assert self.cfg is not None, "Predictor must be initialized with a config."
 
     def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         texts = combine_texts(records)
@@ -98,8 +103,9 @@ class XGBPredictor(Predictor):
 class XGBTrainer(Trainer):
     dataset: BaseDataset
 
-    def __init__(self, dataset: BaseDataset):
+    def __init__(self, dataset: BaseDataset, cfg: SupervisedCfg):
         self.dataset = dataset
+        self.cfg = cfg
 
     def train(
         self,
@@ -107,6 +113,7 @@ class XGBTrainer(Trainer):
         val_records: List[Record] | None = None,
     ) -> XGBPredictor:
         texts = combine_texts(records)
+        encoder = self.cfg.encoder
 
         models: Dict[str, SKModel] = {}
         for task in self.dataset.all_tasks:
@@ -118,7 +125,7 @@ class XGBTrainer(Trainer):
                     )
                 labels.append(r.labels[task.name])
 
-            model = train_xgb(texts, labels, f"xgb_{task.name}")
+            model = train_xgb(texts, labels, f"xgb_{task.name}", encoder=encoder)
             models[task.name] = model
 
-        return XGBPredictor(models=models, dataset=self.dataset)
+        return XGBPredictor(models=models, dataset=self.dataset, cfg=self.cfg)
