@@ -10,6 +10,8 @@ from argparse import ArgumentParser
 from logging import basicConfig
 from typing import List
 from collections import defaultdict
+import warnings
+
 
 from rich.console import Console
 
@@ -22,6 +24,8 @@ from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.eval.report import print_overall_report
 from ticket_router_base.predictor import scan_pred_saves, get_model, load_index_json
+
+warnings.filterwarnings("ignore")
 
 console = Console()
 
@@ -39,7 +43,9 @@ def illustrate_metric(
     for key in results:
         if key.dataset_name != dataset_name:
             continue
-        groups[(key.predictor_name, key.dataset_name, key.sub_name, key.cfg_id)].append(key)
+        groups[(key.predictor_name, key.dataset_name, key.sub_name, key.cfg_id)].append(
+            key
+        )
 
     reports: List[EvaluationReport] = []
     for (pred_name, ds_name, sub_name, cfg_id), keys in groups.items():
