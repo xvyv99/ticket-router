@@ -4,7 +4,6 @@ from typing import List, Any, Tuple
 
 from datasets import Dataset
 import joblib
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 
 from ticket_router_base.config import MODEL_DIR
@@ -12,33 +11,35 @@ from ticket_router_base.data import BaseDataset
 from ticket_router_base.types import Record
 from ticket_router_base.utils import combine_texts
 
+from .encoder import TextEncoder
+
 
 MODEL_DIR = MODEL_DIR / "supervised"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class SKModel:
-    """Wrapper that pairs a sklearn pipeline with a fitted classifier, exposing predict()."""
+    """Wrapper that pairs a text encoder with a fitted classifier, exposing predict()."""
 
     mlb: MultiLabelBinarizer | None = None
     le: LabelEncoder | None = None
-    pipeline: Pipeline
+    encoder: TextEncoder
     clf: Any
 
     def __init__(
         self,
-        pipeline: Pipeline,
+        encoder: TextEncoder,
         clf,
         mlb: MultiLabelBinarizer | None = None,
         le: LabelEncoder | None = None,
     ):
-        self.pipeline = pipeline
+        self.encoder = encoder
         self.clf = clf
         self.mlb = mlb
         self.le = le
 
     def predict(self, texts: List[str]) -> List[Tuple[float, float | None]]:
-        X_t = self.pipeline.transform(texts)
+        X_t = self.encoder.transform(texts)
 
         probs = (
             self.clf.predict_proba(X_t) if hasattr(self.clf, "predict_proba") else None

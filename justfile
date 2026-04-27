@@ -6,11 +6,13 @@ prepare-data DATASET=default-dataset:
     uv run ./scripts/01_build_test_set.py \
         --dataset {{DATASET}} 
 
+infer-attr *ARGS:
+    uv run ./scripts/infer_attributes.py \
+        {{ARGS}}
+
 # Supervised learning
-run-ml DATASET=default-dataset OUTPUT_PREFIX="":
-    uv run ./scripts/03_run_supervised_traditional.py \
-        --dataset {{DATASET}} \
-        {{ if OUTPUT_PREFIX != "" { "--output-prefix " + OUTPUT_PREFIX } else { "" } }}
+run-ml *ARGS:
+    uv run ./scripts/03_run_supervised_traditional.py {{ARGS}}
 
 run-mbert *ARGS:
     uv run ./scripts/04_run_mbert.py {{ARGS}}
