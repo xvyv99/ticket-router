@@ -1,7 +1,6 @@
 """Attribute inferrer for multilingual customer support tickets dataset."""
 
 import json
-from typing import Any, Dict
 
 from ticket_router_base.types import Record
 
