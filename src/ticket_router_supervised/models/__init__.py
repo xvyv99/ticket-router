@@ -2,6 +2,7 @@ from .hf import HFPredictor, HFTrainer
 from .lr import LRPredictor, LRTrainer
 from .xgb import XGBPredictor, XGBTrainer
 from .xlm_roberta import XLMRoBERTaPredictor, XLMRoBERTaTrainer
+from .mbert import MBERTPredictor, MBERTTrainer
 
 
 __all__ = [
@@ -13,4 +14,6 @@ __all__ = [
     "XGBTrainer",
     "XLMRoBERTaPredictor",
     "XLMRoBERTaTrainer",
+    "MBERTPredictor",
+    "MBERTTrainer",
 ]

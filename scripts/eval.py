@@ -7,10 +7,10 @@ Usage:
 
 from pathlib import Path
 from argparse import ArgumentParser
-from logging import basicConfig
 from typing import List
 from collections import defaultdict
 from datetime import datetime
+from logging import getLogger, basicConfig
 import warnings
 
 
@@ -23,10 +23,16 @@ from ticket_router_base.eval import (
 )
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT, RESULTS_DIR
-from ticket_router_base.eval.report import print_overall_report, save_reports_to_csv, save_reports_to_excel
+from ticket_router_base.eval.report import (
+    print_overall_report,
+    save_reports_to_csv,
+    save_reports_to_excel,
+)
 from ticket_router_base.predictor import scan_pred_saves, get_model, load_index_json
 
 warnings.filterwarnings("ignore")
+
+logger = getLogger(__name__)
 
 console = Console()
 
@@ -39,6 +45,8 @@ def illustrate_metric(
 
     results = scan_pred_saves(scan_path=pred_dir)
 
+    pred_names = set()
+
     # Group by (predictor_name, dataset_name, sub_name, cfg_id)
     groups = defaultdict(list)
     for key in results:
@@ -47,6 +55,12 @@ def illustrate_metric(
         groups[(key.predictor_name, key.dataset_name, key.sub_name, key.cfg_id)].append(
             key
         )
+
+        pred_names.add((key.predictor_name, key.sub_name))
+
+    logger.info(
+        f"Found predictions for {len(pred_names)} model/subset combinations: {pred_names}"
+    )
 
     reports: List[EvaluationReport] = []
     for (pred_name, ds_name, sub_name, cfg_id), keys in groups.items():
