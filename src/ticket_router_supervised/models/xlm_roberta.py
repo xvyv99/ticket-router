@@ -14,7 +14,7 @@ from transformers import (
 )
 from tqdm import tqdm
 
-from ticket_router_base.config import MODEL_DIR, SEED
+from ticket_router_base.config import SEED
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.predictor import (
     Trainer as TrainerProtocol,
@@ -31,9 +31,6 @@ from ticket_router_supervised.utils import create_datasets
 logger = getLogger(__name__)
 
 MODEL_NAME = "FacebookAI/xlm-roberta-base"
-
-MODEL_DIR = MODEL_DIR / "xlm-roberta"
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 XLMROBERTA_INFER_BATCH_SIZE = 256
 
@@ -85,7 +82,7 @@ def train_xlm_roberta(
     val_tok.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
 
     args = DEFAULT_TRAIN_ARGS
-    args.output_dir = str(MODEL_DIR / target_col)
+    args.output_dir = str(save_path.parent / target_col)
     args.num_train_epochs = epochs
     trainer = HFTrainer(
         model=model, args=args, train_dataset=train_tok, eval_dataset=val_tok
@@ -139,10 +136,6 @@ class XLMRoBERTaPredictor(HFPredictor):
     name = "xlm-roberta"
     DEFAULT_SAVE_DIR = SAVE_DIR
 
-    @staticmethod
-    def _get_model_path(task) -> Path:
-        return MODEL_DIR / f"{task.name}_best"
-
     def _predict_task(
         self,
         model_path: Path,
@@ -163,7 +156,7 @@ class XLMRoBERTaTrainer(TrainerProtocol):
         records: List[Record],
         val_records: List[Record] | None = None,
         epochs: int = 3,
-    ) -> XLMRoBERTaPredictor:
+    ) -> HFPredictor:
         if val_records is None:
             raise ValueError(
                 "XLMRoBERTaTrainer requires val_records for early stopping"
@@ -171,10 +164,10 @@ class XLMRoBERTaTrainer(TrainerProtocol):
         train_ds = create_datasets(records, self.dataset)
         val_ds = create_datasets(val_records, self.dataset)
 
-        model_paths: Dict[str, Path] = {}
         for task in self.dataset.all_tasks:
             logger.info(f"Starting XLM-RoBERTa training for {task.name}...")
-            save_path = MODEL_DIR / f"{task.name}_best"
+            save_path = XLMRoBERTaPredictor._get_model_path(task, self.dataset)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             train_xlm_roberta(
                 train_ds,
                 val_ds,
@@ -185,6 +178,5 @@ class XLMRoBERTaTrainer(TrainerProtocol):
                 epochs=epochs,
             )
             logger.info(f"{task.name} model training complete!")
-            model_paths[task.name] = save_path
 
-        return XLMRoBERTaPredictor(model_paths=model_paths, dataset=self.dataset)
+        return XLMRoBERTaPredictor.load_model(self.dataset)

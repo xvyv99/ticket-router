@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from ticket_router_base.config import MODEL_DIR as BASE_MODEL_DIR
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.predictor import Predictor
 from ticket_router_base.types import (
@@ -15,12 +16,12 @@ from ticket_router_base.types import (
 )
 
 
-class HFPredictor(Predictor, ABC):
+class HFPredictor(Predictor, ABC, skip_check=True):
     """Base predictor for HuggingFace transformer sequence classification models.
 
-    Subclasses must implement:
-      - `_get_model_path(task)` — staticmethod returning the saved model Path.
-      - `_predict_task(model_path, records, id2label)` — instance method for batch inference.
+    Subclasses must implement `_predict_task`. `_get_model_path` has a
+    sensible default (``MODEL_DIR/<model_name>/<dataset_name>/<task>_best``)
+    and only needs to be overridden for non-standard save layouts.
     """
 
     _model_paths: Dict[str, Path]
@@ -35,21 +36,16 @@ class HFPredictor(Predictor, ABC):
         """Load fine-tuned task models from disk and return a predictor instance."""
         model_paths: Dict[str, Path] = {}
         for task in dataset.all_tasks:
-            path = cls._get_model_path(task)
+            path = cls._get_model_path(task, dataset)
             if not path.exists():
                 raise FileNotFoundError(f"Model for {task.name} not found at {path}")
             model_paths[task.name] = path
         return cls(model_paths=model_paths, dataset=dataset)
 
-    @staticmethod
-    @abstractmethod
-    def _get_model_path(task) -> Path:
-        """Return the saved model directory for a given task.
-
-        Implemented by subclasses; typically returns
-        ``MODEL_DIR / f"{task.name}_best"``.
-        """
-        ...
+    @classmethod
+    def _get_model_path(cls, task, dataset: BaseDataset) -> Path:
+        """Default save path: ``MODEL_DIR/<model_name>/<dataset_name>/<task>_best``."""
+        return BASE_MODEL_DIR / cls.name / dataset.name / f"{task.name}_best"
 
     @abstractmethod
     def _predict_task(

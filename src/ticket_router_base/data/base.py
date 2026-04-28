@@ -441,7 +441,7 @@ class BaseDataset(ABC):
         return train_df, test_df, valid_df
 
 
-class DFDataset(BaseDataset, skip_check=True):
+class DFDataset(BaseDataset, ABC, skip_check=True):
     DEFAULT_DATASET_PATH: ClassVar[
         Path
     ]  # subclasses must override with default CSV path
