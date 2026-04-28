@@ -17,6 +17,9 @@ run-ml *ARGS:
 run-mbert *ARGS:
     uv run ./scripts/04_run_mbert.py {{ARGS}}
 
+run-xlm-roberta *ARGS:
+    uv run ./scripts/05_run_xlm_roberta.py {{ARGS}}
+
 # Evaluation
 eval DATASET=default-dataset:
     uv run ./scripts/eval.py \
