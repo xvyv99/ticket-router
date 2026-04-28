@@ -14,11 +14,8 @@ infer-attr *ARGS:
 run-ml *ARGS:
     uv run ./scripts/03_run_supervised_traditional.py {{ARGS}}
 
-run-mbert *ARGS:
-    uv run ./scripts/04_run_mbert.py {{ARGS}}
-
-run-xlm-roberta *ARGS:
-    uv run ./scripts/05_run_xlm_roberta.py {{ARGS}}
+run-hf *ARGS:
+    uv run ./scripts/04_run_hf.py {{ARGS}}
 
 # Evaluation
 eval DATASET=default-dataset:
@@ -32,5 +29,5 @@ quan-qwen *ARGS:
 run-vllm *ARGS:
     uv run ./scripts/run_batch.py {{ARGS}}
 
-gen-batch:
-    uv run ./scripts/gen_batch.py
+llm-batch *ARGS:
+    uv run ./scripts/batch_api.py {{ARGS}}
