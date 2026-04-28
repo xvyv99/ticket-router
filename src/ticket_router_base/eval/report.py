@@ -131,6 +131,8 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
             ("F1 Gap", "macro_f1_gap"),
             ("F1 Ratio", "macro_f1_ratio"),
             ("DI", "avg_disparate_impact"),
+            ("EOD", "avg_equal_opportunity_difference"),
+            ("AOD", "avg_average_odds_difference"),
         ]
 
         for key in fairness_keys:
@@ -155,6 +157,38 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
                     row.append(format_metric(val, std))
 
                 table.add_row(*row)
+
+            # Per-pair fairness metrics
+            for r in reports:
+                task = get_task(r, task_name)
+                if task is None:
+                    continue
+                fm = task.fairness.get(key)
+                if fm is None or not fm.pairwise:
+                    continue
+                for pair_key, pair_fm in sorted(fm.pairwise.items()):
+                    for metric_name, field_name in [
+                        ("DI", "disparate_impact"),
+                        ("EOD", "equal_opportunity_difference"),
+                        ("AOD", "average_odds_difference"),
+                    ]:
+                        row = [f"  {key} {pair_key} {metric_name}"]
+                        for _r in reports:
+                            _task = get_task(_r, task_name)
+                            if _task is None:
+                                row.append("-")
+                                continue
+                            _fm = _task.fairness.get(key)
+                            if _fm is None:
+                                row.append("-")
+                                continue
+                            _pair_fm = _fm.pairwise.get(pair_key)
+                            if _pair_fm is None:
+                                row.append("-")
+                                continue
+                            val = getattr(_pair_fm, field_name, None)
+                            row.append(format_metric(val, None))
+                        table.add_row(*row)
 
         console.print(table)
 
@@ -256,9 +290,41 @@ def _build_tidy_rows(reports: List[EvaluationReport]) -> List[Dict[str, Any]]:
                         "metric_category": "fairness",
                         "metric_name": metric_name,
                         "sensitive_attr": sensitive_attr,
+                        "pair": "",
                         "value": val,
                         "std": std if std is not None else "",
                     })
+
+            # Per-pair fairness metrics
+            pair_fields = [
+                ("disparate_impact", "disparate_impact"),
+                ("equal_opportunity_difference", "equal_opportunity_difference"),
+                ("average_odds_difference", "average_odds_difference"),
+            ]
+            for r in reports:
+                task = _get_task(r, task_name)
+                if task is None:
+                    continue
+                fm = task.fairness.get(sensitive_attr)
+                if fm is None or not fm.pairwise:
+                    continue
+                for pair_key, pair_fm in sorted(fm.pairwise.items()):
+                    for metric_name, attr_name in pair_fields:
+                        val = getattr(pair_fm, attr_name, None)
+                        if val is None:
+                            continue
+                        rows.append({
+                            "task_name": task_name,
+                            "model_name": r.model_name,
+                            "cfg": json.dumps(r.cfg_info, ensure_ascii=False, sort_keys=True) if r.cfg_info else "",
+                            "n_runs": r.n_runs,
+                            "metric_category": "fairness_pairwise",
+                            "metric_name": metric_name,
+                            "sensitive_attr": sensitive_attr,
+                            "pair": pair_key,
+                            "value": val,
+                            "std": "",
+                        })
 
     return rows
 
@@ -277,6 +343,7 @@ def save_reports_to_csv(reports: List[EvaluationReport], output_path: Path) -> N
         "metric_category",
         "metric_name",
         "sensitive_attr",
+        "pair",
         "value",
         "std",
     ]
@@ -398,6 +465,39 @@ def _write_overview_sheet(
                 std = getattr(std_fm, attr_name, None) if std_fm is not None else None
                 values.append(_format_metric(val, std))
             metric_rows.append((f"{sensitive_attr} {metric_label}", values))
+
+        # Per-pair fairness metrics
+        pair_fields = [
+            ("DI", "disparate_impact"),
+            ("EOD", "equal_opportunity_difference"),
+            ("AOD", "average_odds_difference"),
+        ]
+        for r in reports:
+            task = _get_task(r, task_name)
+            if task is None:
+                continue
+            fm = task.fairness.get(sensitive_attr)
+            if fm is None or not fm.pairwise:
+                continue
+            for pair_key, pair_fm in sorted(fm.pairwise.items()):
+                for metric_label, attr_name in pair_fields:
+                    values: List[str] = []
+                    for _r in reports:
+                        _task = _get_task(_r, task_name)
+                        if _task is None:
+                            values.append("-")
+                            continue
+                        _fm = _task.fairness.get(sensitive_attr)
+                        if _fm is None:
+                            values.append("-")
+                            continue
+                        _pair_fm = _fm.pairwise.get(pair_key)
+                        if _pair_fm is None:
+                            values.append("-")
+                            continue
+                        val = getattr(_pair_fm, attr_name, None)
+                        values.append(_format_metric(val, None))
+                    metric_rows.append((f"  {sensitive_attr} {pair_key} {metric_label}", values))
 
     for row_offset, (metric_label, values) in enumerate(metric_rows, start=1):
         row_idx = header_offset + row_offset

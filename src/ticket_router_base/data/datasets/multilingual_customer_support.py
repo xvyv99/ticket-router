@@ -111,7 +111,7 @@ class MultilingualCustomerSupportDataset(DFDataset):
     discrete_feature_columns = ["type", "business_type", "tag_1", "tag_2"]
 
     stratified_columns = ["language", "queue"]
-    sensitive_columns = ["language", "user_type", "industry", "tech_proficiency"]
+    sensitive_columns = ["language", "user_type", "tech_proficiency"]
     inferred_sensitive = True
 
     def _demo_record(self) -> GroundRecord:
