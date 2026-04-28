@@ -3,9 +3,9 @@
 import json
 from pathlib import Path
 
-from ticket_router_base.data import BaseDataset, ClassificationTask
-from ticket_router_base.eval.evaluator import TaskEvaluator
-from ticket_router_base.eval.report import EvaluationReport
+from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router_eval.evaluator import TaskEvaluator
+from ticket_router_eval.report import EvaluationReport
 from ticket_router_base.types import (
     ErrorFlag,
     GroundRecord,
@@ -26,6 +26,7 @@ def _make_pred_save(
             labels=pred_labels,
             discrete_features={},
             generation_target=None,
+            sensitive_attributes={},
             confidences={},
             raw_output=None,
             error=ErrorFlag.SUCCESS,
@@ -34,6 +35,7 @@ def _make_pred_save(
             labels=gt_labels,
             discrete_features={},
             generation_target=None,
+            sensitive_attributes={},
         ),
     )
 
@@ -42,9 +44,20 @@ class _FakeDataset(BaseDataset):
     name = "fake"
     csv_path = Path("/dev/null")
     body_column = "body"
-    classification_tasks = [
-        ClassificationTask("queue", "queue", ["A", "B"]),
-    ]
+    task_descriptor = TaskDescriptor(
+        classification_tasks=[
+            ClassificationTask(name="queue", target_column="queue", labels=["A", "B"]),
+        ],
+    )
+    sensitive_columns = ["language"]
+    stratified_columns = ["language"]
+    discrete_feature_columns = []
+
+    def load_df(self, dataset_path=None, sample_num=None):
+        raise NotImplementedError
+
+    def load(self, dataset_path=None, sample_num=None):
+        raise NotImplementedError
 
 
 class TestEvaluationReport:
@@ -62,17 +75,18 @@ class TestEvaluationReport:
 
         return EvaluationReport(
             model_name="test_model",
-            pred_file_path="outputs/test_predictions.jsonl",
-            dataset_name="fake",
+            dataset=dataset,
+            file_path=Path("outputs/test_predictions.jsonl"),
             task_results=task_results,
             error_summary={"SUCCESS": 2},
             total_samples=2,
         )
 
     def test_to_dict(self) -> None:
-        """to_dict() should return a fully nested dict."""
+        """asdict() should return a fully nested dict."""
+        from dataclasses import asdict
         report = self._build_report()
-        d = report.to_dict()
+        d = asdict(report)
 
         assert d["model_name"] == "test_model"
         assert d["total_samples"] == 2
@@ -80,20 +94,34 @@ class TestEvaluationReport:
         assert d["error_summary"] == {"SUCCESS": 2}
 
     def test_to_json_roundtrip(self) -> None:
-        """to_json() output must be valid JSON."""
+        """report JSON serialization must be valid JSON."""
+        from dataclasses import asdict
+
+        def _serialize(obj):
+            if isinstance(obj, BaseDataset):
+                return {"name": obj.name}
+            return str(obj)
+
         report = self._build_report()
-        s = report.to_json()
+        s = json.dumps(asdict(report), default=_serialize)
         loaded = json.loads(s)
 
         assert loaded["model_name"] == "test_model"
-        assert loaded["dataset_name"] == "fake"
+        assert loaded["dataset"]["name"] == "fake"
         assert len(loaded["task_results"]) == 1
 
     def test_to_json_writes_file(self, tmp_path: Path) -> None:
-        """to_json(path) should write to disk."""
+        """JSON report should be writable to disk."""
+        from dataclasses import asdict
+
+        def _serialize(obj):
+            if isinstance(obj, BaseDataset):
+                return {"name": obj.name}
+            return str(obj)
+
         report = self._build_report()
         out_path = tmp_path / "report.json"
-        report.to_json(out_path)
+        out_path.write_text(json.dumps(asdict(report), default=_serialize), encoding="utf-8")
 
         assert out_path.exists()
         loaded = json.loads(out_path.read_text(encoding="utf-8"))

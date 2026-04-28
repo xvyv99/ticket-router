@@ -1,12 +1,11 @@
 """Unified evaluation API for ticket router predictions.
 
 Usage:
-    from ticket_router_base.eval import evaluate_file
+    from ticket_router_eval import evaluate_model_dataset
     from ticket_router_base.data import get_dataset
+    from ticket_router_supervised import LRPredictor
     dataset = get_dataset("multilingual-customer-support")
-    report = evaluate_file(Path("outputs/supervised/lr_predictions.jsonl"), dataset)
-    report.print_summary()
-    report.to_json(Path("outputs/eval/lr_report.json"))
+    report = evaluate_model_dataset(LRPredictor, dataset())
 """
 
 from .evaluator import TaskEvaluator

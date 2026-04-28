@@ -2,7 +2,7 @@
 
 import pytest
 
-from ticket_router_base.eval.fairness_metrics import compute_fairness_metrics
+from ticket_router_eval.fairness_metrics import compute_fairness_metrics
 
 
 class TestComputeFairnessMetrics:
@@ -49,21 +49,22 @@ class TestComputeFairnessMetrics:
         assert fm.accuracy_gap == pytest.approx(0.0, abs=1e-6)
         assert fm.accuracy_ratio == pytest.approx(1.0, abs=1e-6)
 
-    def test_ordinal_task_skips_aif360(self):
-        """Ordinal tasks should have None for all aif360 fields."""
-        labels = ["low", "medium", "high"]
-        y_true = ["low", "medium", "high", "low"]
-        y_pred = ["low", "medium", "high", "medium"]
+    def test_pairwise_fields_present(self):
+        """Pairwise metrics should be populated for multi-group classification."""
+        labels = ["a", "b"]
+        y_true = ["a", "b", "a", "b"]
+        y_pred = ["a", "b", "a", "b"]
         sensitive = ["en", "en", "de", "de"]
 
-        fm = compute_fairness_metrics(
-            y_true, y_pred, sensitive, labels, is_ordinal=True
-        )
+        fm = compute_fairness_metrics(y_true, y_pred, sensitive, labels)
 
-        assert fm.avg_disparate_impact is None
-        assert fm.avg_statistical_parity_difference is None
-        assert fm.avg_equal_opportunity_difference is None
-        assert fm.avg_average_odds_difference is None
+        assert "de_vs_en" in fm.pairwise
+        # With perfect prediction and balanced groups, pairwise DI should be close to 1.0
+        pair = fm.pairwise["de_vs_en"]
+        if pair.disparate_impact is not None:
+            assert pair.disparate_impact == pytest.approx(1.0, abs=0.1)
+        if pair.equal_opportunity_difference is not None:
+            assert abs(pair.equal_opportunity_difference) < 0.1
         # fairlearn metrics should still be present
         assert fm.accuracy_gap >= 0.0
 
@@ -74,14 +75,14 @@ class TestComputeFairnessMetrics:
         y_pred = ["a", "b", "a", "b"]
         sensitive = ["en", "en", "de", "de"]
 
-        fm = compute_fairness_metrics(y_true, y_pred, sensitive, labels, is_ordinal=False)
+        fm = compute_fairness_metrics(y_true, y_pred, sensitive, labels)
 
         # With perfect prediction and balanced groups, aif360 metrics should be defined.
-        # DI should be close to 1.0, SPD close to 0.0.
+        # DI should be close to 1.0, EOD close to 0.0.
         if fm.avg_disparate_impact is not None:
             assert fm.avg_disparate_impact == pytest.approx(1.0, abs=0.1)
-        if fm.avg_statistical_parity_difference is not None:
-            assert abs(fm.avg_statistical_parity_difference) < 0.1
+        if fm.avg_equal_opportunity_difference is not None:
+            assert abs(fm.avg_equal_opportunity_difference) < 0.1
 
     def test_empty_input(self):
         """Empty inputs should produce safe defaults."""

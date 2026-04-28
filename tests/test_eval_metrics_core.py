@@ -9,7 +9,7 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from ticket_router_base.eval.metrics import (
+from ticket_router_eval.metrics import (
     PerClassMetrics,
     compute_classification_metrics,
 )
@@ -159,7 +159,7 @@ class TestComputeClassificationMetrics:
 class TestPerClassMetrics:
     def test_to_dict(self) -> None:
         pcm = PerClassMetrics(precision=0.5, recall=0.6, f1=0.55, support=10)
-        d = pcm.to_dict()
+        d = pcm.model_dump()
         assert d == {"precision": 0.5, "recall": 0.6, "f1": 0.55, "support": 10}
 
 
@@ -168,7 +168,7 @@ class TestClassificationMetrics:
         y_true = ["a", "b", "a"]
         y_pred = ["a", "b", "b"]
         result = compute_classification_metrics(y_true, y_pred)
-        d = result.to_dict()
+        d = result.model_dump()
 
         assert d["accuracy"] == result.accuracy
         assert d["macro_f1"] == result.macro_f1
