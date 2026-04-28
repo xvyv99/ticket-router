@@ -4,7 +4,6 @@ from logging import getLogger
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import torch
 from datasets import Dataset
 from transformers import (
     AutoModelForSequenceClassification,
@@ -12,7 +11,6 @@ from transformers import (
     Trainer as HFTrainer,
     TrainingArguments,
 )
-from tqdm import tqdm
 
 from ticket_router_base.config import SEED
 from ticket_router_base.data import BaseDataset
@@ -23,16 +21,13 @@ from ticket_router_base.predictor import (
 
 from .hf_predictor import HFPredictor
 from ticket_router_base.types import Record
-from ticket_router_base.utils import combine_texts
 
-from ticket_router_supervised.config import TORCH_DEVICE, SAVE_DIR
+from ticket_router_supervised.config import SAVE_DIR
 from ticket_router_supervised.utils import create_datasets
 
 logger = getLogger(__name__)
 
 MODEL_NAME = "FacebookAI/xlm-roberta-base"
-
-XLMROBERTA_INFER_BATCH_SIZE = 256
 
 DEFAULT_TRAIN_ARGS = TrainingArguments(
     eval_strategy="epoch",
@@ -93,56 +88,11 @@ def train_xlm_roberta(
     return trainer
 
 
-def predict_xlm_roberta(
-    model_path: Path,
-    records: List[Record],
-    id2label: Dict[int, str],
-    batch_size: int = XLMROBERTA_INFER_BATCH_SIZE,
-) -> List[Tuple[str, float]]:
-    """Run inference using a fine-tuned XLM-RoBERTa model."""
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForSequenceClassification.from_pretrained(model_path)
-    model.eval()
-    model.to(TORCH_DEVICE)
-
-    texts = combine_texts(records)
-
-    results = []
-    with torch.inference_mode():
-        for i in tqdm(range(0, len(texts), batch_size), desc="Batched inference"):
-            batch_texts = texts[i : i + batch_size]
-            inputs = tokenizer(
-                batch_texts,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=256,
-            )
-            inputs = {k: v.to(TORCH_DEVICE) for k, v in inputs.items()}
-            outputs = model(**inputs)
-            probs = torch.softmax(outputs.logits, dim=-1)
-
-            for j in range(len(batch_texts)):
-                pred_id = int(torch.argmax(probs[j]))
-                confidence = float(probs[j][pred_id])
-                pred_label = id2label.get(pred_id, str(pred_id))
-
-                results.append((pred_label, confidence))
-    return results
-
-
 @register_model
 class XLMRoBERTaPredictor(HFPredictor):
     name = "xlm-roberta"
     DEFAULT_SAVE_DIR = SAVE_DIR
-
-    def _predict_task(
-        self,
-        model_path: Path,
-        records: List[Record],
-        id2label: Dict[int, str],
-    ) -> List[Tuple[str, float]]:
-        return predict_xlm_roberta(model_path, records, id2label)
+    INFER_BATCH_SIZE = 256
 
 
 class XLMRoBERTaTrainer(TrainerProtocol):
