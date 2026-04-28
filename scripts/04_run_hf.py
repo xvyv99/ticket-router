@@ -44,7 +44,7 @@ def run_full_training(dataset: BaseDataset, trainer_cls):
 def run_inference(dataset: BaseDataset, predictor_cls):
     predictor = predictor_cls.load_model(dataset)
     _, df_test, _ = dataset.load_train_test_split()
-    test_records = dataset.df_to_records(df_test)
+    test_records = dataset.df_to_records(df_test, need_inject_inferred=True)
 
     logger.info(f"Running inference on {len(test_records)} test records...")
     preds = predictor.predict(test_records)

@@ -77,7 +77,9 @@ def _build_cfg_by_name(name: str) -> ModelConfig | None:
     return MODEL_CFG_MAP.get(name)
 
 
-def _scan_result_files(result_dir: Path, few_shot: bool = True) -> list[tuple[str, Path]]:
+def _scan_result_files(
+    result_dir: Path, few_shot: bool = True
+) -> list[tuple[str, Path]]:
     """Scan result_dir for batch result files and return (model_name, path) pairs."""
     suffix = "fewshot" if few_shot else "zeroshot"
     pattern = re.compile(rf"batch_(.+?)_{suffix}_result\.jsonl$")
@@ -115,7 +117,7 @@ def do_parse(dataset_name: str, result_dir: Path, few_shot: bool = True) -> None
     dataset_type = get_dataset(dataset_name)
     dataset = dataset_type()
     _, df_test, _ = dataset.load_train_test_split()
-    test_records = dataset.df_to_records(df_test)
+    test_records = dataset.df_to_records(df_test, need_inject_inferred=True)
 
     result_files = _scan_result_files(result_dir, few_shot)
     if not result_files:
