@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from logging import basicConfig
 from typing import List
 from collections import defaultdict
+from datetime import datetime
 import warnings
 
 
@@ -21,8 +22,8 @@ from ticket_router_base.eval import (
     aggregate_reports,
 )
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
-from ticket_router_base.config import LOGGING_FORMAT
-from ticket_router_base.eval.report import print_overall_report
+from ticket_router_base.config import LOGGING_FORMAT, RESULTS_DIR
+from ticket_router_base.eval.report import print_overall_report, save_reports_to_csv, save_reports_to_excel
 from ticket_router_base.predictor import scan_pred_saves, get_model, load_index_json
 
 warnings.filterwarnings("ignore")
@@ -81,6 +82,15 @@ def illustrate_metric(
             reports.append(aggregated)
 
     print_overall_report(reports)
+
+    # Save to CSV
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_path = RESULTS_DIR / f"eval_{dataset_name}_{timestamp}.csv"
+    save_reports_to_csv(reports, csv_path)
+
+    # Save to Excel
+    excel_path = RESULTS_DIR / f"eval_{dataset_name}_{timestamp}.xlsx"
+    save_reports_to_excel(reports, excel_path)
 
 
 def main() -> None:

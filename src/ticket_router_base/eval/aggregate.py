@@ -37,7 +37,6 @@ def _aggregate_fairness(
         "macro_f1_gap",
         "macro_f1_ratio",
         "avg_disparate_impact",
-        "avg_statistical_parity_difference",
         "avg_equal_opportunity_difference",
         "avg_average_odds_difference",
     ]
