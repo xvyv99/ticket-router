@@ -9,7 +9,7 @@ from typing import Dict
 from rich.console import Console
 from rich.table import Table
 
-from .interpretability import (
+from .interpret import (
     TaskAttributionReport,
 )
 

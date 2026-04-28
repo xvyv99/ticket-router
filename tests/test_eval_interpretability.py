@@ -11,7 +11,7 @@ import torch
 
 from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
 from ticket_router_base.types import Record
-from ticket_router_eval.interpretability import (
+from ticket_router_eval.interpret import (
     ClassAttributionSummary,
     HFInterpretabilityEvaluator,
     SampleAttribution,

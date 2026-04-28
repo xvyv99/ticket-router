@@ -21,13 +21,13 @@ __all__ = [
 ]
 
 # Interpretability (optional, heavy dependency)
-from .interpretability import (
+from .interpret import (
     HFInterpretabilityEvaluator,
     SampleAttribution,
     TaskAttributionReport,
     TokenAttribution,
 )
-from .interpretability_report import (
+from .interpret_report import (
     print_interpretability_report,
     save_interpretability_results,
 )

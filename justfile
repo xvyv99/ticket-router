@@ -26,8 +26,8 @@ eval DATASET=default-dataset:
     uv run ./scripts/eval.py \
         --dataset {{DATASET}}
 
-eval-interp MODEL *ARGS:
-    uv run ./scripts/eval_interpretability.py \
+eval-interpret MODEL *ARGS:
+    uv run ./scripts/eval_interpret.py \
         --model {{MODEL}} \
         {{ARGS}}
 
