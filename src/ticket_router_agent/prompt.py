@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.data.desc import TaskDescriptor, PromptDescriptor
-from ticket_router_base.types import Record, GroundRecord
+from ticket_router_base.types import Record
 
 
 def _build_task_definitions(
@@ -16,7 +16,8 @@ def _build_task_definitions(
     descs = prompt_descriptor.label_descriptions
 
     if task_descriptor.classification_tasks:
-        lines.append("=== Queue / Category Definitions ===")
+        task_names = ", ".join(t.name for t in task_descriptor.classification_tasks)
+        lines.append(f"=== Classification Task Definitions ({task_names}) ===")
         for task in task_descriptor.classification_tasks:
             task_descs = descs.get(task.name, {})
             for label in task.labels:
@@ -25,9 +26,10 @@ def _build_task_definitions(
 
     if task_descriptor.ordinal_tasks:
         lines.append("")
-        lines.append("=== Priority Definitions ===")
+        task_names = ", ".join(t.name for t in task_descriptor.ordinal_tasks)
+        lines.append(f"=== Ordinal Task Definitions ({task_names}) ===")
         for task in task_descriptor.ordinal_tasks:
-            lines.append(f"{task.name} is ordered from lowest to highest urgency:")
+            lines.append(f"{task.name} is ordered from lowest to highest:")
             task_descs = descs.get(task.name, {})
             for label in task.labels:
                 desc = task_descs.get(label, "")
@@ -38,7 +40,6 @@ def _build_task_definitions(
 
 def _format_example(record: Record, task_descriptor: TaskDescriptor) -> str:
     """Format a single few-shot example for the prompt."""
-    lang = record.language.value if record.language is not None else ""
     title = record.title or ""
     body = record.body
 
@@ -46,7 +47,7 @@ def _format_example(record: Record, task_descriptor: TaskDescriptor) -> str:
     body_short = body[:200] + "..." if len(body) > 200 else body
 
     lines = [
-        f"Input [Language: {lang} | Subject: {title} | Body: {body_short}]",
+        f"Subject: {title} | Body: {body_short}]",
         "Output:",
     ]
     output = dict(record.labels)
@@ -60,7 +61,6 @@ def build_system_prompt(
     task_descriptor: TaskDescriptor,
     prompt_descriptor: PromptDescriptor,
     few_shot_examples: List[Record] | None = None,
-    demo_record: GroundRecord | None = None,
 ) -> str:
     """Build a rich system prompt with task definitions and examples.
 
@@ -91,7 +91,13 @@ def build_system_prompt(
     if task_descriptor.generation_task:
         parts.append(
             f"- {task_descriptor.generation_task.name}: a polite, helpful preliminary reply "
-            f"in the same language as the customer's request"
+            "in the same language as the customer's request\n"
+            "- Limit the preliminary_answer to 1-3 sentences.\n"
+            "- Do NOT assume actions have already been taken.\n"
+            "- Do NOT fabricate resolutions, refunds, or internal processes.\n"
+            "- Do NOT claim a root cause without investigation.\n"
+            "- Focus on acknowledging the issue and suggesting next steps or requesting key information.\n"
+            "- Keep the response polite, neutral, and non-committal.\n"
         )
 
     if pd.fairness_notes:
@@ -103,39 +109,17 @@ def build_system_prompt(
             ]
         )
 
-    parts.extend(
-        [
-            "",
-            "=== Examples ===",
-        ]
-    )
-
     if few_shot_examples:
+        parts.extend(
+            [
+                "",
+                "=== Examples ===",
+            ]
+        )
+
         for ex in few_shot_examples:
             parts.append(_format_example(ex, task_descriptor))
             parts.append("")
-    else:
-        if demo_record is None:
-            # Build a minimal demo from task_descriptor defaults
-            labels = {task.name: task.labels[0] for task in task_descriptor.classification_tasks}
-            labels.update({task.name: task.labels[0] for task in task_descriptor.ordinal_tasks})
-            demo_record = GroundRecord(
-                labels=labels,
-                discrete_features={},
-                generation_target="Thank you for your request. We will get back to you shortly.",
-                sensitive_attributes={},
-            )
-        demo_full_record = Record(
-            request_id="demo",
-            title="Example request title",
-            body="Example request body describing the issue.",
-            language=None,
-            labels=demo_record.labels,
-            discrete_features=demo_record.discrete_features,
-            sensitive_attributes=demo_record.sensitive_attributes,
-            generation_target=demo_record.generation_target,
-        )
-        parts.append(_format_example(demo_full_record, task_descriptor))
 
     return "\n".join(parts)
 
@@ -143,12 +127,6 @@ def build_system_prompt(
 def build_user_prompt(record: Record) -> str:
     """Build the user-side prompt from a record."""
     lines: List[str] = []
-
-    lang_val = record.language
-    if lang_val is not None:
-        # Language is a StrEnum or string
-        lang_str = lang_val.value
-        lines.append(f"Language: {lang_str}")
 
     if record.title:
         lines.append(f"Subject: {record.title}")
@@ -172,7 +150,6 @@ def build_conversation(
         dataset.task_descriptor,
         dataset.prompt_descriptor,
         few_shot_examples,
-        dataset._demo_record(),
     )
     user_content = build_user_prompt(record)
 
@@ -180,6 +157,3 @@ def build_conversation(
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
-
-
-
