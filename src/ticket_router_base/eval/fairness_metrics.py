@@ -29,7 +29,6 @@ class AIF360Metrics(BaseModel):
     """AIF360 one-vs-rest aggregated metrics for binary classification tasks."""
 
     avg_disparate_impact: float | None
-    avg_statistical_parity_difference: float | None
     avg_equal_opportunity_difference: float | None
     avg_average_odds_difference: float | None
 
@@ -112,7 +111,6 @@ def _aif360_ovr_metrics(
     y_pred_idx = np.array([label2idx[y] for y in y_pred])
 
     di_vals: List[float] = []
-    spd_vals: List[float] = []
     eod_vals: List[float] = []
     aod_vals: List[float] = []
 
@@ -147,14 +145,11 @@ def _aif360_ovr_metrics(
                     privileged_groups=[{"sensitive": p_val}],
                 )
                 di = metric.disparate_impact()
-                spd = metric.statistical_parity_difference()
                 eod = metric.equal_opportunity_difference()
                 aod = metric.average_odds_difference()
 
                 if not math.isnan(di) and not math.isinf(di):
                     di_vals.append(float(di))
-                if not math.isnan(spd):
-                    spd_vals.append(float(spd))
                 if not math.isnan(eod):
                     eod_vals.append(float(eod))
                 if not math.isnan(aod):
@@ -165,7 +160,6 @@ def _aif360_ovr_metrics(
 
     return AIF360Metrics(
         avg_disparate_impact=_avg(di_vals),
-        avg_statistical_parity_difference=_avg(spd_vals),
         avg_equal_opportunity_difference=_avg(eod_vals),
         avg_average_odds_difference=_avg(aod_vals),
     )

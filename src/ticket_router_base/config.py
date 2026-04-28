@@ -5,7 +5,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-
 PROJECT_ROOT = Path.cwd()
 
 # Load .env into environment variables
@@ -22,6 +21,9 @@ MODEL_DIR.mkdir(exist_ok=True)
 
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+RESULTS_DIR = PROJECT_ROOT / "results"
+RESULTS_DIR.mkdir(exist_ok=True)
 
 DIFFICULT_CASE_NUM = 100
 

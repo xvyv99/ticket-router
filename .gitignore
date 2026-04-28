@@ -216,4 +216,6 @@ __marimo__/
 /docs/REQUIREMENTS.md
 /models/
 
+/results/
+
 .env*
