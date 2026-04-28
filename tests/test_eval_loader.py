@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from ticket_router_base.eval.loader import load_pred_saves, _parse_pred_save
+from ticket_router_base.utils import load_pred
 from ticket_router_base.types import (
     ErrorFlag,
+    PredSave,
 )
 
 
@@ -25,6 +26,7 @@ class TestLoadPredSaves:
                     "labels": {"queue": "Technical Support", "priority": "high"},
                     "discrete_features": {},
                     "generation_target": None,
+                    "sensitive_attributes": {},
                     "request_id": "Test-0000",
                     "confidences": {"queue": 0.5, "priority": 0.6},
                     "raw_output": None,
@@ -37,6 +39,7 @@ class TestLoadPredSaves:
                         "tag_2": "Hardware Failure",
                     },
                     "generation_target": "Hello",
+                    "sensitive_attributes": {"language": "en"},
                     "request_id": "Test-0000",
                     "subject": "Subject",
                     "body": "Body",
@@ -50,6 +53,7 @@ class TestLoadPredSaves:
                     "labels": {"queue": "Billing and Payments", "priority": "low"},
                     "discrete_features": {},
                     "generation_target": None,
+                    "sensitive_attributes": {},
                     "request_id": "Test-0001",
                     "confidences": {},
                     "raw_output": '{"queue": "Billing and Payments"}',
@@ -59,6 +63,7 @@ class TestLoadPredSaves:
                     "labels": {"queue": "Billing and Payments", "priority": "low"},
                     "discrete_features": {"tag_1": "Billing Issue", "tag_2": None},
                     "generation_target": "Danke",
+                    "sensitive_attributes": {"language": "de"},
                     "request_id": "Test-0001",
                     "subject": "Betreff",
                     "body": "Inhalt",
@@ -70,11 +75,11 @@ class TestLoadPredSaves:
             for rec in records:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-        result = load_pred_saves(path)
+        result = load_pred(path)
         assert len(result) == 2
 
         # first record
-        assert result[0].language == "en"
+        assert result[0].ground_truth.sensitive_attributes.get("language") == "en"
         assert result[0].predicted.labels == {
             "queue": "Technical Support",
             "priority": "high",
@@ -86,7 +91,7 @@ class TestLoadPredSaves:
         }
 
         # second record
-        assert result[1].language == "de"
+        assert result[1].ground_truth.sensitive_attributes.get("language") == "de"
         assert result[1].predicted.labels == {
             "queue": "Billing and Payments",
             "priority": "low",
@@ -101,26 +106,29 @@ class TestLoadPredSaves:
         """Empty JSONL file returns empty list."""
         path = tmp_path / "empty.jsonl"
         path.write_text("", encoding="utf-8")
-        result = load_pred_saves(path)
+        result = load_pred(path)
         assert result == []
 
     def test_load_file_not_found(self, tmp_path: Path) -> None:
         """Non-existent file raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
-            load_pred_saves(tmp_path / "nonexistent.jsonl")
+            load_pred(tmp_path / "nonexistent.jsonl")
 
 
-class TestParsePredSave:
-    """Tests for _parse_pred_save edge cases."""
+class TestPredSaveValidation:
+    """Tests for PredSave validation edge cases."""
 
     def test_error_flag_mapping(self) -> None:
-        """Error integer maps correctly to ErrorFlag."""
+        """Error integer maps correctly to ErrorFlag via Pydantic validation."""
         raw = {
+            "request_id": "test-001",
             "language": "en",
             "predicted": {
+                "request_id": "test-001",
                 "labels": {"queue": "IT Support"},
                 "discrete_features": {},
                 "generation_target": None,
+                "sensitive_attributes": {},
                 "confidences": {},
                 "raw_output": None,
                 "error": 3,  # JSON_ERR | CLASSIFICATION_REGEX_ERR
@@ -129,12 +137,14 @@ class TestParsePredSave:
                 "labels": {"queue": "IT Support"},
                 "discrete_features": {},
                 "generation_target": "OK",
+                "sensitive_attributes": {"language": "en"},
+                "request_id": "test-001",
                 "subject": "S",
                 "body": "B",
                 "language": "en",
             },
         }
-        ps = _parse_pred_save(raw)
+        ps = PredSave.model_validate(raw)
         assert ps.predicted.error == (
             ErrorFlag.JSON_ERR | ErrorFlag.CLASSIFICATION_REGEX_ERR
         )

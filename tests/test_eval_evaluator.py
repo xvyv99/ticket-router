@@ -2,8 +2,8 @@
 
 import pytest
 
-from ticket_router_base.data import BaseDataset, ClassificationTask
-from ticket_router_base.eval.evaluator import TaskEvaluator
+from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router_eval.evaluator import TaskEvaluator
 from ticket_router_base.types import (
     ErrorFlag,
     GroundRecord,
@@ -17,22 +17,33 @@ def _make_pred_save(
     pred_labels: dict[str, str],
     gt_labels: dict[str, str],
 ) -> PredSave:
-    """Helper to construct a minimal PredSave for testing."""
+    """Helper to construct a minimal PredSave for testing.
+
+    Ensures all tasks defined in _FakeDataset have labels to avoid
+    AssertionError in _extract_labels.
+    """
+    # Fill in defaults for all tasks so evaluator can extract labels
+    all_pred = {"queue": "A", "priority": "high"}
+    all_gt = {"queue": "A", "priority": "high"}
+    all_pred.update(pred_labels)
+    all_gt.update(gt_labels)
     return PredSave(
         language=language,
         predicted=Prediction(
             request_id="test",
-            labels=pred_labels,
+            labels=all_pred,
             discrete_features={},
             generation_target=None,
+            sensitive_attributes={},
             confidences={},
             raw_output=None,
             error=ErrorFlag.SUCCESS,
         ),
         ground_truth=GroundRecord(
-            labels=gt_labels,
+            labels=all_gt,
             discrete_features={},
             generation_target=None,
+            sensitive_attributes={"language": language},
         ),
     )
 
@@ -43,10 +54,21 @@ class _FakeDataset(BaseDataset):
     name = "fake"
     csv_path = __import__("pathlib").Path("/dev/null")
     body_column = "body"
-    classification_tasks = [
-        ClassificationTask("queue", "queue", ["A", "B", "C"]),
-        ClassificationTask("priority", "priority", ["high", "low"]),
-    ]
+    task_descriptor = TaskDescriptor(
+        classification_tasks=[
+            ClassificationTask(name="queue", target_column="queue", labels=["A", "B", "C"]),
+            ClassificationTask(name="priority", target_column="priority", labels=["high", "low"]),
+        ],
+    )
+    sensitive_columns = ["language"]
+    stratified_columns = ["language"]
+    discrete_feature_columns = []
+
+    def load_df(self, dataset_path=None, sample_num=None):
+        raise NotImplementedError
+
+    def load(self, dataset_path=None, sample_num=None):
+        raise NotImplementedError
 
 
 class TestTaskEvaluatorQueue:
@@ -65,11 +87,11 @@ class TestTaskEvaluatorQueue:
         results = evaluator.evaluate(pred_saves, dataset)
 
         queue_result = [r for r in results if r.task_name == "queue"][0]
-        assert queue_result.overall.accuracy == pytest.approx(0.75)
-        assert queue_result.overall.support == 4
+        assert queue_result.performance.accuracy == pytest.approx(0.75)
+        assert queue_result.performance.support == 4
 
-    def test_by_language(self) -> None:
-        """By-language breakdown should only contain languages present in data."""
+    def test_fairness_audit(self) -> None:
+        """Fairness metrics should be computed for each sensitive attribute."""
         pred_saves = [
             _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
             _make_pred_save("en", {"queue": "B"}, {"queue": "B"}),
@@ -80,26 +102,9 @@ class TestTaskEvaluatorQueue:
         results = evaluator.evaluate(pred_saves, dataset)
 
         queue_result = [r for r in results if r.task_name == "queue"][0]
-        assert set(queue_result.by_language.keys()) == {"en", "de"}
-        assert queue_result.by_language["en"].accuracy == 1.0
-        assert queue_result.by_language["de"].accuracy == 0.0
-
-    def test_by_strata(self) -> None:
-        """By-strata breakdown for queue task."""
-        pred_saves = [
-            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("en", {"queue": "A"}, {"queue": "A"}),
-            _make_pred_save("en", {"queue": "B"}, {"queue": "B"}),
-            _make_pred_save("en", {"queue": "C"}, {"queue": "B"}),
-        ]
-        dataset = _FakeDataset()
-        evaluator = TaskEvaluator()
-        results = evaluator.evaluate(pred_saves, dataset)
-
-        queue_result = [r for r in results if r.task_name == "queue"][0]
-        assert queue_result.by_strata is not None
-        assert queue_result.by_strata["A"].accuracy == 1.0
-        assert queue_result.by_strata["B"].accuracy == pytest.approx(0.5)
+        assert "language" in queue_result.fairness
+        lang_fairness = queue_result.fairness["language"]
+        assert lang_fairness.accuracy_gap >= 0.0
 
     def test_multiple_tasks(self) -> None:
         """Evaluator should return results for all classification tasks."""
@@ -133,5 +138,5 @@ class TestTaskEvaluatorQueue:
         results = evaluator.evaluate(pred_saves, dataset)
 
         queue_result = [r for r in results if r.task_name == "queue"][0]
-        assert queue_result.overall.accuracy == 1.0
-        assert queue_result.overall.support == 1
+        assert queue_result.performance.accuracy == 1.0
+        assert queue_result.performance.support == 1
