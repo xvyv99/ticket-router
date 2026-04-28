@@ -19,3 +19,15 @@ __all__ = [
     "EvaluationReport",
     "TaskEvaluator",
 ]
+
+# Interpretability (optional, heavy dependency)
+from .interpretability import (
+    HFInterpretabilityEvaluator,
+    SampleAttribution,
+    TaskAttributionReport,
+    TokenAttribution,
+)
+from .interpretability_report import (
+    print_interpretability_report,
+    save_interpretability_results,
+)

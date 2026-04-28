@@ -26,6 +26,11 @@ eval DATASET=default-dataset:
     uv run ./scripts/eval.py \
         --dataset {{DATASET}}
 
+eval-interp MODEL *ARGS:
+    uv run ./scripts/eval_interpretability.py \
+        --model {{MODEL}} \
+        {{ARGS}}
+
 # LLM-based
 quan-qwen *ARGS:
     uv run ./scripts/quantize_qwen.py {{ARGS}}
