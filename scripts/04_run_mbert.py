@@ -1,14 +1,11 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
-from pathlib import Path
 
 from ticket_router_supervised.models.mbert import (
     MBERTTrainer,
     MBERTPredictor,
-    MODEL_DIR,
 )
-from ticket_router_base.utils import write_pred
-from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
+from ticket_router_base.config import LOGGING_FORMAT
 from ticket_router_base.data import MultilingualCustomerSupportDataset
 
 logger = getLogger(__name__)
@@ -41,13 +38,7 @@ def run_full_training():
 
 def run_inference():
     dataset = MultilingualCustomerSupportDataset()
-    model_paths: dict[str, Path] = {}
-    for task in dataset.task_descriptor.classification_tasks + dataset.task_descriptor.ordinal_tasks:
-        path = MODEL_DIR / f"{task.name}_best"
-        assert path.exists(), f"Model for {task.name} not found at {path}"
-        model_paths[task.name] = path
-
-    predictor = MBERTPredictor(model_paths=model_paths, dataset=dataset)
+    predictor = MBERTPredictor.load_model(dataset)
     df_train, df_test, df_val = dataset.load_train_test_split()
     test_records = dataset.df_to_records(df_test)
 
