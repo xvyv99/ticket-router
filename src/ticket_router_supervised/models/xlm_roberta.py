@@ -2,13 +2,13 @@
 
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from datasets import Dataset
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    Trainer as HFTrainer,
+    Trainer,
     TrainingArguments,
 )
 
@@ -19,7 +19,7 @@ from ticket_router_base.predictor import (
     register_model,
 )
 
-from .hf_predictor import HFPredictor
+from .hf import HFPredictor
 from ticket_router_base.types import Record
 
 from ticket_router_supervised.config import SAVE_DIR
@@ -61,7 +61,7 @@ def train_xlm_roberta(
     target_col: str,
     save_path: Path,
     epochs: int = 3,
-) -> HFTrainer:
+) -> Trainer:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=len(label2id)
@@ -79,7 +79,7 @@ def train_xlm_roberta(
     args = DEFAULT_TRAIN_ARGS
     args.output_dir = str(save_path.parent / target_col)
     args.num_train_epochs = epochs
-    trainer = HFTrainer(
+    trainer = Trainer(
         model=model, args=args, train_dataset=train_tok, eval_dataset=val_tok
     )
     trainer.train()

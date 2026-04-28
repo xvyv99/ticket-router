@@ -2,13 +2,13 @@
 
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from datasets import Dataset
 from transformers import (
     RemBertForSequenceClassification,
     RemBertTokenizer,
-    Trainer as HFTrainer,
+    Trainer,
     TrainingArguments,
 )
 
@@ -19,7 +19,7 @@ from ticket_router_base.predictor import (
     register_model,
 )
 
-from .hf_predictor import HFPredictor
+from .hf import HFPredictor
 from ticket_router_base.types import Record
 
 from ticket_router_supervised.config import SAVE_DIR
@@ -60,7 +60,7 @@ def train_mbert(
     save_path: Path,
     model_name: str = "google/rembert",
     epochs: int = 3,
-) -> HFTrainer:
+) -> Trainer:
     tokenizer = RemBertTokenizer.from_pretrained(model_name)
     model = RemBertForSequenceClassification.from_pretrained(
         model_name, num_labels=len(label2id)
@@ -78,7 +78,7 @@ def train_mbert(
     args = DEFAULT_TRAIN_ARGS
     args.output_dir = str(save_path.parent / target_col)
     args.num_train_epochs = epochs
-    trainer = HFTrainer(
+    trainer = Trainer(
         model=model, args=args, train_dataset=train_tok, eval_dataset=val_tok
     )
     trainer.train()
