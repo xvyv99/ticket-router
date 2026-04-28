@@ -39,6 +39,10 @@ def main():
     dataset_type = get_dataset(args.dataset)
     dataset = dataset_type()
 
+    assert dataset.name == "multilingual-customer-support", (
+        "Rule-based predictor only supports multilingual-customer-support dataset!"
+    )  # FIXME
+
     logger.info(f"Loading train/test split for {args.dataset}...")
     df_train, df_test, df_valid = dataset.load_train_test_split()
 
