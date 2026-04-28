@@ -19,15 +19,12 @@ from tqdm import tqdm
 from ticket_router_base.config import MODEL_DIR, SEED
 from ticket_router_base.data import BaseDataset
 from ticket_router_base.predictor import (
-    Predictor,
     Trainer as TrainerProtocol,
     register_model,
 )
-from ticket_router_base.types import (
-    ErrorFlag,
-    Prediction,
-    Record,
-)
+
+from .hf_predictor import HFPredictor
+from ticket_router_base.types import Record
 from ticket_router_base.utils import combine_texts
 
 from ticket_router_supervised.config import TORCH_DEVICE, SAVE_DIR
@@ -139,45 +136,21 @@ def predict_mbert(
 
 
 @register_model
-class MBERTPredictor(Predictor):
+class MBERTPredictor(HFPredictor):
     name = "mbert"
     DEFAULT_SAVE_DIR = SAVE_DIR
 
-    _model_paths: Dict[str, Path]
-    dataset: BaseDataset
+    @staticmethod
+    def _get_model_path(task) -> Path:
+        return MODEL_DIR / f"{task.name}_best"
 
-    def __init__(self, model_paths: Dict[str, Path], dataset: BaseDataset):
-        self._model_paths = model_paths
-        self.dataset = dataset
-
-    def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
-        task_results: Dict[str, List[Tuple[str, float]]] = {}
-        for task_name, model_path in self._model_paths.items():
-            id2label = self.dataset.get_id2label(task_name)
-            task_results[task_name] = predict_mbert(model_path, records, id2label)
-
-        predictions = []
-        for i, rec in enumerate(records):
-            labels: Dict[str, str] = {}
-            confidences: Dict[str, float] = {}
-            for task_name in self.dataset.task_names:
-                result = task_results[task_name]
-                labels[task_name] = result[i][0]
-                confidences[task_name] = result[i][1]
-
-            pred = Prediction(
-                request_id=rec.request_id,
-                sensitive_attributes=rec.sensitive_attributes,
-                labels=labels,
-                discrete_features=rec.discrete_features,
-                generation_target=None,
-                confidences=confidences,
-                raw_output=None,
-                error=ErrorFlag.SUCCESS,
-            )
-            predictions.append(pred)
-
-        return predictions
+    def _predict_task(
+        self,
+        model_path: Path,
+        records: List[Record],
+        id2label: Dict[int, str],
+    ) -> List[Tuple[str, float]]:
+        return predict_mbert(model_path, records, id2label)
 
 
 class MBERTTrainer(TrainerProtocol):

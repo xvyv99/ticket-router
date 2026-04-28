@@ -1,13 +1,11 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
-from pathlib import Path
 
 from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.data.datasets import DATASET_REGISTRY, get_dataset
 from ticket_router_supervised.models.xlm_roberta import (
     XLMRoBERTaTrainer,
     XLMRoBERTaPredictor,
-    MODEL_DIR,
 )
 from ticket_router_base.config import LOGGING_FORMAT
 
@@ -38,16 +36,7 @@ def run_full_training(dataset: BaseDataset):
 
 
 def run_inference(dataset: BaseDataset):
-    model_paths: dict[str, Path] = {}
-    for task in (
-        dataset.task_descriptor.classification_tasks
-        + dataset.task_descriptor.ordinal_tasks
-    ):
-        path = MODEL_DIR / f"{task.name}_best"
-        assert path.exists(), f"Model for {task.name} not found at {path}"
-        model_paths[task.name] = path
-
-    predictor = XLMRoBERTaPredictor(model_paths=model_paths, dataset=dataset)
+    predictor = XLMRoBERTaPredictor.load_model(dataset)
     _, df_test, _ = dataset.load_train_test_split()
     test_records = dataset.df_to_records(df_test)
 
