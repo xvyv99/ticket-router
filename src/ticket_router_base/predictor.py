@@ -176,7 +176,10 @@ class Predictor(ABC, Generic[CfgT]):
     dataset: BaseDataset
     cfg: CfgT | None = None
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, skip_check: bool = False) -> None:
+        if skip_check:
+            return  # Used for base Predictor class itself, which doesn't define name/DEFAULT_SAVE_DIR
+
         if not hasattr(cls, "name"):
             raise TypeError(f"{cls.__name__} must define 'name'")
 
