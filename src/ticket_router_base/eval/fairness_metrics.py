@@ -25,12 +25,21 @@ class FairlearnMetrics(BaseModel):
     macro_f1_ratio: float
 
 
+class PairwiseAIF360Metrics(BaseModel):
+    """Per-sensitive-pair fairness metrics (averaged across OvR classes)."""
+
+    disparate_impact: float | None
+    equal_opportunity_difference: float | None
+    average_odds_difference: float | None
+
+
 class AIF360Metrics(BaseModel):
     """AIF360 one-vs-rest aggregated metrics for binary classification tasks."""
 
     avg_disparate_impact: float | None
     avg_equal_opportunity_difference: float | None
     avg_average_odds_difference: float | None
+    pairwise: Dict[str, PairwiseAIF360Metrics] = {}
 
 
 class FairnessMetrics(FairlearnMetrics, AIF360Metrics):
@@ -51,6 +60,16 @@ def _fairlearn_metrics(
     labels: List[str],
 ) -> FairlearnMetrics:
     """Compute per-group accuracy and macro_f1 via fairlearn MetricFrame."""
+
+    if len(y_true) == 0:
+        return FairlearnMetrics(
+            accuracy_by_group={},
+            macro_f1_by_group={},
+            accuracy_gap=0.0,
+            accuracy_ratio=0.0,
+            macro_f1_gap=0.0,
+            macro_f1_ratio=0.0,
+        )
 
     def _macro_f1(y_true, y_pred, labels):
         # Wrapper to handle zero-division gracefully in fairlearn MetricFrame
@@ -95,6 +114,14 @@ def _aif360_ovr_metrics(
     Results are averaged across classes and sensitive attribute pairs.
     """
 
+    if len(y_true) == 0:
+        return AIF360Metrics(
+            avg_disparate_impact=None,
+            avg_equal_opportunity_difference=None,
+            avg_average_odds_difference=None,
+            pairwise={},
+        )
+
     n_classes = len(labels)
 
     # Encode sensitive attributes and labels to integers
@@ -110,9 +137,12 @@ def _aif360_ovr_metrics(
     y_true_idx = np.array([label2idx[y] for y in y_true])
     y_pred_idx = np.array([label2idx[y] for y in y_pred])
 
-    di_vals: List[float] = []
-    eod_vals: List[float] = []
-    aod_vals: List[float] = []
+    # Use unordered pairs to avoid symmetric cancellation in difference-based metrics
+    pair_results: Dict[str, Dict[str, List[float]]] = {}
+    for i in range(len(sensitive_values)):
+        for j in range(i + 1, len(sensitive_values)):
+            pair_key = f"{sensitive_values[i]}_vs_{sensitive_values[j]}"
+            pair_results[pair_key] = {"di": [], "eod": [], "aod": []}
 
     for c in range(n_classes):
         y_true_bin = (y_true_idx == c).astype(int)
@@ -133,35 +163,57 @@ def _aif360_ovr_metrics(
         dataset_pred = dataset.copy()
         dataset_pred.labels = y_pred_bin.reshape(-1, 1)
 
-        for u_val in range(len(sensitive_values)):
-            for p_val in range(len(sensitive_values)):
-                if u_val == p_val:
-                    continue
+        for i in range(len(sensitive_values)):
+            for j in range(i + 1, len(sensitive_values)):
+                pair_key = f"{sensitive_values[i]}_vs_{sensitive_values[j]}"
 
-                metric = ClassificationMetric(
+                # Compute both directions; store the one where i is unprivileged
+                metric_ij = ClassificationMetric(
                     dataset,
                     dataset_pred,
-                    unprivileged_groups=[{"sensitive": u_val}],
-                    privileged_groups=[{"sensitive": p_val}],
+                    unprivileged_groups=[{"sensitive": i}],
+                    privileged_groups=[{"sensitive": j}],
                 )
-                di = metric.disparate_impact()
-                eod = metric.equal_opportunity_difference()
-                aod = metric.average_odds_difference()
+                di = metric_ij.disparate_impact()
+                eod = metric_ij.equal_opportunity_difference()
+                aod = metric_ij.average_odds_difference()
 
                 if not math.isnan(di) and not math.isinf(di):
-                    di_vals.append(float(di))
+                    pair_results[pair_key]["di"].append(float(di))
                 if not math.isnan(eod):
-                    eod_vals.append(float(eod))
+                    pair_results[pair_key]["eod"].append(float(eod))
                 if not math.isnan(aod):
-                    aod_vals.append(float(aod))
+                    pair_results[pair_key]["aod"].append(float(aod))
 
     def _avg(vals: List[float]) -> float | None:
         return sum(vals) / len(vals) if len(vals) > 0 else None
+
+    di_vals: List[float] = []
+    eod_vals: List[float] = []
+    aod_vals: List[float] = []
+    pairwise: Dict[str, PairwiseAIF360Metrics] = {}
+
+    for pair_key, vals in pair_results.items():
+        di = _avg(vals["di"])
+        eod = _avg(vals["eod"])
+        aod = _avg(vals["aod"])
+        pairwise[pair_key] = PairwiseAIF360Metrics(
+            disparate_impact=di,
+            equal_opportunity_difference=eod,
+            average_odds_difference=aod,
+        )
+        if di is not None:
+            di_vals.append(di)
+        if eod is not None:
+            eod_vals.append(eod)
+        if aod is not None:
+            aod_vals.append(aod)
 
     return AIF360Metrics(
         avg_disparate_impact=_avg(di_vals),
         avg_equal_opportunity_difference=_avg(eod_vals),
         avg_average_odds_difference=_avg(aod_vals),
+        pairwise=pairwise,
     )
 
 
