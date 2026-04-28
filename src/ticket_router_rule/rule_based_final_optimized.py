@@ -1,3 +1,5 @@
+# reference only!!!
+
 from __future__ import annotations
 
 import argparse
@@ -13,36 +15,192 @@ from typing import Dict, Iterable, List, Sequence
 
 import pandas as pd
 
-
 TAG_COLUMNS = [f"tag_{index}" for index in range(1, 9)]
 TYPE_LABELS = ["Change", "Incident", "Problem", "Request"]
 URGENCY_LABELS = ["standard", "urgent"]
 URGENCY_ORDINAL = {"standard": 0, "urgent": 1}
 
 STOPWORDS = {
-    "a", "about", "above", "after", "again", "against", "all", "am", "an",
-    "and", "any", "are", "as", "at", "be", "because", "been", "before",
-    "being", "below", "between", "both", "but", "by", "can", "cannot",
-    "could", "customer", "dear", "did", "do", "does", "doing", "down",
-    "during", "each", "few", "for", "from", "further", "had", "has",
-    "have", "having", "he", "hello", "her", "here", "hers", "herself",
-    "him", "himself", "his", "how", "i", "if", "in", "into", "is",
-    "it", "its", "itself", "just", "kindly", "me", "more", "most",
-    "my", "myself", "no", "nor", "not", "of", "off", "on", "once",
-    "only", "or", "other", "our", "ours", "ourselves", "out", "over",
-    "own", "regards", "same", "she", "should", "so", "some", "such",
-    "support", "team", "than", "thank", "thanks", "that", "the", "their",
-    "theirs", "them", "themselves", "then", "there", "these", "they",
-    "this", "those", "through", "to", "too", "under", "until", "up",
-    "very", "was", "we", "were", "what", "when", "where", "which",
-    "while", "who", "whom", "why", "will", "with", "you", "your",
-    "yours", "yourself", "yourselves",
-    "aber", "auch", "bei", "bitte", "das", "dem", "den", "der", "des",
-    "die", "doch", "ein", "eine", "einem", "einen", "einer", "eines",
-    "es", "fuer", "fur", "geehrte", "geehrter", "guten", "hallo", "ich",
-    "ihnen", "ihre", "ihren", "im", "ist", "kein", "keine",
-    "kundendienst", "mit", "nicht", "oder", "sehr", "sie", "tag", "und",
-    "vielen", "von", "wir", "zu", "zum", "zur",
+    "a",
+    "about",
+    "above",
+    "after",
+    "again",
+    "against",
+    "all",
+    "am",
+    "an",
+    "and",
+    "any",
+    "are",
+    "as",
+    "at",
+    "be",
+    "because",
+    "been",
+    "before",
+    "being",
+    "below",
+    "between",
+    "both",
+    "but",
+    "by",
+    "can",
+    "cannot",
+    "could",
+    "customer",
+    "dear",
+    "did",
+    "do",
+    "does",
+    "doing",
+    "down",
+    "during",
+    "each",
+    "few",
+    "for",
+    "from",
+    "further",
+    "had",
+    "has",
+    "have",
+    "having",
+    "he",
+    "hello",
+    "her",
+    "here",
+    "hers",
+    "herself",
+    "him",
+    "himself",
+    "his",
+    "how",
+    "i",
+    "if",
+    "in",
+    "into",
+    "is",
+    "it",
+    "its",
+    "itself",
+    "just",
+    "kindly",
+    "me",
+    "more",
+    "most",
+    "my",
+    "myself",
+    "no",
+    "nor",
+    "not",
+    "of",
+    "off",
+    "on",
+    "once",
+    "only",
+    "or",
+    "other",
+    "our",
+    "ours",
+    "ourselves",
+    "out",
+    "over",
+    "own",
+    "regards",
+    "same",
+    "she",
+    "should",
+    "so",
+    "some",
+    "such",
+    "support",
+    "team",
+    "than",
+    "thank",
+    "thanks",
+    "that",
+    "the",
+    "their",
+    "theirs",
+    "them",
+    "themselves",
+    "then",
+    "there",
+    "these",
+    "they",
+    "this",
+    "those",
+    "through",
+    "to",
+    "too",
+    "under",
+    "until",
+    "up",
+    "very",
+    "was",
+    "we",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "who",
+    "whom",
+    "why",
+    "will",
+    "with",
+    "you",
+    "your",
+    "yours",
+    "yourself",
+    "yourselves",
+    "aber",
+    "auch",
+    "bei",
+    "bitte",
+    "das",
+    "dem",
+    "den",
+    "der",
+    "des",
+    "die",
+    "doch",
+    "ein",
+    "eine",
+    "einem",
+    "einen",
+    "einer",
+    "eines",
+    "es",
+    "fuer",
+    "fur",
+    "geehrte",
+    "geehrter",
+    "guten",
+    "hallo",
+    "ich",
+    "ihnen",
+    "ihre",
+    "ihren",
+    "im",
+    "ist",
+    "kein",
+    "keine",
+    "kundendienst",
+    "mit",
+    "nicht",
+    "oder",
+    "sehr",
+    "sie",
+    "tag",
+    "und",
+    "vielen",
+    "von",
+    "wir",
+    "zu",
+    "zum",
+    "zur",
 }
 
 
@@ -105,7 +263,9 @@ class WeightedRuleModel:
 
                 if log_odds < min_log_odds:
                     continue
-                ranked.append((log_odds * math.log1p(count_in_label), feature, log_odds))
+                ranked.append(
+                    (log_odds * math.log1p(count_in_label), feature, log_odds)
+                )
 
             ranked.sort(reverse=True)
             for _, feature, log_odds in ranked[:max_features]:
@@ -183,26 +343,50 @@ def make_features(row: pd.Series, feature_mode: str) -> List[str]:
 
 
 def accuracy_score(y_true: Sequence[str], y_pred: Sequence[str]) -> float:
-    return sum(expected == predicted for expected, predicted in zip(y_true, y_pred)) / len(y_true)
+    return sum(
+        expected == predicted for expected, predicted in zip(y_true, y_pred)
+    ) / len(y_true)
 
 
-def macro_f1_score(y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]) -> float:
+def macro_f1_score(
+    y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]
+) -> float:
     scores = []
     for label in labels:
-        tp = sum(1 for actual, pred in zip(y_true, y_pred) if actual == label and pred == label)
-        fp = sum(1 for actual, pred in zip(y_true, y_pred) if actual != label and pred == label)
-        fn = sum(1 for actual, pred in zip(y_true, y_pred) if actual == label and pred != label)
+        tp = sum(
+            1
+            for actual, pred in zip(y_true, y_pred)
+            if actual == label and pred == label
+        )
+        fp = sum(
+            1
+            for actual, pred in zip(y_true, y_pred)
+            if actual != label and pred == label
+        )
+        fn = sum(
+            1
+            for actual, pred in zip(y_true, y_pred)
+            if actual == label and pred != label
+        )
         precision = tp / (tp + fp) if tp + fp else 0.0
         recall = tp / (tp + fn) if tp + fn else 0.0
-        scores.append(2 * precision * recall / (precision + recall) if precision + recall else 0.0)
+        scores.append(
+            2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        )
     return sum(scores) / len(labels)
 
 
-def mae_ordinal(y_true: Sequence[str], y_pred: Sequence[str], mapping: Dict[str, int]) -> float:
-    return sum(abs(mapping[actual] - mapping[pred]) for actual, pred in zip(y_true, y_pred)) / len(y_true)
+def mae_ordinal(
+    y_true: Sequence[str], y_pred: Sequence[str], mapping: Dict[str, int]
+) -> float:
+    return sum(
+        abs(mapping[actual] - mapping[pred]) for actual, pred in zip(y_true, y_pred)
+    ) / len(y_true)
 
 
-def qwk_ordinal(y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]) -> float:
+def qwk_ordinal(
+    y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[str]
+) -> float:
     n_labels = len(labels)
     label_to_index = {label: index for index, label in enumerate(labels)}
     observed = [[0.0] * n_labels for _ in range(n_labels)]
@@ -220,7 +404,10 @@ def qwk_ordinal(y_true: Sequence[str], y_pred: Sequence[str], labels: Sequence[s
             )
 
     weights = [
-        [((row_index - col_index) ** 2) / ((n_labels - 1) ** 2) for col_index in range(n_labels)]
+        [
+            ((row_index - col_index) ** 2) / ((n_labels - 1) ** 2)
+            for col_index in range(n_labels)
+        ]
         for row_index in range(n_labels)
     ]
     numerator = sum(
@@ -262,7 +449,10 @@ def language_metrics(
         rates = []
         for language in languages:
             predictions = grouped[language]["predictions"]
-            rates.append(sum(prediction == label for prediction in predictions) / len(predictions))
+            rates.append(
+                sum(prediction == label for prediction in predictions)
+                / len(predictions)
+            )
         min_rate, max_rate = min(rates), max(rates)
         if max_rate == 0:
             di = 1.0
@@ -276,7 +466,9 @@ def language_metrics(
 
     return {
         "language_acc_gap": max(accuracies) - min(accuracies),
-        "language_acc_ratio": min(accuracies) / max(accuracies) if max(accuracies) else 0.0,
+        "language_acc_ratio": min(accuracies) / max(accuracies)
+        if max(accuracies)
+        else 0.0,
         "language_f1_gap": max(f1_scores) - min(f1_scores),
         "language_f1_ratio": min(f1_scores) / max(f1_scores) if max(f1_scores) else 0.0,
         "language_DI": sum(di_values) / len(di_values),
@@ -315,8 +507,12 @@ def run_candidate_search(
 ) -> tuple[list[dict[str, object]], CandidateConfig]:
     results = []
     for candidate in candidates:
-        build_features = build_frame.apply(lambda row: make_features(row, candidate.feature_mode), axis=1)
-        dev_features = dev_frame.apply(lambda row: make_features(row, candidate.feature_mode), axis=1)
+        build_features = build_frame.apply(
+            lambda row: make_features(row, candidate.feature_mode), axis=1
+        )
+        dev_features = dev_frame.apply(
+            lambda row: make_features(row, candidate.feature_mode), axis=1
+        )
         build_copy = build_frame.copy()
         dev_copy = dev_frame.copy()
         build_copy["features"] = build_features
@@ -349,13 +545,21 @@ def run_candidate_search(
         )
 
     results.sort(key=lambda row: row["selection_score"], reverse=True)
-    best = next(candidate for candidate in candidates if candidate.name == results[0]["candidate_name"])
+    best = next(
+        candidate
+        for candidate in candidates
+        if candidate.name == results[0]["candidate_name"]
+    )
     return results, best
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Final optimized rule-based experiment.")
-    parser.add_argument("--dataset", default="aa_dataset-tickets-multi-lang-5-2-50-version.csv")
+    parser = argparse.ArgumentParser(
+        description="Final optimized rule-based experiment."
+    )
+    parser.add_argument(
+        "--dataset", default="aa_dataset-tickets-multi-lang-5-2-50-version.csv"
+    )
     parser.add_argument("--output-dir", default="rule_based_final_outputs")
     return parser.parse_args()
 
@@ -367,11 +571,21 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     frame = pd.read_csv(dataset_path)
-    for column in ["subject", "body", "type", "priority", "queue", "language", *TAG_COLUMNS]:
+    for column in [
+        "subject",
+        "body",
+        "type",
+        "priority",
+        "queue",
+        "language",
+        *TAG_COLUMNS,
+    ]:
         frame[column] = frame[column].fillna("")
     frame["text"] = (frame["subject"] + " " + frame["body"]).astype(str)
     frame["split"] = frame["text"].map(deterministic_split)
-    frame["urgency"] = frame["priority"].map(lambda value: "urgent" if value == "high" else "standard")
+    frame["urgency"] = frame["priority"].map(
+        lambda value: "urgent" if value == "high" else "standard"
+    )
 
     build_frame = frame[frame["split"] == "build"].reset_index(drop=True)
     dev_frame = frame[frame["split"] == "dev"].reset_index(drop=True)
@@ -432,7 +646,9 @@ def main() -> None:
         best_urgency.max_features,
     )
 
-    test_frame["type_pred"] = [type_model.predict(features) for features in test_frame["type_features"]]
+    test_frame["type_pred"] = [
+        type_model.predict(features) for features in test_frame["type_features"]
+    ]
     test_frame["urgency_pred"] = [
         urgency_model.predict(features) for features in test_frame["urgency_features"]
     ]
@@ -469,7 +685,9 @@ def main() -> None:
         json.dumps(metrics, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
-    pd.DataFrame(type_results + urgency_results).to_csv(output_dir / "final_candidate_results.csv", index=False)
+    pd.DataFrame(type_results + urgency_results).to_csv(
+        output_dir / "final_candidate_results.csv", index=False
+    )
     test_frame[
         [
             "language",
