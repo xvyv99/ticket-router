@@ -1,6 +1,6 @@
 """BaseDataset abstract base class for dataset-agnostic loading and task definition."""
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, ClassVar
 from pathlib import Path
 from logging import getLogger
@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from ticket_router_base.config import SEED, OUTPUT_DIR, INFERRED_MODEL_CHOICE
-from ticket_router_base.types import Record, GroundRecord, Language
+from ticket_router_base.types import Record, Language
 from .desc import PromptDescriptor, TaskDescriptor
 from .tasks import ClassificationTask, OrdinalTask
 
@@ -68,11 +68,13 @@ class BaseDataset(ABC):
             "Model name cannot contain underscores (used for parsing save file names)"
         )
 
+    @abstractmethod
     def load_df(
         self, dataset_path: Path | None = None, sample_num: int | None = None
     ) -> pd.DataFrame:
         raise NotImplementedError("Subclasses must implement load_df() method")
 
+    @abstractmethod
     def load(self, dataset_path: Path | None, sample_num: int = 0) -> List[Record]:
         raise NotImplementedError("Subclasses must implement load() method")
 
@@ -221,12 +223,6 @@ class BaseDataset(ABC):
             f"Injected inferred sensitive attrs for {injected}/{len(records)} records from {infer_path}"
         )
 
-    def _demo_record(self) -> GroundRecord:
-        """Return a minimal demo record for prompt examples."""
-        raise NotImplementedError(
-            "Subclasses must implement _demo_record() method for prompt examples"
-        )
-
     def _get_task(self, task_name: str) -> ClassificationTask | OrdinalTask:
         """Look up a classification or ordinal task by name."""
         return self.task_descriptor.get_task(task_name)
@@ -263,41 +259,6 @@ class BaseDataset(ABC):
         test_path = OUTPUT_DIR / f"{cls.name}_test_split.parquet"
         valid_path = OUTPUT_DIR / f"{cls.name}_valid_split.parquet"
         return train_path, test_path, valid_path
-
-    def build_system_prompt(
-        self, few_shot_examples: List[GroundRecord] | None = None
-    ) -> str:
-        # TODO: remove it
-        """Build an Agent system prompt from this dataset's task definitions.
-
-        Subclasses may override for custom prompt wording.
-        """
-        # TODO: improve prompt formatting, e.g. clearer instructions, more realistic examples, etc.
-
-        lines: List[str] = [
-            "You are a customer support assistant. Analyze the user's request and respond "
-            "ONLY with a valid JSON object. Do not include markdown formatting outside the JSON.\n",
-            "The JSON must have these exact keys:",
-        ]
-        td = self.task_descriptor
-        for task in td.classification_tasks:
-            lines.append(f"- {task.name}: one of {', '.join(task.labels)}")
-        for task in td.ordinal_tasks:
-            lines.append(f"- {task.name}: one of {', '.join(task.labels)} (ordered)")
-        if td.generation_task:
-            lines.append(
-                f"- {td.generation_task.name}: a polite, helpful reply in the same language "
-                f"as the user's request"
-            )
-
-        lines.append("\nExamples:")
-        if few_shot_examples:
-            for ex in few_shot_examples:
-                lines.append(ex.model_dump_json(ensure_ascii=False))
-        else:
-            lines.append(self._demo_record().model_dump_json(ensure_ascii=False))
-
-        return "\n".join(lines)
 
     def sample_few_shot_examples(
         self,
