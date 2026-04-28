@@ -1,18 +1,25 @@
-"""Abstract base for HuggingFace transformer-based predictors."""
+"""Abstract base for HuggingFace transformer-based predictors and trainers."""
 
 from __future__ import annotations
 
 from abc import ABC
+from logging import getLogger
 from pathlib import Path
-from typing import ClassVar, Dict, List, Tuple
+from typing import ClassVar, Dict, List, Tuple, Type
 
 import torch
+from datasets import Dataset
 from tqdm import tqdm
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Trainer as _HFTrainer,
+    TrainingArguments,
+)
 
 from ticket_router_base.config import MODEL_DIR as BASE_MODEL_DIR
 from ticket_router_base.data import BaseDataset
-from ticket_router_base.predictor import Predictor
+from ticket_router_base.predictor import Predictor, Trainer as TrainerProtocol
 from ticket_router_base.types import (
     ErrorFlag,
     Prediction,
@@ -21,6 +28,15 @@ from ticket_router_base.types import (
 from ticket_router_base.utils import combine_texts
 
 from ticket_router_supervised.config import TORCH_DEVICE
+from ticket_router_supervised.utils import create_datasets
+
+logger = getLogger(__name__)
+
+
+def tokenize_func(examples, tokenizer, max_length: int = 256):
+    return tokenizer(
+        examples["text"], padding="max_length", truncation=True, max_length=max_length
+    )
 
 
 class HFPredictor(Predictor, ABC, skip_check=True):
@@ -130,3 +146,82 @@ class HFPredictor(Predictor, ABC, skip_check=True):
             predictions.append(pred)
 
         return predictions
+
+
+class HFTrainer(TrainerProtocol, ABC):
+    """Base trainer for HuggingFace transformer sequence classification models.
+
+    Subclasses configure ``predictor_cls``, ``model_name`` and
+    ``DEFAULT_TRAIN_ARGS``. All training orchestration is handled here.
+    """
+
+    predictor_cls: ClassVar[Type[HFPredictor]]
+    model_name: ClassVar[str]
+    DEFAULT_TRAIN_ARGS: ClassVar[TrainingArguments]
+
+    dataset: BaseDataset
+
+    def __init__(self, dataset: BaseDataset):
+        self.dataset = dataset
+
+    def train(
+        self,
+        records: List[Record],
+        val_records: List[Record] | None = None,
+        epochs: int = 3,
+    ) -> HFPredictor:
+        if val_records is None:
+            raise ValueError("HFTrainer requires val_records for early stopping")
+        train_ds = create_datasets(records, self.dataset)
+        val_ds = create_datasets(val_records, self.dataset)
+
+        for task in self.dataset.all_tasks:
+            logger.info(
+                f"Starting {self.predictor_cls.name} training for {task.name}..."
+            )
+            save_path = self.predictor_cls._get_model_path(task, self.dataset)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            self._train_task(train_ds, val_ds, task, save_path, epochs)
+            logger.info(f"{task.name} model training complete!")
+
+        return self.predictor_cls.load_model(self.dataset)
+
+    def _train_task(
+        self,
+        train_ds: Dataset,
+        val_ds: Dataset,
+        task,
+        save_path: Path,
+        epochs: int,
+    ) -> _HFTrainer:
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_name, num_labels=len(task.labels)
+        )
+        model.config.id2label = self.dataset.get_id2label(task.name)
+        model.config.label2id = self.dataset.get_label2id(task.name)
+
+        train_tok = train_ds.map(
+            lambda x: tokenize_func(x, tokenizer, self.predictor_cls.MAX_LENGTH),
+            batched=True,
+        )
+        val_tok = val_ds.map(
+            lambda x: tokenize_func(x, tokenizer, self.predictor_cls.MAX_LENGTH),
+            batched=True,
+        )
+
+        train_tok = train_tok.rename_column(task.name, "labels")
+        val_tok = val_tok.rename_column(task.name, "labels")
+        train_tok.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
+        val_tok.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
+
+        args = self.DEFAULT_TRAIN_ARGS
+        args.output_dir = str(save_path.parent / task.name)
+        args.num_train_epochs = epochs
+        trainer = _HFTrainer(
+            model=model, args=args, train_dataset=train_tok, eval_dataset=val_tok
+        )
+        trainer.train()
+        trainer.save_model(str(save_path))
+        tokenizer.save_pretrained(str(save_path))
+        return trainer
