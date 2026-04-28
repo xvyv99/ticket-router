@@ -19,6 +19,8 @@ dependencies = [
     "rich>=15.0.0",
     "scikit-learn>=1.8.0",
     "sentence-transformers>=5.4.1",
+    "textattack>=0.3.10",
+    "transformers-interpret>=0.10.0",
 ]
 
 [dependency-groups]
