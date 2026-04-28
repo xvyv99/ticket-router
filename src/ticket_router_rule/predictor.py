@@ -78,7 +78,7 @@ class RuleBasedPredictor(Predictor[RuleBasedCfg]):
     DEFAULT_SAVE_DIR = OUTPUT_DIR / "rule_based"
 
     dataset: BaseDataset
-    cfg: RuleBasedCfg
+    cfg: RuleBasedCfg | None
 
     _models: Dict[str, WeightedRuleModel]
     _feature_modes: Dict[str, str]
@@ -158,7 +158,9 @@ class RuleBasedTrainer(Trainer):
 
             # Determine best config
             if self.cfg.enable_candidate_search and val_records:
-                candidates = _QUEUE_CANDIDATES if task_name == "queue" else _PRIORITY_CANDIDATES
+                candidates = (
+                    _QUEUE_CANDIDATES if task_name == "queue" else _PRIORITY_CANDIDATES
+                )
                 logger.info(f"Running candidate search for {task_name}...")
                 results, best_cfg = run_candidate_search(
                     train_records=records,
@@ -179,19 +181,16 @@ class RuleBasedTrainer(Trainer):
                 min_log_odds = best_cfg.min_log_odds
                 max_features = best_cfg.max_features
             else:
-                # Use fixed config from cfg
-                if task_name == "queue":
-                    feature_mode = self.cfg.queue_feature_mode
-                    min_count = self.cfg.queue_min_count
-                    min_log_odds = self.cfg.queue_min_log_odds
-                    max_features = self.cfg.queue_max_features
-                elif task_name == "priority":
-                    feature_mode = self.cfg.priority_feature_mode
-                    min_count = self.cfg.priority_min_count
-                    min_log_odds = self.cfg.priority_min_log_odds
-                    max_features = self.cfg.priority_max_features
-                else:
-                    raise ValueError(f"Unsupported task: {task_name}")
+                # Use a sensible default (first candidate in the grid)
+                default_cfg = (
+                    _QUEUE_CANDIDATES[0]
+                    if task_name == "queue"
+                    else _PRIORITY_CANDIDATES[0]
+                )
+                feature_mode = default_cfg.feature_mode
+                min_count = default_cfg.min_count
+                min_log_odds = default_cfg.min_log_odds
+                max_features = default_cfg.max_features
 
             # Train final model on all provided records
             features_list = [make_features(r, feature_mode) for r in records]
