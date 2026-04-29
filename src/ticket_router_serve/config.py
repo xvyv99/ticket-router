@@ -21,7 +21,10 @@ if not DASHSCOPE_API_KEY:
     logger.warning("DASHSCOPE_API_KEY not set — qwen3 model will not work")
 
 # Cache directory for JSON file storage
-CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", "src/ticket_router_serve/cache"))
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", Path(__file__).parent / "cache"))
+try:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as e:
+    logger.warning(f"Failed to create CACHE_DIR {CACHE_DIR}: {e}. Cache operations may fail.")
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
