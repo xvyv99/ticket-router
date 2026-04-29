@@ -3,8 +3,8 @@
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-from ticket_router_base.config import API_KEYS
-from ticket_router_base.schemas import ErrorResponse
+from ticket_router_serve.config import API_KEYS
+from ticket_router_serve.schemas import ErrorResponse
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
