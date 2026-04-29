@@ -210,6 +210,11 @@ class HFInterpretabilityEvaluator:
 
         # --- Attribution pass (always CPU to avoid OOM) ---
         explainer = SequenceClassificationExplainer(model, tokenizer)
+        # xlm-roberta has type_vocab_size=1, but transformers-interpret
+        # incorrectly sets accepts_token_type_ids=True, causing LIG interpolation
+        # to produce out-of-range indices. Force it to False.
+        if hasattr(model, "config") and getattr(model.config, "model_type", "") == "xlm-roberta":
+            explainer.accepts_token_type_ids = False
 
         sample_attributions: List[SampleAttribution] = []
         class_summaries: Dict[str, ClassAttributionSummary] = {}

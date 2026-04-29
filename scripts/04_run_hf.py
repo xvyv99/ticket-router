@@ -29,15 +29,15 @@ def run_smoke_test(dataset: BaseDataset, trainer_cls):
     logger.info("Smoke test passed!")
 
 
-def run_full_training(dataset: BaseDataset, trainer_cls):
-    logger.info(f"Full Training: 4k minus test_set ({trainer_cls.predictor_cls.name})")
+def run_full_training(dataset: BaseDataset, trainer_cls, epochs: int = 3):
+    logger.info(f"Full Training: 4k minus test_set ({trainer_cls.predictor_cls.name}), epochs={epochs}")
     df_train, _, df_val = dataset.load_train_test_split()
     train_split = dataset.df_to_records(df_train)
     val_split = dataset.df_to_records(df_val)
 
     logger.info(f"Train: {len(train_split)}, Val: {len(val_split)}")
     trainer = trainer_cls(dataset)
-    trainer.train(train_split, val_split)
+    trainer.train(train_split, val_split, epochs=epochs)
     logger.info("Full training done!")
 
 
@@ -74,6 +74,12 @@ def main():
     group.add_argument("--smoke", action="store_true", help="Run smoke test only")
     group.add_argument("--train", action="store_true", help="Run full training only")
     group.add_argument("--infer", action="store_true", help="Run inference only")
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=3,
+        help="Number of training epochs (default: 3, use 8 for xlm-roberta)",
+    )
 
     args = parser.parse_args()
 
@@ -83,7 +89,7 @@ def main():
     if args.smoke:
         run_smoke_test(dataset, trainer_cls)
     elif args.train:
-        run_full_training(dataset, trainer_cls)
+        run_full_training(dataset, trainer_cls, epochs=args.epochs)
     elif args.infer:
         run_inference(dataset, predictor_cls)
     else:

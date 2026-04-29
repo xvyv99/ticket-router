@@ -39,6 +39,7 @@ from ticket_router_eval.robustness import (
 )
 from ticket_router_eval.robustness_report import (
     print_robustness_report,
+    save_adversarial_examples_to_jsonl,
     save_robustness_to_csv,
     save_robustness_to_excel,
     save_robustness_to_json,
@@ -133,6 +134,11 @@ def main() -> None:
         default=1,
         help="Number of perturbed variants per sample for black-box (default: 1)",
     )
+    parser.add_argument(
+        "--no-save-adversarial",
+        action="store_true",
+        help="Skip saving adversarial examples (default: save them)",
+    )
     args = parser.parse_args()
 
     dataset_type = get_dataset(args.dataset)
@@ -140,6 +146,7 @@ def main() -> None:
 
     # Load predictor
     predictor_cls = get_model(args.model)
+    assert issubclass(predictor_cls, HFPredictor)
     predictor = predictor_cls.load_model(dataset)
 
     # Determine attack type
@@ -202,17 +209,21 @@ def main() -> None:
 
     # Save results
     if args.output_dir is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.output_dir = (
-            OUTPUT_DIR
-            / "robustness"
-            / args.dataset
-            / f"{args.model}_{attack_type}_{timestamp}"
+        args.output_dir = OUTPUT_DIR / "robustness" / args.model / args.dataset
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    for metrics in metrics_list:
+        task_name = metrics.task_name
+        save_robustness_to_json(
+            [metrics], args.output_dir / f"{task_name}_metrics.json"
+        )
+        save_robustness_to_csv([metrics], args.output_dir / f"{task_name}_metrics.csv")
+        save_robustness_to_excel(
+            [metrics], args.output_dir / f"{task_name}_metrics.xlsx"
         )
 
-    save_robustness_to_json(metrics_list, args.output_dir / "robustness.json")
-    save_robustness_to_csv(metrics_list, args.output_dir / "robustness.csv")
-    save_robustness_to_excel(metrics_list, args.output_dir / "robustness.xlsx")
+    if not args.no_save_adversarial:
+        save_adversarial_examples_to_jsonl(metrics_list, args.output_dir)
 
 
 if __name__ == "__main__":

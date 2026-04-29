@@ -10,7 +10,7 @@ from typing import Dict, List
 from rich.console import Console
 from rich.table import Table
 
-from .robustness import RobustnessMetrics
+from .robustness import AdversarialExample, RobustnessMetrics
 
 console = Console()
 
@@ -79,9 +79,13 @@ def print_robustness_report(metrics_list: List[RobustnessMetrics]) -> None:
                 )
             console.print(queue_table)
 
+        # Adversarial examples summary
+        n_adv = len(metrics.adversarial_examples)
+        n_success = sum(1 for ex in metrics.adversarial_examples if ex.success)
         console.print(
             f"[dim]Samples: {metrics.n_samples} | Correct: {metrics.n_correct} | "
-            f"Attacked: {metrics.n_attacked}[/dim]"
+            f"Attacked: {metrics.n_attacked} | "
+            f"Adversarial Examples: {n_adv} ({n_success} successful)[/dim]"
         )
 
 
@@ -337,3 +341,38 @@ def save_robustness_to_json(
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     console.print(f"[green]JSON saved to {output_path}[/green]")
+
+
+def save_adversarial_examples_to_jsonl(
+    metrics_list: List[RobustnessMetrics], output_dir: Path
+) -> None:
+    """Save adversarial examples per task as JSONL files.
+
+    Each task gets its own file: ``{task_name}_adversarial_examples.jsonl``.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for metrics in metrics_list:
+        if not metrics.adversarial_examples:
+            continue
+        path = output_dir / f"{metrics.task_name}_adversarial_examples.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for ex in metrics.adversarial_examples:
+                obj = {
+                    "request_id": ex.request_id,
+                    "task_name": ex.task_name,
+                    "original_text": ex.original_text,
+                    "adversarial_text": ex.adversarial_text,
+                    "true_label": ex.true_label,
+                    "clean_pred": ex.clean_pred,
+                    "perturbed_pred": ex.perturbed_pred,
+                    "language": ex.language,
+                    "queue": ex.queue,
+                    "success": ex.success,
+                    "perturbation_rate": ex.perturbation_rate,
+                    "query_count": ex.query_count,
+                }
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        console.print(
+            f"[green]Saved {len(metrics.adversarial_examples)} adversarial examples "
+            f"to {path}[/green]"
+        )

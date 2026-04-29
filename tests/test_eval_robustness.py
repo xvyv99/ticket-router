@@ -11,6 +11,7 @@ import pytest
 from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
 from ticket_router_base.types import Language, Record
 from ticket_router_eval.robustness import (
+    AdversarialExample,
     ATTACK_RECIPE_REGISTRY,
     BlackBoxRobustnessEvaluator,
     CharacterPerturbation,
@@ -494,6 +495,7 @@ class TestRobustnessMetrics:
         )
         assert m.per_language == {}
         assert m.per_queue == {}
+        assert m.adversarial_examples == []
         assert m.avg_perturbation_rate is None
         assert m.avg_query_count is None
         assert m.n_samples == 0
@@ -518,3 +520,150 @@ class TestRobustnessMetrics:
         )
         assert "English" in parent.per_language
         assert parent.per_language["English"].clean_accuracy == 0.9
+
+    def test_with_adversarial_examples(self) -> None:
+        adv = AdversarialExample(
+            request_id="r1",
+            task_name="queue",
+            original_text="hello",
+            adversarial_text="helo",
+            true_label="A",
+            clean_pred="A",
+            perturbed_pred="B",
+            language="English",
+            queue="A",
+            success=True,
+            perturbation_rate=0.2,
+        )
+        m = RobustnessMetrics(
+            task_name="queue",
+            attack_type="blackbox",
+            clean_accuracy=1.0,
+            perturbed_accuracy=0.5,
+            accuracy_drop=0.5,
+            attack_success_rate=0.5,
+            adversarial_examples=[adv],
+        )
+        assert len(m.adversarial_examples) == 1
+        assert m.adversarial_examples[0].success is True
+        assert m.adversarial_examples[0].perturbed_pred == "B"
+
+
+# ---------------------------------------------------------------------------
+# Adversarial example collection
+# ---------------------------------------------------------------------------
+
+
+class TestAdversarialExampleCollection:
+    def test_blackbox_saves_adversarial_examples(self) -> None:
+        dataset = _FakeDataset()
+        predictor = _AllCorrectPredictor()
+        evaluator = BlackBoxRobustnessEvaluator(predictor, dataset)
+
+        records = [
+            _make_record("r1", "Hello world", "low", Language.ENGLISH, queue="A"),
+            _make_record("r2", "System down", "high", Language.GERMAN, queue="B"),
+        ]
+        metrics = evaluator.evaluate(records, task_name="queue")
+
+        assert len(metrics.adversarial_examples) == 2
+        for ex in metrics.adversarial_examples:
+            assert ex.request_id in ("r1", "r2")
+            assert ex.task_name == "queue"
+            assert ex.original_text in ("Hello world", "System down")
+            assert ex.true_label == "A" or ex.true_label == "B"
+            assert ex.clean_pred == ex.true_label
+
+    def test_blackbox_successful_adversarial_fields(self) -> None:
+        dataset = _FakeDataset()
+        predictor = _FlipsOnPerturbationPredictor()
+        evaluator = BlackBoxRobustnessEvaluator(predictor, dataset)
+
+        records = [
+            _make_record("r1", "original text here", "low", Language.ENGLISH, queue="A"),
+        ]
+        metrics = evaluator.evaluate(records, task_name="queue")
+
+        assert metrics.clean_accuracy == 1.0
+        assert len(metrics.adversarial_examples) == 1
+        ex = metrics.adversarial_examples[0]
+        if ex.success:
+            assert ex.adversarial_text is not None
+            assert ex.perturbed_pred != ex.clean_pred
+            assert ex.perturbation_rate is not None
+            assert ex.perturbation_rate >= 0.0
+        else:
+            assert ex.adversarial_text is None
+            assert ex.perturbed_pred == ex.clean_pred
+
+    @patch("ticket_router_eval.robustness.HuggingFaceModelWrapper")
+    @patch("ticket_router_eval.robustness.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.robustness.AutoTokenizer")
+    def test_whitebox_saves_adversarial_examples(
+        self,
+        mock_tokenizer: MagicMock,
+        mock_model: MagicMock,
+        mock_wrapper_cls: MagicMock,
+    ) -> None:
+        mock_tokenizer.from_pretrained.return_value = MagicMock()
+        mock_model_instance = MagicMock()
+        mock_model.from_pretrained.return_value = mock_model_instance
+        mock_model_instance.eval = MagicMock()
+        mock_model_instance.to = MagicMock(return_value=mock_model_instance)
+        mock_wrapper_cls.return_value = MagicMock()
+
+        dataset = _FakeDataset()
+        predictor = MagicMock()
+        predictor._model_paths = {"queue": Path("/fake/model")}
+        predictor.name = "fake-hf"
+
+        from ticket_router_base.types import ErrorFlag, Prediction
+
+        predictor.predict.return_value = [
+            Prediction(
+                request_id="r1",
+                labels={"queue": "A"},
+                discrete_features={},
+                generation_target=None,
+                sensitive_attributes={},
+                confidences={"queue": 0.9},
+                raw_output=None,
+                error=ErrorFlag.SUCCESS,
+            )
+        ]
+
+        records = [_make_record("r1", "Hello world", "low", queue="A")]
+
+        # Mock the attack result as successful
+        mock_result = MagicMock()
+        mock_result.perturbed_text.return_value = "He1lo world"
+        mock_result.perturbed_result.output = 1  # label id for "B"
+        mock_result.num_queries = 5
+
+        with patch(
+            "ticket_router_eval.robustness.ATTACK_RECIPE_REGISTRY",
+            {"deepwordbug": MagicMock()},
+        ):
+            mock_recipe_cls = MagicMock()
+            mock_attack = MagicMock()
+            mock_attack.attack.return_value = mock_result
+            mock_recipe_cls.build.return_value = mock_attack
+
+            with patch.dict(
+                ATTACK_RECIPE_REGISTRY, {"deepwordbug": mock_recipe_cls}, clear=True
+            ):
+                with patch(
+                    "textattack.attack_results.SuccessfulAttackResult",
+                    MagicMock,
+                ):
+                    evaluator = WhiteBoxRobustnessEvaluator(
+                        predictor, dataset, attack_recipe="deepwordbug", device="cpu"
+                    )
+                    metrics = evaluator.evaluate(records, task_name="queue")
+
+        assert len(metrics.adversarial_examples) == 1
+        ex = metrics.adversarial_examples[0]
+        assert ex.success is True
+        assert ex.adversarial_text == "He1lo world"
+        assert ex.perturbed_pred == "B"
+        assert ex.query_count == 5
