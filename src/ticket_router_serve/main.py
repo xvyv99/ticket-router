@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 
-from ticket_router_serve.cache import compute_fingerprint, find_by_fingerprint, get_cache_entry
+from ticket_router_serve.cache import compute_fingerprint, find_by_fingerprint, get_cache_entry, save_fingerprint
 from ticket_router_serve.deps import verify_api_key
 from ticket_router_serve.models import get_pool, SUPPORTED_MODELS
 from ticket_router_serve.schemas import (
@@ -58,6 +58,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
 
     # 4. Submit new task
     req_id = submit_task(request.title, request.body, request.model)
+    save_fingerprint(fingerprint, req_id)
     return PredictResponse(req_id=req_id, status=TaskStatus.PENDING, cached=False)
 
 
@@ -139,7 +140,7 @@ health_router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @health_router.get("/health", response_model=HealthResponse)
-async def health(api_key: str = Depends(verify_api_key)) -> HealthResponse:
+async def health() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(status="ok")
 
