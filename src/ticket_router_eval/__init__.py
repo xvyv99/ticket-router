@@ -34,6 +34,7 @@ from .interpret_report import (
 
 # Robustness (optional, heavy dependency)
 from .robustness import (
+    AdversarialExample,
     BlackBoxRobustnessEvaluator,
     WhiteBoxRobustnessEvaluator,
     RobustnessMetrics,
@@ -42,6 +43,7 @@ from .robustness import (
 )
 from .robustness_report import (
     print_robustness_report,
+    save_adversarial_examples_to_jsonl,
     save_robustness_to_csv,
     save_robustness_to_excel,
     save_robustness_to_json,

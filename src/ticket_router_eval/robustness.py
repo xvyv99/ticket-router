@@ -54,6 +54,24 @@ ATTACK_RECIPE_REGISTRY: Dict[str, Type] = {
 
 
 @dataclass
+class AdversarialExample:
+    """A single adversarial example produced by robustness evaluation."""
+
+    request_id: str
+    task_name: str
+    original_text: str
+    adversarial_text: str | None
+    true_label: str
+    clean_pred: str
+    perturbed_pred: str | None
+    language: str | None
+    queue: str | None
+    success: bool
+    perturbation_rate: float | None = None
+    query_count: int | None = None
+
+
+@dataclass
 class RobustnessMetrics:
     """Robustness metrics for a single task."""
 
@@ -70,6 +88,9 @@ class RobustnessMetrics:
 
     # Per-queue breakdown (only populated for queue task)
     per_queue: Dict[str, "RobustnessMetrics"] = field(default_factory=dict)
+
+    # Adversarial examples collected during evaluation
+    adversarial_examples: List[AdversarialExample] = field(default_factory=list)
 
     # Black-box specific: average Levenshtein distance / original length
     avg_perturbation_rate: float | None = None
@@ -290,17 +311,26 @@ class BlackBoxRobustnessEvaluator:
         # 4. Perturbed predictions
         perturbed_preds = self.predictor.predict(perturbed_records)
 
-        # 5. Compare clean vs perturbed
+        # 5. Compare clean vs perturbed and collect adversarial examples
         sample_results: List[dict] = []
+        adversarial_examples: List[AdversarialExample] = []
         for i, rec in enumerate(correct_records):
             clean_label = clean_preds[correct_indices[i]].labels.get(task_name, "")
             flipped = False
+            adversarial_text: str | None = None
+            perturbed_pred_label: str | None = clean_label
+            p_rate: float | None = None
             start = i * self.num_perturbations
             end = start + self.num_perturbations
             for j in range(start, end):
                 perturbed_label = perturbed_preds[j].labels.get(task_name, "")
                 if perturbed_label != clean_label:
                     flipped = True
+                    adversarial_text = perturbed_records[j].body
+                    perturbed_pred_label = perturbed_label
+                    p_rate = _levenshtein(rec.body, adversarial_text) / max(
+                        len(rec.body), 1
+                    )
                     break
             sample_results.append(
                 {
@@ -308,6 +338,21 @@ class BlackBoxRobustnessEvaluator:
                     "queue": rec.labels.get("queue", "unknown"),
                     "flipped": flipped,
                 }
+            )
+            adversarial_examples.append(
+                AdversarialExample(
+                    request_id=rec.request_id,
+                    task_name=task_name,
+                    original_text=rec.body,
+                    adversarial_text=adversarial_text,
+                    true_label=clean_label,
+                    clean_pred=clean_label,
+                    perturbed_pred=perturbed_pred_label,
+                    language=rec.language.value if rec.language else None,
+                    queue=rec.labels.get("queue", None),
+                    success=flipped,
+                    perturbation_rate=p_rate,
+                )
             )
 
         n_flipped = sum(r["flipped"] for r in sample_results)
@@ -340,6 +385,7 @@ class BlackBoxRobustnessEvaluator:
             attack_success_rate=asr,
             per_language=per_language,
             per_queue=per_queue,
+            adversarial_examples=adversarial_examples,
             avg_perturbation_rate=avg_perturb_rate,
             n_samples=n_total,
             n_correct=n_correct,
@@ -497,6 +543,7 @@ class WhiteBoxRobustnessEvaluator:
         # 4. Run attack on correct samples
         sample_results: List[dict] = []
         query_counts: List[int] = []
+        adversarial_examples: List[AdversarialExample] = []
 
         for rec in tqdm(correct_records, desc=f"WhiteBox Attack [{task_name}]"):
             text = rec.body
@@ -516,10 +563,22 @@ class WhiteBoxRobustnessEvaluator:
                     "flipped": flipped,
                 }
             )
-            logger.info(
-                f"Original: {text} | Perturbed: {result.perturbed_text()} | "
-                f"Flipped: {flipped}"
-            )
+
+            # Extract adversarial text and perturbed prediction
+            adversarial_text: str | None = None
+            perturbed_pred_label: str | None = true_label
+            if flipped:
+                adversarial_text = result.perturbed_text()
+                perturbed_output_id = result.perturbed_result.output
+                perturbed_pred_label = id2label.get(perturbed_output_id, str(perturbed_output_id))
+                logger.info(
+                    f"Original: {text} | Perturbed: {adversarial_text} | "
+                    f"Flipped: {flipped}"
+                )
+                print(
+                    f"Original: {text} | Perturbed: {adversarial_text} | "
+                    f"Flipped: {flipped}"
+                )
 
             # Estimate query count from result internals
             qc = 0
@@ -530,6 +589,22 @@ class WhiteBoxRobustnessEvaluator:
             ):
                 qc = attack.search_method.get_num_queries()
             query_counts.append(qc)
+
+            adversarial_examples.append(
+                AdversarialExample(
+                    request_id=rec.request_id,
+                    task_name=task_name,
+                    original_text=text,
+                    adversarial_text=adversarial_text,
+                    true_label=true_label,
+                    clean_pred=true_label,
+                    perturbed_pred=perturbed_pred_label,
+                    language=rec.language.value if rec.language else None,
+                    queue=rec.labels.get("queue", None),
+                    success=flipped,
+                    query_count=int(qc) if isinstance(qc, int) and qc > 0 else None,
+                )
+            )
 
         n_flipped = sum(r["flipped"] for r in sample_results)
         clean_acc = n_correct / n_total
@@ -557,6 +632,7 @@ class WhiteBoxRobustnessEvaluator:
             attack_success_rate=asr,
             per_language=per_language,
             per_queue=per_queue,
+            adversarial_examples=adversarial_examples,
             recipe=self.attack_recipe,
             avg_query_count=avg_queries,
             n_samples=n_total,

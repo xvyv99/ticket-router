@@ -32,7 +32,7 @@ class SBERTEncoder(SentenceEncoder):
         self, threshold=0.8, metric="cosine", model_name="all-MiniLM-L6-v2", **kwargs
     ):
         super().__init__(threshold=threshold, metric=metric, **kwargs)
-        self.model = SentenceTransformer(model_name)
+        self.model = SentenceTransformer(model_name, device="cuda")
 
     def encode(self, sentences):
         # sentences: List[str]
@@ -97,7 +97,7 @@ class TextFoolerJin2019Torch(AttackRecipe):
         # new threshold is 1 - (0.5) / pi = 0.840845057
         #
         use_constraint = SBERTEncoder(
-            threshold=0.8,  # 需要重新调
+            threshold=0.8,
             metric="cosine",
             compare_against_original=False,
             window_size=15,
