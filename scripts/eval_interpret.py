@@ -12,8 +12,11 @@ import os
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 from pathlib import Path
+from typing import List
 
-from ticket_router_base.config import LOGGING_FORMAT, OUTPUT_DIR
+import pandas as pd
+
+from ticket_router_base.config import LOGGING_FORMAT, OUTPUT_DIR, SEED
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.predictor import get_model
 
@@ -26,6 +29,33 @@ from ticket_router_eval.interpret_report import (
 )
 
 logger = getLogger(__name__)
+
+
+def _stratified_sample_df(
+    df: pd.DataFrame, strat_col: str, n_samples: int, seed: int = SEED
+) -> pd.DataFrame:
+    if strat_col not in df.columns:
+        raise ValueError(f"Stratification column '{strat_col}' not found in DataFrame")
+    if len(df) <= n_samples:
+        return df
+
+    stratum_sizes = df[strat_col].value_counts()
+    proportions = stratum_sizes / stratum_sizes.sum()
+
+    print(stratum_sizes)
+
+    sampled_dfs: List[pd.DataFrame] = []
+    for stratum, prop in proportions.items():
+        stratum_df = df[df[strat_col] == stratum]
+        n_from_stratum = max(1, int(round(prop * n_samples)))
+        n_from_stratum = min(n_from_stratum, len(stratum_df))
+        sampled = stratum_df.sample(n=n_from_stratum, random_state=seed)
+        sampled_dfs.append(sampled)
+
+    result = (
+        pd.concat(sampled_dfs).sample(frac=1, random_state=seed).reset_index(drop=True)
+    )
+    return result
 
 
 def main() -> None:
@@ -104,9 +134,12 @@ def main() -> None:
 
     # Load test records
     _, test_df, _ = dataset.load_train_test_split()
-    test_records = dataset.df_to_records(test_df)
     if args.max_samples > 0:
-        test_records = test_records[: args.max_samples]
+        # Stratified sampling based on task column
+        task_col = args.task
+        assert isinstance(task_col, str), "Task column must be specified for sampling"
+        # test_df = _stratified_sample_df(test_df, task_col, args.max_samples)
+    test_records = dataset.df_to_records(test_df)
 
     logger.info(
         f"Evaluating interpretability for {args.model} on {args.dataset} "
