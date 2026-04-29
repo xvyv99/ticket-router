@@ -19,7 +19,7 @@ logger = getLogger(__name__)
 
 DATASET = get_dataset("multilingual-customer-support")()
 
-SUPPORTED_MODELS = {"lr", "xgb", "rule-based", "rembert", "xlm-roberta"}
+SUPPORTED_MODELS = {"lr", "xgb", "rule-based", "rembert", "xlm-roberta", "qwen3"}
 
 SUPERVISED_MODEL_DIR = BASE_MODEL_DIR / "supervised"
 RULE_BASED_MODEL_DIR = BASE_MODEL_DIR / "rule_based"

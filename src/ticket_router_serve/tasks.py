@@ -185,9 +185,6 @@ def run_attribution(req_id: str) -> None:
 
         entry = get_cache_entry(req_id)
         entry["attribution"] = attribution
-        # Re-read immediately before writing to avoid clobbering concurrent result updates
-        entry = get_cache_entry(req_id)
-        entry["attribution"] = attribution
         update_cache_entry(req_id, entry)
         logger.info(f"Attribution for {req_id} completed")
 
