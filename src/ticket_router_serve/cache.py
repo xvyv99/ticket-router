@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from ticket_router_base.config import CACHE_DIR
+from ticket_router_serve.config import CACHE_DIR
 
 
 def _ensure_cache_dir() -> Path:
