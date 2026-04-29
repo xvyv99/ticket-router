@@ -30,6 +30,9 @@ eval-interpret *ARGS:
     uv run ./scripts/eval_interpret.py \
         {{ARGS}}
 
+eval-robust *ARGS:
+    uv run python scripts/eval_robustness.py {{ARGS}}
+
 # LLM-based
 quan-qwen *ARGS:
     uv run ./scripts/quantize_qwen.py {{ARGS}}
