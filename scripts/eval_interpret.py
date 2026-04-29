@@ -8,7 +8,6 @@ Usage:
 
 from __future__ import annotations
 
-import os
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 from pathlib import Path

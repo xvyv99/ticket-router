@@ -26,9 +26,8 @@ eval DATASET=default-dataset:
     uv run ./scripts/eval.py \
         --dataset {{DATASET}}
 
-eval-interpret MODEL *ARGS:
+eval-interpret *ARGS:
     uv run ./scripts/eval_interpret.py \
-        --model {{MODEL}} \
         {{ARGS}}
 
 # LLM-based
