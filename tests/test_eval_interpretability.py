@@ -164,9 +164,9 @@ class TestHFInterpretabilityEvaluator:
 
         return mock_tokenizer, mock_model, mock_explainer_instance
 
-    @patch("ticket_router_eval.interpretability.SequenceClassificationExplainer")
-    @patch("ticket_router_eval.interpretability.AutoModelForSequenceClassification")
-    @patch("ticket_router_eval.interpretability.AutoTokenizer")
+    @patch("ticket_router_eval.interpret.SequenceClassificationExplainer")
+    @patch("ticket_router_eval.interpret.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.interpret.AutoTokenizer")
     def test_evaluate_single_task(
         self,
         mock_auto_tokenizer: MagicMock,
@@ -218,9 +218,9 @@ class TestHFInterpretabilityEvaluator:
         assert "refund" in summary.token_scores
         assert "please" in summary.token_scores
 
-    @patch("ticket_router_eval.interpretability.SequenceClassificationExplainer")
-    @patch("ticket_router_eval.interpretability.AutoModelForSequenceClassification")
-    @patch("ticket_router_eval.interpretability.AutoTokenizer")
+    @patch("ticket_router_eval.interpret.SequenceClassificationExplainer")
+    @patch("ticket_router_eval.interpret.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.interpret.AutoTokenizer")
     def test_task_names_filter(
         self,
         mock_auto_tokenizer: MagicMock,
@@ -245,9 +245,9 @@ class TestHFInterpretabilityEvaluator:
         reports = evaluator.evaluate(records, task_names=["queue"])
         assert "queue" in reports
 
-    @patch("ticket_router_eval.interpretability.SequenceClassificationExplainer")
-    @patch("ticket_router_eval.interpretability.AutoModelForSequenceClassification")
-    @patch("ticket_router_eval.interpretability.AutoTokenizer")
+    @patch("ticket_router_eval.interpret.SequenceClassificationExplainer")
+    @patch("ticket_router_eval.interpret.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.interpret.AutoTokenizer")
     def test_max_samples_truncation(
         self,
         mock_auto_tokenizer: MagicMock,
@@ -271,10 +271,10 @@ class TestHFInterpretabilityEvaluator:
         reports = evaluator.evaluate(records, max_samples=2)
         assert len(reports["queue"].sample_attributions) == 2
 
-    @patch("ticket_router_eval.interpretability.tqdm")
-    @patch("ticket_router_eval.interpretability.SequenceClassificationExplainer")
-    @patch("ticket_router_eval.interpretability.AutoModelForSequenceClassification")
-    @patch("ticket_router_eval.interpretability.AutoTokenizer")
+    @patch("ticket_router_eval.interpret.tqdm")
+    @patch("ticket_router_eval.interpret.SequenceClassificationExplainer")
+    @patch("ticket_router_eval.interpret.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.interpret.AutoTokenizer")
     def test_positive_negative_sorting(
         self,
         mock_auto_tokenizer: MagicMock,
@@ -315,10 +315,10 @@ class TestHFInterpretabilityEvaluator:
         assert [t.token for t in sa.top_negative] == ["f", "d"]
         assert [t.score for t in sa.top_negative] == pytest.approx([-0.6, -0.4])
 
-    @patch("ticket_router_eval.interpretability.tqdm")
-    @patch("ticket_router_eval.interpretability.SequenceClassificationExplainer")
-    @patch("ticket_router_eval.interpretability.AutoModelForSequenceClassification")
-    @patch("ticket_router_eval.interpretability.AutoTokenizer")
+    @patch("ticket_router_eval.interpret.tqdm")
+    @patch("ticket_router_eval.interpret.SequenceClassificationExplainer")
+    @patch("ticket_router_eval.interpret.AutoModelForSequenceClassification")
+    @patch("ticket_router_eval.interpret.AutoTokenizer")
     def test_explainer_failure_skips_sample(
         self,
         mock_auto_tokenizer: MagicMock,

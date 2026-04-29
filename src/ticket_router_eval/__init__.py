@@ -31,3 +31,18 @@ from .interpret_report import (
     print_interpretability_report,
     save_interpretability_results,
 )
+
+# Robustness (optional, heavy dependency)
+from .robustness import (
+    BlackBoxRobustnessEvaluator,
+    WhiteBoxRobustnessEvaluator,
+    RobustnessMetrics,
+    CharacterPerturbation,
+    WordPerturbation,
+)
+from .robustness_report import (
+    print_robustness_report,
+    save_robustness_to_csv,
+    save_robustness_to_excel,
+    save_robustness_to_json,
+)
