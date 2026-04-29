@@ -137,7 +137,7 @@ def main() -> None:
         # Stratified sampling based on task column
         task_col = args.task
         assert isinstance(task_col, str), "Task column must be specified for sampling"
-        # test_df = _stratified_sample_df(test_df, task_col, args.max_samples)
+        test_df = _stratified_sample_df(test_df, task_col, args.max_samples)
     test_records = dataset.df_to_records(test_df)
 
     logger.info(
