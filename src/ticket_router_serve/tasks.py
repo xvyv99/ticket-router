@@ -6,6 +6,7 @@ from logging import getLogger
 from typing import Any
 
 from ticket_router_base.types import Record, Language
+from ticket_router_eval.interpret import HFInterpretabilityEvaluator
 
 from ticket_router_serve.cache import get_cache_entry, update_cache_entry, set_cache_entry
 from ticket_router_serve.models import get_pool
@@ -43,7 +44,8 @@ def run_prediction(req_id: str, title: str | None, body: str, model: str) -> Non
         entry["status"] = "PROCESSING"
         update_cache_entry(req_id, entry)
 
-        pool = get_pool()
+        # Re-read immediately before writing to avoid race with concurrent readers
+        entry = get_cache_entry(req_id)
 
         record = Record(
             request_id=req_id,
@@ -67,6 +69,7 @@ def run_prediction(req_id: str, title: str | None, body: str, model: str) -> Non
             queue_conf = 0.5
             priority_conf = 0.5
         else:
+            pool = get_pool()
             predictor = pool.get_predictor(model)
             predictions = predictor.predict([record], run_id=0)
             pred = predictions[0]
@@ -150,7 +153,6 @@ def run_attribution(req_id: str) -> None:
         )
 
         from ticket_router_base.data import get_dataset
-        from ticket_router_eval.interpret import HFInterpretabilityEvaluator
 
         dataset = get_dataset("multilingual-customer-support")()
 
@@ -181,6 +183,9 @@ def run_attribution(req_id: str) -> None:
                 ],
             }
 
+        entry = get_cache_entry(req_id)
+        entry["attribution"] = attribution
+        # Re-read immediately before writing to avoid clobbering concurrent result updates
         entry = get_cache_entry(req_id)
         entry["attribution"] = attribution
         update_cache_entry(req_id, entry)
