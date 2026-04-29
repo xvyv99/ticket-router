@@ -472,6 +472,221 @@ def plot_clean_vs_perturbed(df: pd.DataFrame | None = None) -> plt.Figure:
 
 
 # ---------------------------------------------------------------------------
+# 参数量映射（近似值，单位：M）
+# ---------------------------------------------------------------------------
+# rule-based: 2 个配置变体，放同一范式线（无参数概念，画在同一 x 位置）
+# lr/xgb (Non-Encoder): 同一条线（不同的 encoder type = 同一参数量）
+# supervised encoder: mBERT + XLM-R 共用一条线
+# goal-based LLM (Qwen3): few-shot / zero-shot 分两条线
+# goal-based API: 不画 scaling（无参数量）
+
+PARAM_COUNT = {
+    "rule-based": 0.001,   # 极小，约等于无参数
+    "lr": 0.1,             # LR 参数极少，象征性位置
+    "xgb": 0.1,            # XGBoost 同上
+    "mbert": 560,          # google/rembert: 560M
+    "xlm-roberta": 250,    # FacebookAI/xlm-roberta-base: 250M
+    "qwen-qwen3-0.6b": 600,    # Qwen3-0.6B: 600M
+    "qwen-qwen3-1.7b": 1700,   # Qwen3-1.7B: 1.7B
+    "qwen-qwen3-4b": 4000,     # Qwen3-4B: 4B
+    # API 模型无本地参数量，不加入 scaling 图
+}
+
+# scaling 曲线分组：(group_name, 参数量)
+# 同一 group 内多个 x（同一 encoding type 的不同模型）→ 画同一条线，x 轴分开
+# LR tfidf/ST 各是一个 group，但每条线连两个点（x = 不同模型的参数位置）
+SCALING_GROUPS = {
+    # Rule-Based: 画在 x=0.001，两个配置取均值
+    "rule-based": ("Rule-Based", 0.001),
+    # LR tfidf: LR 层 + tfidf encoder
+    "lr:tfidf": ("LR (tfidf)", 0.1),
+    # LR ST: LR 层 + sentence-transformer (~100M)
+    "lr:ST": ("LR (ST)", 100),
+    # XGB tfidf: XGBoost + tfidf encoder
+    "xgb:tfidf": ("XGBoost (tfidf)", 1),
+    # XGB ST: XGBoost + sentence-transformer
+    "xgb:ST": ("XGBoost (ST)", 100),
+    # Supervised Encoder (mBERT + XLM-R): 共线
+    "mbert": ("Supervised (Encoder)", 560),
+    "xlm-roberta": ("Supervised (Encoder)", 250),
+    # Goal-Based LLM - zero-shot
+    "qwen3-0.6b:zero-shot": ("Goal-Based (LLM, zero-shot)", 600),
+    "qwen3-1.7b:zero-shot": ("Goal-Based (LLM, zero-shot)", 1700),
+    "qwen3-4b:zero-shot": ("Goal-Based (LLM, zero-shot)", 4000),
+    # Goal-Based LLM - few-shot
+    "qwen3-0.6b:few-shot": ("Goal-Based (LLM, few-shot)", 600),
+    "qwen3-1.7b:few-shot": ("Goal-Based (LLM, few-shot)", 1700),
+    "qwen3-4b:few-shot": ("Goal-Based (LLM, few-shot)", 4000),
+}
+
+# Each model is a separate line:
+# TFIDF: LR(tfidf) at x=0.1, XGB(tfidf) at x=1
+# ST: LR(ST) at x=100, XGB(ST) at x=100
+# Encoder: mBERT at x=560, XLM-R at x=250 (shared line)
+
+
+def _get_scaling_key(model_name: str, cfg: str | None) -> str | None:
+    """生成 SCALING_GROUPS 的 key，没有则返回 None。"""
+    key = None
+    if model_name == "rule-based":
+        key = "rule-based"
+    elif model_name in ("lr", "xgb"):
+        encoder = "ST" if cfg and "sentence_transformer" in cfg else "tfidf"
+        key = f"{model_name}:{encoder}"
+    elif model_name in ("mbert", "xlm-roberta"):
+        key = model_name
+    elif model_name.startswith("qwen-qwen3-"):
+        few_shot = "few-shot" if cfg and "true" in cfg else "zero-shot"
+        size = {"0.6b": "0.6b", "1.7b": "1.7b", "4b": "4b"}.get(
+            next((k for k in ["0.6b", "1.7b", "4b"] if k in model_name), ""), ""
+        )
+        key = f"qwen3-{size}:{few_shot}"
+    # API models excluded from scaling
+    return key
+
+
+# ---------------------------------------------------------------------------
+# Fig 06: Scaling Curve — 每个模型一条独立线
+# ---------------------------------------------------------------------------
+def plot_scaling_curve(df: pd.DataFrame | None = None, metric: str = "accuracy") -> plt.Figure:
+    """参数量 vs 性能。
+
+    每条线 = 一个模型独立：
+    - Rule-Based: x=0.001
+    - LR (tfidf): x=0.1 / LR (ST): x=100
+    - XGBoost (tfidf): x=1 / XGBoost (ST): x=100
+    - Supervised Encoder: mBERT(x=560) + XLM-R(x=250) 共一条线（共享颜色/线型）
+    - Goal-Based LLM: zero-shot / few-shot 各一条，x=600/1700/4000
+    """
+    if df is None:
+        df = _load_tidy()
+
+    metric_df = df[
+        (df["metric_category"] == "performance")
+        & (df["metric_name"] == metric)
+    ].copy()
+
+    # 构建 scaling 数据点
+    # key → (group_name, param_count)
+    key_to_group = {}
+    for key, (name, x) in SCALING_GROUPS.items():
+        key_to_group[key] = (name, x)
+
+    raw_points: dict[str, list[tuple[float, float]]] = {}  # group_name -> [(x, y), ...]
+    for _, row in metric_df.iterrows():
+        key = _get_scaling_key(row["model_name"], row["cfg"])
+        if key is None or key not in key_to_group:
+            continue
+        group_name, param_count = key_to_group[key]
+        raw_points.setdefault(group_name, []).append((param_count, row["value"]))
+
+    # 图例：每个模型一条独立线（不再合并 LR+XGB）
+    # tfidf 变体：LR(tfidf) + XGB(tfidf) 两条线
+    # ST 变体：LR(ST) + XGB(ST) 两条线
+    # 每条线一个 x 位置（只标注自己）
+    def _build_line_data(raw: dict[str, list[tuple[float, float]]]) -> dict[str, list[tuple[float, float]]]:
+        """每个 group 各自一条线，多个 y 值按 task 取均值得到单一 y。"""
+        result = {}
+        for group, xs_vals in raw.items():
+            by_x: dict[float, list[float]] = {}
+            for x, v in xs_vals:
+                by_x.setdefault(x, []).append(v)
+            result[group] = sorted((x, sum(vs) / len(vs)) for x, vs in by_x.items())
+        return result
+
+    line_data = _build_line_data(raw_points)
+
+    # 按参数量排 order
+    group_order = [
+        "Rule-Based",
+        "LR (tfidf)",
+        "XGBoost (tfidf)",
+        "LR (ST)",
+        "XGBoost (ST)",
+        "Supervised (Encoder)",
+        "Goal-Based (LLM, zero-shot)",
+        "Goal-Based (LLM, few-shot)",
+    ]
+    group_colors = {
+        "Rule-Based": "#4caf50",
+        "LR (tfidf)": "#64b5f6",
+        "LR (ST)": "#1976d2",
+        "XGBoost (tfidf)": "#81c784",
+        "XGBoost (ST)": "#388e3c",
+        "Supervised (Encoder)": "#1565c0",
+        "Goal-Based (LLM, zero-shot)": "#ff9800",
+        "Goal-Based (LLM, few-shot)": "#e65100",
+    }
+    group_markers = {
+        "Rule-Based": "o",
+        "LR (tfidf)": "s",
+        "LR (ST)": "s",
+        "XGBoost (tfidf)": "^",
+        "XGBoost (ST)": "^",
+        "Supervised (Encoder)": "D",
+        "Goal-Based (LLM, zero-shot)": "D",
+        "Goal-Based (LLM, few-shot)": "v",
+    }
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for group in group_order:
+        if group not in line_data:
+            continue
+        xs, ys = zip(*line_data[group])
+
+        # 图例用简短模型名
+        legend_names = {
+            "Rule-Based": "Rule-Based",
+            "LR (tfidf)": "LR (tfidf)",
+            "LR (ST)": "LR (ST)",
+            "XGBoost (tfidf)": "XGBoost (tfidf)",
+            "XGBoost (ST)": "XGBoost (ST)",
+            "Supervised (Encoder)": "mBERT + XLM-R",
+            "Goal-Based (LLM, zero-shot)": "Qwen3 (zero-shot)",
+            "Goal-Based (LLM, few-shot)": "Qwen3 (few-shot)",
+        }
+        ax.plot(
+            xs, ys,
+            color=group_colors.get(group, "#999"),
+            marker=group_markers.get(group, "o"),
+            markersize=8,
+            label=legend_names.get(group, group),
+            linewidth=2,
+            zorder=3,
+        )
+        # marker 旁边标注具体模型名
+        for x, y in zip(xs, ys):
+            if group == "Supervised (Encoder)":
+                label = "XLM-R" if x == 250 else "mBERT"
+            elif group == "Goal-Based (LLM, zero-shot)":
+                label = "0.6B" if x == 600 else ("1.7B" if x == 1700 else "4B")
+            elif group == "Goal-Based (LLM, few-shot)":
+                label = "0.6B" if x == 600 else ("1.7B" if x == 1700 else "4B")
+            elif group == "Rule-Based":
+                label = "Rule"
+            else:
+                label = group  # LR(tfidf), LR(ST), XGB(tfidf), XGB(ST)
+            ax.annotate(
+                label,
+                (x, y),
+                textcoords="offset points",
+                xytext=(0, 8),
+                ha="center",
+                fontsize=7,
+            )
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Parameter Count (log scale)")
+    ax.set_ylabel(metric.capitalize())
+    ax.set_title(f"Scaling Curve — {metric.capitalize()}", fontweight="bold")
+    ax.set_ylim(0, 1.0)
+    ax.legend(fontsize=9, loc="lower right")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig
+
+
+# ---------------------------------------------------------------------------
 # 主函数
 # ---------------------------------------------------------------------------
 def main() -> None:
@@ -489,6 +704,8 @@ def main() -> None:
         ("03_fairness_disparate_impact.png", plot_fairness_heatmap(tidy_df)),
         ("04_robustness_attack_success_rate.png", plot_robustness_attack_success(robust_df)),
         ("05_clean_vs_perturbed_accuracy.png", plot_clean_vs_perturbed(robust_df)),
+        ("06a_scaling_accuracy.png", plot_scaling_curve(tidy_df, "accuracy")),
+        ("06b_scaling_macro_f1.png", plot_scaling_curve(tidy_df, "macro_f1")),
     ]
 
     for filename, fig in figures:
