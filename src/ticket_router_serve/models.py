@@ -4,10 +4,9 @@ from logging import getLogger
 
 from openai import OpenAI
 
-from ticket_router_base.config import MODEL_DIR
+from ticket_router_base.config import MODEL_DIR as BASE_MODEL_DIR
 from ticket_router_base.data import get_dataset
 from ticket_router_base.predictor import Predictor
-from ticket_router_base.types import Record
 
 from ticket_router_supervised.models import LRPredictor, XGBPredictor
 from ticket_router_supervised.models.mbert import MBERTPredictor
@@ -20,7 +19,51 @@ logger = getLogger(__name__)
 
 DATASET = get_dataset("multilingual-customer-support")()
 
-SUPPORTED_MODELS = {"lr", "xgb", "rule-based", "qwen3", "rembert", "xlm-roberta"}
+SUPPORTED_MODELS = {"lr", "xgb", "rule-based", "rembert", "xlm-roberta"}
+
+SUPERVISED_MODEL_DIR = BASE_MODEL_DIR / "supervised"
+RULE_BASED_MODEL_DIR = BASE_MODEL_DIR / "rule_based"
+
+
+def _load_lr_models() -> dict:
+    """Load trained LR models from disk."""
+    import joblib
+
+    models: dict = {}
+    for task in DATASET.all_tasks:
+        path = SUPERVISED_MODEL_DIR / f"lr_{task.name}.joblib"
+        if path.exists():
+            models[task.name] = joblib.load(path)
+    return models
+
+
+def _load_xgb_models() -> dict:
+    """Load trained XGBoost models from disk."""
+    import joblib
+
+    models: dict = {}
+    for task in DATASET.all_tasks:
+        path = SUPERVISED_MODEL_DIR / f"xgb_{task.name}.joblib"
+        if path.exists():
+            models[task.name] = joblib.load(path)
+    return models
+
+
+def _load_rule_models() -> tuple[dict, dict]:
+    """Load trained rule-based models from disk, returning (models, feature_modes)."""
+    import pickle
+
+    models: dict = {}
+    feature_modes: dict = {}
+    for task in DATASET.all_tasks:
+        path = RULE_BASED_MODEL_DIR / "models" / f"{task.name}.pkl"
+        if path.exists():
+            with open(path, "rb") as f:
+                model = pickle.load(f)
+            models[task.name] = model
+            # Infer feature_mode from the loaded model's attribute if available
+            feature_modes[task.name] = getattr(model, "_feature_mode", "text")
+    return models, feature_modes
 
 
 class ModelPool:
@@ -47,22 +90,43 @@ class ModelPool:
 
         # Load LR
         try:
-            self._predictors["lr"] = LRPredictor.load_model(DATASET)
-            logger.info("LR predictor loaded")
+            from ticket_router_supervised.cfg import SupervisedCfg
+
+            lr_models = _load_lr_models()
+            if lr_models:
+                self._predictors["lr"] = LRPredictor(
+                    dataset=DATASET, models=lr_models, cfg=SupervisedCfg()
+                )
+                logger.info("LR predictor loaded")
         except Exception as e:
             logger.warning(f"Failed to load LR predictor: {e}")
 
         # Load XGBoost
         try:
-            self._predictors["xgb"] = XGBPredictor.load_model(DATASET)
-            logger.info("XGB predictor loaded")
+            from ticket_router_supervised.cfg import SupervisedCfg
+
+            xgb_models = _load_xgb_models()
+            if xgb_models:
+                self._predictors["xgb"] = XGBPredictor(
+                    dataset=DATASET, models=xgb_models, cfg=SupervisedCfg()
+                )
+                logger.info("XGB predictor loaded")
         except Exception as e:
             logger.warning(f"Failed to load XGB predictor: {e}")
 
         # Load rule-based
         try:
-            self._predictors["rule-based"] = RuleBasedPredictor.load_model(DATASET)
-            logger.info("Rule-based predictor loaded")
+            from ticket_router_rule.cfg import RuleBasedCfg
+
+            rule_models, feature_modes = _load_rule_models()
+            if rule_models:
+                self._predictors["rule-based"] = RuleBasedPredictor(
+                    dataset=DATASET,
+                    models=rule_models,
+                    feature_modes=feature_modes,
+                    cfg=RuleBasedCfg(),
+                )
+                logger.info("Rule-based predictor loaded")
         except Exception as e:
             logger.warning(f"Failed to load rule-based predictor: {e}")
 
@@ -107,12 +171,17 @@ class ModelPool:
 
     def call_qwen3(self, messages: list[dict[str, str]]) -> str:
         """Call DashScope API with qwen3.6-plus model."""
-        response = self.dashscope_client.chat.completions.create(
-            model="qwen3.6-plus",
-            messages=messages,
-        )
-        content = response.choices[0].message.content
-        return content if content is not None else ""
+        try:
+            response = self.dashscope_client.chat.completions.create(
+                model="qwen3.6-plus",
+                messages=messages,
+                timeout=30.0,
+            )
+            content = response.choices[0].message.content
+            return content if content is not None else ""
+        except Exception as e:
+            logger.error(f"Qwen3 API call failed: {e}")
+            raise
 
 
 # Convenience function
