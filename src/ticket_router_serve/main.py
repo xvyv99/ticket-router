@@ -135,12 +135,11 @@ async def attribution(req_id: str) -> AttributionResponse:
     )
 
 
-# Health check does not require auth
-health_router = APIRouter()
+health_router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @health_router.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
+async def health(api_key: str = Depends(verify_api_key)) -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(status="ok")
 
