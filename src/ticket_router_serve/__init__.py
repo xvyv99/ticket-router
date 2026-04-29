@@ -1,0 +1,1 @@
+"""Ticket Router Serve — FastAPI inference service."""
