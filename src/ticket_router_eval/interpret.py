@@ -198,8 +198,7 @@ class HFInterpretabilityEvaluator:
                 padding=True,
                 max_length=self.predictor.MAX_LENGTH,
             )
-            if predict_device != "cpu":
-                inputs = {k: v.to(predict_device) for k, v in inputs.items()}
+            inputs = {k: v.to(predict_device) for k, v in inputs.items()}
             with torch.inference_mode():
                 logits = model(**inputs).logits
                 probs = torch.softmax(logits, dim=-1)
@@ -226,6 +225,9 @@ class HFInterpretabilityEvaluator:
             pred_id = pred_ids[idx]
             confidence = confidences[idx]
             predicted_label = id2label.get(pred_id, str(pred_id))
+            # print(f"pred_id: {pred_id}, true_label: {true_label}, text: {text}")
+            # print(f"predicted_label: {predicted_label}, confidence: {confidence:.4f}")
+            # print(id2label)
 
             try:
                 raw_attrs = explainer(
