@@ -40,7 +40,11 @@ attribution_router = APIRouter(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8787",
+        "https://ticket.xvyv99.top",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

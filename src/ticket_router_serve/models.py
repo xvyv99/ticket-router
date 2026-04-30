@@ -22,7 +22,7 @@ DATASET = get_dataset("multilingual-customer-support")()
 SUPPORTED_MODELS = {"lr", "xgb", "rule-based", "rembert", "xlm-roberta", "qwen3"}
 
 SUPERVISED_MODEL_DIR = BASE_MODEL_DIR / "supervised"
-RULE_BASED_MODEL_DIR = BASE_MODEL_DIR / "rule_based"
+RULE_BASED_MODEL_DIR = BASE_MODEL_DIR.parent / "outputs" / "rule_based"
 
 
 def _infer_encoder_type(models: dict) -> str:
@@ -144,6 +144,8 @@ class ModelPool:
                     cfg=RuleBasedCfg(),
                 )
                 logger.info("Rule-based predictor loaded")
+            else:
+                logger.warning("Rule-based predictor not loaded: no models found")
         except Exception as e:
             logger.warning(f"Failed to load rule-based predictor: {e}")
 
@@ -170,6 +172,23 @@ class ModelPool:
             self._predictors["xlm-roberta"] = predictor
             logger.info("XLM-RoBERTa predictor loaded (lazy)")
             return predictor
+
+        # Lazy load rule-based (may not have been pre-loaded if no model files found)
+        if model_name == "rule-based":
+            from ticket_router_rule.cfg import RuleBasedCfg
+
+            rule_models, feature_modes = _load_rule_models()
+            if rule_models:
+                predictor = RuleBasedPredictor(
+                    dataset=DATASET,
+                    models=rule_models,
+                    feature_modes=feature_modes,
+                    cfg=RuleBasedCfg(),
+                )
+                self._predictors["rule-based"] = predictor
+                logger.info("Rule-based predictor loaded (lazy)")
+                return predictor
+            raise ValueError(f"Model not available: {model_name}")
 
         raise ValueError(f"Model not available: {model_name}")
 
