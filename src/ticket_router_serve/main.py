@@ -2,7 +2,12 @@
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 
-from ticket_router_serve.cache import compute_fingerprint, find_by_fingerprint, get_cache_entry, save_fingerprint
+from ticket_router_serve.cache import (
+    compute_fingerprint,
+    find_by_fingerprint,
+    get_cache_entry,
+    save_fingerprint,
+)
 from ticket_router_serve.deps import verify_api_key
 from ticket_router_serve.models import get_pool, SUPPORTED_MODELS
 from ticket_router_serve.schemas import (
@@ -15,7 +20,7 @@ from ticket_router_serve.schemas import (
     TaskStatus,
 )
 from ticket_router_serve.tasks import submit_attribution, submit_task
-
+from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------------------------------------------------------
 # Application
@@ -29,7 +34,17 @@ app = FastAPI()
 
 predict_router = APIRouter(prefix="/predict", dependencies=[Depends(verify_api_key)])
 result_router = APIRouter(prefix="/result", dependencies=[Depends(verify_api_key)])
-attribution_router = APIRouter(prefix="/attribution", dependencies=[Depends(verify_api_key)])
+attribution_router = APIRouter(
+    prefix="/attribution", dependencies=[Depends(verify_api_key)]
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @predict_router.post("", response_model=PredictResponse)
@@ -155,6 +170,7 @@ app.include_router(health_router)
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
+
 
 @app.on_event("startup")
 async def startup() -> None:

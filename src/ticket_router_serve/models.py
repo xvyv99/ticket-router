@@ -25,6 +25,20 @@ SUPERVISED_MODEL_DIR = BASE_MODEL_DIR / "supervised"
 RULE_BASED_MODEL_DIR = BASE_MODEL_DIR / "rule_based"
 
 
+def _infer_encoder_type(models: dict) -> str:
+    """Infer encoder type from loaded SKModel objects by checking encoder class name."""
+    if not models:
+        return "tfidf"
+    first_model = next(iter(models.values()))
+    encoder = getattr(first_model, "encoder", None)
+    if encoder is None:
+        return "tfidf"
+    encoder_name = type(encoder).__name__
+    if "Sentence" in encoder_name or "sentence" in encoder_name.lower():
+        return "sentence_transformer"
+    return "tfidf"
+
+
 def _load_lr_models() -> dict:
     """Load trained LR models from disk."""
     import joblib
@@ -61,7 +75,6 @@ def _load_rule_models() -> tuple[dict, dict]:
             with open(path, "rb") as f:
                 model = pickle.load(f)
             models[task.name] = model
-            # Infer feature_mode from the loaded model's attribute if available
             feature_modes[task.name] = getattr(model, "_feature_mode", "text")
     return models, feature_modes
 
@@ -95,7 +108,9 @@ class ModelPool:
             lr_models = _load_lr_models()
             if lr_models:
                 self._predictors["lr"] = LRPredictor(
-                    dataset=DATASET, models=lr_models, cfg=SupervisedCfg()
+                    dataset=DATASET,
+                    models=lr_models,
+                    cfg=SupervisedCfg(encoder_type=_infer_encoder_type(lr_models)),
                 )
                 logger.info("LR predictor loaded")
         except Exception as e:
@@ -108,7 +123,9 @@ class ModelPool:
             xgb_models = _load_xgb_models()
             if xgb_models:
                 self._predictors["xgb"] = XGBPredictor(
-                    dataset=DATASET, models=xgb_models, cfg=SupervisedCfg()
+                    dataset=DATASET,
+                    models=xgb_models,
+                    cfg=SupervisedCfg(encoder_type=_infer_encoder_type(xgb_models)),
                 )
                 logger.info("XGB predictor loaded")
         except Exception as e:
