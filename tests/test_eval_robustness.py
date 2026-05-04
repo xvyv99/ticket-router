@@ -10,7 +10,7 @@ import pytest
 
 from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
 from ticket_router_base.types import Language, Record
-from ticket_router_eval.robustness import (
+from ticket_router.eval.robustness import (
     AdversarialExample,
     ATTACK_RECIPE_REGISTRY,
     BlackBoxRobustnessEvaluator,

@@ -21,8 +21,8 @@ from ticket_router_base.predictor import get_model
 
 from ticket_router.supervised.models import HFPredictor
 
-from ticket_router_eval.interpret import HFInterpretabilityEvaluator
-from ticket_router_eval.interpret_report import (
+from ticket_router.eval.interpret import HFInterpretabilityEvaluator
+from ticket_router.eval.interpret_report import (
     print_interpretability_report,
     save_interpretability_results,
 )
