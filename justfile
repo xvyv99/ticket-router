@@ -10,10 +10,6 @@ infer-attr *ARGS:
     uv run ./scripts/infer_attributes.py \
         {{ARGS}}
 
-# Rule-based
-run-rule *ARGS:
-    uv run ./scripts/run_rule_based.py {{ARGS}}
-
 # Supervised learning
 run-ml *ARGS:
     uv run ./scripts/03_run_supervised_traditional.py {{ARGS}}

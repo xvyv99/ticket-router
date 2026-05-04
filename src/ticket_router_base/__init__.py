@@ -20,7 +20,6 @@ from .types import (
 from .utils import JSONLLogger, combine_text, combine_texts, write_pred
 
 # HACK: import all predictors to register them
-import ticket_router_rule
 import ticket_router.supervised
 import ticket_router.agent
 
