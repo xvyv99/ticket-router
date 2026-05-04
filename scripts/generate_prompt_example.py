@@ -13,7 +13,7 @@ from typing import List
 from ticket_router_base.data import get_dataset
 from ticket_router_base.data.datasets import DATASET_REGISTRY
 from ticket_router_base.types import Record
-from ticket_router_agent.prompt import build_conversation
+from ticket_router.agent.prompt import build_conversation
 
 OUTPUT_DIR = Path("outputs/goal_based")
 DEFAULT_OUTPUT = OUTPUT_DIR / "prompt_example.txt"
