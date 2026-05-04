@@ -904,6 +904,152 @@ def plot_llm_scale_fairness(df: pd.DataFrame | None = None) -> plt.Figure:
 
 
 # ---------------------------------------------------------------------------
+# Robustness 图表 (xlm-roberta, whitebox textfooler)
+# ---------------------------------------------------------------------------
+
+ROBUSTNESS_DIR = Path("outputs/robustness/xlm-roberta/multilingual-customer-support")
+
+
+def _load_robustness() -> pd.DataFrame:
+    """加载 xlm-roberta 的 robustness CSV (priority + queue)."""
+    dfs = []
+    for task in ["priority", "queue"]:
+        csv_path = ROBUSTNESS_DIR / f"{task}_metrics.csv"
+        if csv_path.exists():
+            df = pd.read_csv(csv_path)
+            df["task"] = task
+            dfs.append(df)
+    if not dfs:
+        return pd.DataFrame()
+    return pd.concat(dfs, ignore_index=True)
+
+
+def plot_robustness_clean_vs_perturbed(df: pd.DataFrame | None = None) -> plt.Figure:
+    """Clean vs Perturbed Accuracy, 按 task × language 分组柱状图."""
+    if df is None:
+        df = _load_robustness()
+
+    lang_df = df[df["granularity"] == "language"].copy()
+    if lang_df.empty:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, "No robustness language data", ha="center", va="center")
+        ax.axis("off")
+        return fig
+
+    languages = sorted(lang_df["group"].unique())
+    tasks = sorted(lang_df["task"].unique())
+
+    fig, axes = plt.subplots(1, len(tasks), figsize=(5 * len(tasks), 5))
+    if len(tasks) == 1:
+        axes = np.array([axes])
+
+    x = np.arange(len(languages))
+    width = 0.35
+
+    for i, task in enumerate(tasks):
+        ax = axes[i]
+        task_data = lang_df[lang_df["task"] == task].set_index("group").reindex(languages)
+
+        ax.bar(x - width / 2, task_data["clean_accuracy"], width,
+               label="Clean", color="#4c72b0")
+        ax.bar(x + width / 2, task_data["perturbed_accuracy"], width,
+               label="Perturbed", color="#c44e52")
+        ax.set_xticks(x)
+        ax.set_xticklabels(languages, rotation=30, fontsize=9)
+        ax.set_ylim(0, 1.0)
+        ax.set_ylabel("Accuracy")
+        ax.set_title(f"XLM-RoBERTa — {task}", fontweight="bold")
+        if i == 0:
+            ax.legend(fontsize=9)
+
+    fig.suptitle("Robustness: Clean vs Perturbed Accuracy by Language", fontweight="bold", fontsize=14)
+    plt.tight_layout()
+    return fig
+
+
+def plot_robustness_attack_success(df: pd.DataFrame | None = None) -> plt.Figure:
+    """Attack Success Rate by Language, 按 task 分组水平条形图."""
+    if df is None:
+        df = _load_robustness()
+
+    lang_df = df[df["granularity"] == "language"].copy()
+    if lang_df.empty:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, "No robustness language data", ha="center", va="center")
+        ax.axis("off")
+        return fig
+
+    tasks = sorted(lang_df["task"].unique())
+    languages = sorted(lang_df["group"].unique())
+
+    fig, axes = plt.subplots(1, len(tasks), figsize=(5 * len(tasks), 5))
+    if len(tasks) == 1:
+        axes = np.array([axes])
+
+    colors = {"priority": "#4c72b0", "queue": "#c44e52"}
+
+    for i, task in enumerate(tasks):
+        ax = axes[i]
+        task_data = lang_df[lang_df["task"] == task].set_index("group").reindex(languages)
+        task_data = task_data.sort_values("attack_success_rate")
+
+        ax.barh(task_data.index, task_data["attack_success_rate"],
+                color=colors.get(task, "#999"), height=0.6)
+        ax.set_xlim(0, 1.0)
+        ax.set_xlabel("Attack Success Rate")
+        ax.set_title(f"XLM-RoBERTa — {task}", fontweight="bold")
+        for bar in ax.patches:
+            w = bar.get_width()
+            ax.text(w + 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{w:.3f}", ha="left", va="center", fontsize=9)
+
+    fig.suptitle("Robustness: Attack Success Rate by Language", fontweight="bold", fontsize=14)
+    plt.tight_layout()
+    return fig
+
+
+def plot_robustness_accuracy_drop(df: pd.DataFrame | None = None) -> plt.Figure:
+    """Accuracy Drop by Language, 按 task 分组水平条形图."""
+    if df is None:
+        df = _load_robustness()
+
+    lang_df = df[df["granularity"] == "language"].copy()
+    if lang_df.empty:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, "No robustness language data", ha="center", va="center")
+        ax.axis("off")
+        return fig
+
+    tasks = sorted(lang_df["task"].unique())
+    languages = sorted(lang_df["group"].unique())
+
+    fig, axes = plt.subplots(1, len(tasks), figsize=(5 * len(tasks), 5))
+    if len(tasks) == 1:
+        axes = np.array([axes])
+
+    colors = {"priority": "#4c72b0", "queue": "#c44e52"}
+
+    for i, task in enumerate(tasks):
+        ax = axes[i]
+        task_data = lang_df[lang_df["task"] == task].set_index("group").reindex(languages)
+        task_data = task_data.sort_values("accuracy_drop")
+
+        ax.barh(task_data.index, task_data["accuracy_drop"],
+                color=colors.get(task, "#999"), height=0.6)
+        ax.set_xlim(0, 1.0)
+        ax.set_xlabel("Accuracy Drop")
+        ax.set_title(f"XLM-RoBERTa — {task}", fontweight="bold")
+        for bar in ax.patches:
+            w = bar.get_width()
+            ax.text(w + 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{w:.3f}", ha="left", va="center", fontsize=9)
+
+    fig.suptitle("Robustness: Accuracy Drop by Language", fontweight="bold", fontsize=14)
+    plt.tight_layout()
+    return fig
+
+
+# ---------------------------------------------------------------------------
 # 主函数
 # ---------------------------------------------------------------------------
 
@@ -930,6 +1076,15 @@ def main() -> None:
         ("fairness_07_spearman.png", plot_spearman_correlation(best_df)),
         ("fairness_08_llm_scale.png", plot_llm_scale_fairness(tidy_df)),
     ])
+
+    # Robustness (xlm-roberta, whitebox textfooler)
+    rob_df = _load_robustness()
+    if not rob_df.empty:
+        figures.extend([
+            ("robustness_01_clean_vs_perturbed.png", plot_robustness_clean_vs_perturbed(rob_df)),
+            ("robustness_02_attack_success.png", plot_robustness_attack_success(rob_df)),
+            ("robustness_03_accuracy_drop.png", plot_robustness_accuracy_drop(rob_df)),
+        ])
 
     for filename, fig in figures:
         path = OUTPUT_DIR / filename
