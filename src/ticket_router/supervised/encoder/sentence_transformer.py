@@ -5,11 +5,12 @@ from typing import List
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from ticket_router_supervised.config import TORCH_DEVICE
+from ticket_router.supervised.config import TORCH_DEVICE
 
 from .base import TextEncoder
 
 DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
 
 class SentenceTransformerEncoder(TextEncoder):
     """Text encoder using sentence-transformers pre-trained models.
@@ -35,13 +36,17 @@ class SentenceTransformerEncoder(TextEncoder):
         self._model = SentenceTransformer(self.model_name, device=self.device)
 
     def fit(self, texts: List[str]):
-        raise NotImplementedError("SentenceTransformerEncoder does not require fitting.")
+        raise NotImplementedError(
+            "SentenceTransformerEncoder does not require fitting."
+        )
 
     def transform(self, texts: List[str]) -> np.ndarray:
         self._init_model()
 
         if self._model is None:
-            raise RuntimeError("SentenceTransformerEncoder must be fit() before transform()")
+            raise RuntimeError(
+                "SentenceTransformerEncoder must be fit() before transform()"
+            )
         return self._model.encode(
             texts,
             batch_size=self.batch_size,

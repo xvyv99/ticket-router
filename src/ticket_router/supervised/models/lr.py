@@ -1,48 +1,36 @@
-"""XGBoost training for arbitrary classification tasks."""
+"""Logistic Regression training for arbitrary classification tasks."""
 
 from typing import Dict, List
 
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
-import xgboost as xgb
 
-from ticket_router_base.config import SEED
 from ticket_router_base.data import BaseDataset
+from ticket_router_base.predictor import Trainer, Predictor, register_model
 from ticket_router_base.types import (
+    ErrorFlag,
     Record,
     Prediction,
-    ErrorFlag,
 )
 from ticket_router_base.utils import combine_texts
-from ticket_router_base.predictor import Predictor, Trainer, register_model
+from ticket_router_base.config import SEED
 
-from ticket_router_supervised.utils import save_model, SKModel
-from ticket_router_supervised.config import SAVE_DIR
-from ticket_router_supervised.encoder import TextEncoder
-from ticket_router_supervised.cfg import SupervisedCfg
-
-XGBCfg = {
-    "objective": "multi:softprob",
-    "eval_metric": "mlogloss",
-    "max_depth": 6,
-    "n_estimators": 200,
-    "learning_rate": 0.1,
-    "random_state": SEED,
-}
+from ticket_router.supervised.utils import save_model, SKModel
+from ticket_router.supervised.config import SAVE_DIR
+from ticket_router.supervised.encoder import TextEncoder
+from ticket_router.supervised.cfg import SupervisedCfg
 
 
-def train_xgb(texts: List[str], labels: List[str], save_name: str, encoder: TextEncoder) -> SKModel:
-    """Train a single XGB model for one classification task."""
-    le = LabelEncoder()
-    y = le.fit_transform(labels)
+def train_lr(
+    texts: List[str], labels: List[str], save_name: str, encoder: TextEncoder
+) -> SKModel:
+    """Train a single LR model for one classification task."""
     X_t = encoder.fit_transform(texts)
 
-    n_classes = len(le.classes_)
-    if n_classes == 2:
-        # binary classification: use binary:logistic instead of multi:softprob
-        cfg = {**XGBCfg, "objective": "binary:logistic", "eval_metric": "logloss"}
-        clf = xgb.XGBClassifier(**cfg)
-    else:
-        clf = xgb.XGBClassifier(num_class=n_classes, **XGBCfg)
+    le = LabelEncoder()
+    y = le.fit_transform(labels)
+
+    clf = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=SEED)
     clf.fit(X_t, y)
 
     model = SKModel(encoder, clf, le=le)
@@ -51,8 +39,8 @@ def train_xgb(texts: List[str], labels: List[str], save_name: str, encoder: Text
 
 
 @register_model
-class XGBPredictor(Predictor[SupervisedCfg]):
-    name = "xgb"
+class LRPredictor(Predictor[SupervisedCfg]):
+    name = "lr"
     dataset: BaseDataset
 
     DEFAULT_SAVE_DIR = SAVE_DIR
@@ -61,16 +49,22 @@ class XGBPredictor(Predictor[SupervisedCfg]):
 
     cfg: SupervisedCfg | None
 
-    def __init__(self, dataset: BaseDataset, models: Dict[str, SKModel], cfg: SupervisedCfg):
+    def __init__(
+        self,
+        dataset: BaseDataset,
+        models: Dict[str, SKModel],
+        cfg: SupervisedCfg,
+    ):
         self.dataset = dataset
         self._models = models
-        self.cfg = cfg 
+        self.cfg = cfg
 
         assert self.cfg is not None, "Predictor must be initialized with a config."
 
     def predict(self, records: List[Record], run_id: int = 0) -> List[Prediction]:
         texts = combine_texts(records)
 
+        # Run inference for each task
         task_preds: Dict[str, List[tuple]] = {}
         for task_name, model in self._models.items():
             task_preds[task_name] = model.predict(texts)
@@ -100,7 +94,7 @@ class XGBPredictor(Predictor[SupervisedCfg]):
         return predictions
 
 
-class XGBTrainer(Trainer):
+class LRTrainer(Trainer):
     dataset: BaseDataset
 
     def __init__(self, dataset: BaseDataset, cfg: SupervisedCfg):
@@ -111,21 +105,14 @@ class XGBTrainer(Trainer):
         self,
         records: List[Record],
         val_records: List[Record] | None = None,
-    ) -> XGBPredictor:
+    ) -> LRPredictor:
         texts = combine_texts(records)
         encoder = self.cfg.encoder
 
         models: Dict[str, SKModel] = {}
         for task in self.dataset.all_tasks:
-            labels = []
-            for r in records:
-                if task.name not in r.labels:
-                    raise ValueError(
-                        f"Record {r.request_id} is missing label for task {task.name}"
-                    )
-                labels.append(r.labels[task.name])
-
-            model = train_xgb(texts, labels, f"xgb_{task.name}", encoder=encoder)
+            labels = [r.labels.get(task.name, "") for r in records]
+            model = train_lr(texts, labels, f"lr_{task.name}", encoder=encoder)
             models[task.name] = model
 
-        return XGBPredictor(models=models, dataset=self.dataset, cfg=self.cfg)
+        return LRPredictor(dataset=self.dataset, models=models, cfg=self.cfg)

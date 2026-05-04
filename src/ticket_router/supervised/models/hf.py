@@ -27,8 +27,8 @@ from ticket_router_base.types import (
 )
 from ticket_router_base.utils import combine_texts
 
-from ticket_router_supervised.config import TORCH_DEVICE
-from ticket_router_supervised.utils import create_datasets
+from ticket_router.supervised.config import TORCH_DEVICE
+from ticket_router.supervised.utils import create_datasets
 
 logger = getLogger(__name__)
 
