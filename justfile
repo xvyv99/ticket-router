@@ -42,3 +42,7 @@ llm-batch *ARGS:
 # Serving
 serve PORT="8000" *ARGS:
     uv run uvicorn ticket_router.serve.main:app --reload --port {{PORT}} {{ARGS}}
+
+# Plot 
+plot *ARGS:
+    uv run ./scripts/generate_figures.py {{ARGS}}
