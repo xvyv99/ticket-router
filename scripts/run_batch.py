@@ -5,8 +5,8 @@ from ticket_router.base.data import get_dataset
 from ticket_router.base.config import LOGGING_FORMAT
 from ticket_router.base.data.datasets import DATASET_REGISTRY
 
-from ticket_router.agent.config import MODEL_CHOICES
-from ticket_router.agent.infer import vLLMPredictor
+from ticket_router.llm.config import MODEL_CHOICES
+from ticket_router.llm.infer import vLLMPredictor
 
 logger = getLogger(__name__)
 
