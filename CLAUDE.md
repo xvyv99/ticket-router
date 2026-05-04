@@ -1,175 +1,234 @@
-<!-- CLAUDE.md -->
+# CLAUDE.md — Ticket Router
 
-# CLAUDE.md — Ticket Router 工作上下文
-
-> 本文档为 Claude 专用. 提供项目核心上下文、当前状态、架构决策和编码速查, 帮助 Claude 在单次对话中快速进入状态.
+> Cheat sheet for Claude. Project context, architecture decisions, current status, coding conventions, and quick-reference tables to get up to speed in a single conversation.
 
 ---
 
-## 1. 项目是什么
+## 1. What This Project Is
 
-多语言客服工单路由系统, 需构建 **Rule-Based / Supervised / Goal-Based** 三种范式, 并从公平性、问责性、透明性、可解释性、稳健性五个维度进行比较分析.
+A multilingual customer support ticket routing system. Three AI design paradigms are being built and compared across five dimensions: **fairness, accountability, transparency, explainability, and robustness**.
 
-核心任务: 输入一封客服邮件(subject + body), 输出 queue(10类) / priority(3类) / tags / preliminary_answer.
+Core task: given a customer email (subject + body), output **queue** (10 classes), **priority** (3 classes), **tags**, and a **preliminary answer**.
 
 ---
 
-## 2. 架构核心决策
+## 2. Architecture
 
-### 2.1 Monorepo + 协议驱动
+### 2.1 Monorepo + Protocol-Driven
 
-项目使用 **monorepo**, 子包位于 `packages/`, 各包独立 `pyproject.toml` + `uv.lock`:
+The project uses a **monorepo** with sub-packages under `packages/`, each having its own `pyproject.toml` + `uv.lock`:
 
-| 包名                       | 职责                                                     | 依赖重点                                         |
-| -------------------------- | -------------------------------------------------------- | ------------------------------------------------ |
-| `ticket_router.base`       | 共享类型、数据加载、评估指标、Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
-| `ticket_router.supervised` | LR, XGBoost, RemBERT 微调                                | torch, transformers, xgboost, datasets, joblib   |
-| `ticket_router_agent`      | 本地 vLLM + SiliconFlow batch API                        | vllm, pydantic, llmcompressor                    |
-| `ticket_router_rule`       | **当前为空**, 待实现                                     | -                                                |
+| Package | Responsibility | Key Dependencies |
+|---|---|---|
+| `ticket_router.base` | Shared types, data loading, evaluation metrics, Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
+| `ticket_router.supervised` | LR, XGBoost, RemBERT fine-tuning | torch, transformers, xgboost, datasets, joblib |
+| `ticket_router_agent` | Local vLLM + SiliconFlow batch API | vllm, pydantic, llmcompressor |
+| `ticket_router_rule` | **Currently empty**, to be implemented | — |
 
-**关键协议** (`ticket_router.base.predictor`):
+**Key Protocol** (`ticket_router.base.predictor`):
+- `Predictor.predict(records) -> PredictionBatch` — unified entry point for all models.
+- `Trainer.train(records, val_records) -> Predictor` — optional trainer interface.
 
-- `Predictor.predict(records) -> PredictionBatch`: 所有模型统一入口.
-- `Trainer.train(records, val_records) -> Predictor`: 训练器可选实现.
-
-**关键类型** (`ticket_router.base.types`):
-
+**Key Types** (`ticket_router.base.types`):
 - `Queue` / `Priority` / `Language`: `StrEnum`.
-- `Record`: 输入, 含 `request_id`, `subject`, `body`, `language` + ground truth.
-- `Prediction`: 输出, 含 `queue`, `priority`, `tag_1`, `tag_2`, `answer`, `queue_confidence`, `priority_confidence`, `raw_output`, `error`.
-- `ErrorFlag`: `IntFlag`, `SUCCESS=0`, 支持组合错误标记.
+- `Record`: input, with `request_id`, `subject`, `body`, `language` + ground truth fields.
+- `Prediction`: output, with `queue`, `priority`, `tag_1`, `tag_2`, `answer`, `queue_confidence`, `priority_confidence`, `raw_output`, `error`.
+- `ErrorFlag`: `IntFlag`, `SUCCESS=0`, supports combined error flags.
 
-统一保存: `ticket_router.base.utils.write_pred(predictions, records, path)` 输出标准 JSONL.
+Unified save: `ticket_router.base.utils.write_pred(predictions, records, path)` outputs standard JSONL.
 
-### 2.2 数据流
+### 2.2 Data Flow
 
 ```
 dataset-tickets-multi-lang3-4k.csv
     -> 01_build_test_set.py
-        -> outputs/test_set.jsonl      (1200条, 分层抽样)
-        -> outputs/train_set.jsonl     (~2800条)
-        -> outputs/difficult_cases.jsonl (100条)
+        -> outputs/test_set.jsonl          (1200 samples, stratified)
+        -> outputs/train_set.jsonl         (~2800 samples)
+        -> outputs/difficult_cases.jsonl   (100 samples)
 
-train_set.jsonl -> LR/XGB/RemBERT 训练 -> outputs/supervised/*_predictions.jsonl
-test_set.jsonl  -> vLLM/Qwen3 推理    -> outputs/goal_based/*_predictions.jsonl
+train_set.jsonl -> LR/XGB/RemBERT training  -> outputs/supervised/*_predictions.jsonl
+test_set.jsonl  -> vLLM/Qwen3 inference     -> outputs/goal_based/*_predictions.jsonl
 ```
 
-**硬性约束**: 测试集**只能**来自 4k 数据. 20k/28k 用于训练增强, 但二者有 8306 条重复, 合并必须去重.
+**Hard constraint**: the test set must come **only** from the 4k dataset. The 20k and 28k datasets are for training augmentation only, but they share 8,306 duplicates — must deduplicate by `subject` + `body` if merging.
 
 ---
 
-## 3. 当前状态速览
+## 3. Current Status
 
-### 已完成
+### Done
+- [x] `ticket_router.base`: type system, Pandera schemas, data loading, stratified splitting, difficult-case selection, JSONL logging, classification/consistency metrics.
+- [x] `ticket_router.supervised`: LR + XGBoost implemented and run on full test set; RemBERT training/inference implemented.
+- [x] `ticket_router_agent`: local vLLM inference (Qwen3 0.6B/1.7B/4B, AWQ quantized) + SiliconFlow batch API request generation.
+- [x] Qwen3 W8A8 quantization scripts (`llmcompressor`).
+- [x] Unified test/train/difficult-case sets generated.
 
-- [x] `ticket_router.base`: 类型系统、Pandera schema、数据加载、分层抽样、困难案例筛选、JSONL 日志、分类指标、一致性指标.
-- [x] `ticket_router.supervised`: LR + XGBoost 已实现并跑通全量测试集; RemBERT 训练/推理已实现.
-- [x] `ticket_router_agent`: vLLM 本地推理(Qwen3 0.6B/1.7B/4B, 支持 AWQ 量化) + SiliconFlow batch API 请求生成.
-- [x] Qwen3 W8A8 量化脚本 (`llmcompressor`).
-- [x] 统一测试集、训练集、困难案例集已生成.
-
-### 待实现 / 待完善
-
-- [ ] **Rule-Based 系统** (`packages/ticket_router_rule/`): 完全空白. 可参考旧包 `packages/ticket_router/rule_based/` 中的原型(关键词匹配 + 模板选择).
-- [ ] **Tags 预测启用**: LR 已训练 tag 模型但未在 `LRPredictor.predict()` 中启用; XGB 未训练 tag; RemBERT 未训练 tag.
-- [ ] **Preliminary answer 生成**: Supervised 系统目前只预测 queue + priority, 不生成 answer.
-- [ ] **统一评估脚本**: 读取各系统 JSONL 输出, 计算对比指标, 生成报表. 计划放在根目录 `scripts/` 或 `packages/ticket_router.base/eval/`.
-- [ ] **LLM-as-Judge**: 使用强模型对 answer 质量评分.
-- [ ] **公平性分析**: 使用 `aif360` / `fairlearn` 分析语言/queue 层面的偏差.
-- [ ] **测试目录**: `tests/` 尚未创建, 当前无 pytest 覆盖.
-- [ ] **多次运行一致性**: Goal-Based 同一请求 3 次运行的方差分析脚本.
+### To Do
+- [ ] **Rule-Based system** (`packages/ticket_router_rule/`): completely empty. Refer to old prototype in `packages/ticket_router/rule_based/` (keyword matching + template selection).
+- [ ] **Tags prediction**: LR tag model trained but not enabled in `LRPredictor.predict()`; XGBoost and RemBERT not trained for tags.
+- [ ] **Preliminary answer**: supervised systems currently only predict queue + priority.
+- [ ] **Unified evaluation script**: reads JSONL outputs from each system, computes comparison metrics, generates reports. Planned for root `scripts/` or `packages/ticket_router.base/eval/`.
+- [ ] **LLM-as-Judge**: score answer quality using a strong model.
+- [ ] **Fairness analysis**: analyze language/queue-level bias with `aif360` / `fairlearn`.
+- [ ] **Test directory**: `tests/` not yet created, no pytest coverage.
+- [ ] **Multi-run consistency**: variance analysis for Goal-Based on the same request repeated 3 times.
 
 ---
 
-## 4. 编码速查
+## 4. Python Style Quick Reference
 
-### 4.1 添加新模型
-
-若新增模型(如 Rule-Based 或新 LLM), 遵循以下模式:
+### 4.1 Import Order (3 groups, blank line between)
 
 ```python
-from ticket_router.base.predictor import Predictor
-from ticket_router.base.types import Prediction, PredictionBatch, Queue, Priority, ErrorFlag
+# 1. Standard library
+from typing import List, Dict, Tuple, Any, Protocol
+from pathlib import Path
+from logging import getLogger
 
-class MyPredictor(Predictor):
-    supports_tags: bool = False          # 是否支持 tag 预测
-    supports_preliminary_answer: bool = False  # 是否生成 answer
+# 2. Third-party
+import pandas as pd
+from sklearn.metrics import accuracy_score
 
-    def predict(self, records) -> PredictionBatch:
-        # records: List[Record] | RecordDF
-        # 必须返回 PredictionBatch(predictions=[...], parse_err_count=0, parse_json_err_count=0)
-        ...
+# 3. Internal — absolute for cross-package, relative for same-package
+from ticket_router.base.types import Record, PredictionBatch
+from .prompt import build_prompt
 ```
 
-### 4.2 运行脚本
+Never use `from typing import *` or wildcard third-party imports.
 
-```bash
-# 使用 just (推荐)
-just prepare-data       # 构建测试集
-just run-ml             # LR + XGBoost
-just run-mbert --infer  # RemBERT 推理
-just run-vllm <model>   # 本地 vLLM
+### 4.2 Type Annotations
 
-# 或直接用 uv run --project <包路径> <脚本路径>
-uv run --project packages/ticket_router.supervised packages/ticket_router.supervised/scripts/03_run_supervised_traditional.py
+- All function parameters and return values must be annotated.
+- Use Python 3.10+ union syntax: `str | None`, `List[Record] | RecordDF`.
+- Never use `Optional[str]` / `Union[str, None]` — always `str | None`.
+- Import from `typing`: `List`, `Dict`, `Tuple`, `Any`, `Protocol`, `Annotated`.
+- Pandera DataFrame generics: `DataFrame[Schema]`.
+- pyright ignore format: `# pyright: ignore[reportAttributeAccessIssue]`.
+
+### 4.3 Naming
+
+| Category | Convention | Examples |
+|---|---|---|
+| Classes | PascalCase | `LRPredictor`, `JSONLLogger`, `ErrorFlag` |
+| Functions/methods | snake_case | `compute_metrics`, `build_prompt` |
+| Constants/config | UPPER_SNAKE_CASE | `SEED`, `OUTPUT_DIR`, `QUEUE2ID` |
+| Module-private functions | `_` prefix | `_jaccard`, `_load_rules` |
+| Class-private attrs | `_` prefix | `_model_queue`, `_queue_path` |
+| Module files | snake_case | `predictor.py`, `data_loader.py` |
+
+### 4.4 Classes & Data Structures
+
+```python
+# Immutable dataclass
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Prediction(GroundRecord):
+    request_id: str
+    queue_confidence: float | None
+    error: ErrorFlag
+
+# Enum
+from enum import StrEnum, IntFlag, auto
+
+class Queue(StrEnum):
+    TECHNICAL_SUPPORT = "Technical Support"
+
+class ErrorFlag(IntFlag):
+    SUCCESS = 0
+    JSON_ERR = auto()
+
+# Protocol
+class Predictor(Protocol):
+    supports_tags: bool
+    supports_preliminary_answer: bool
+
+    def predict(self, records: List[Record] | RecordDF) -> PredictionBatch: ...
+
+# Class attribute declarations
+class LRPredictor(Predictor):
+    supports_tags = False
+    supports_preliminary_answer = False
+    _model_queue: SKModel
+    _model_priority: SKModel
 ```
 
-### 4.3 环境管理
+### 4.5 Comments & Docstrings
 
-```bash
-# 根项目无实质依赖, 不要在这里 uv add
-cd packages/ticket_router.base && uv sync
-cd packages/ticket_router.supervised && uv sync
-cd packages/ticket_router_agent && uv sync
+- Module-level docstrings: brief, describe the module's purpose.
+  ```python
+  """Logistic Regression training for queue, priority, and tags."""
+  ```
+- Code comments in **Chinese**, but punctuation in **English half-width** (`, .` not `，` `。`).
+- Explain **why**, not what.
+- TODO markers: `# TODO: specific description`.
+- Function-level docstrings only when the logic is non-trivial.
 
-# 添加依赖到指定包
-uv add --project packages/ticket_router_agent <package>
+### 4.6 Error Handling
+
+```python
+# assert for preconditions
+assert DATASET_4K_PATH.exists(), f"4k dataset not found at {DATASET_4K_PATH}"
+
+# raise for business logic errors
+if val_records is None:
+    raise ValueError("MBERTTrainer requires val_records for early stopping")
+
+# try-except only for external operations (IO, network, JSON parse)
+try:
+    data = json.loads(raw)
+except json.JSONDecodeError:
+    logger.warning("JSON parse failed")
+    # fallback
 ```
 
-### 4.4 类型检查
+**Never**: bare `except:`, `except Exception:`, or try-except as a substitute for if-checks in business logic.
 
-项目配置了 `pyrightconfig.json`, 包含多包 `extraPaths`. 运行:
+### 4.7 Formatting
 
-```bash
-pyright
-```
+- 4-space indentation, no tabs.
+- No hard 79-char limit, but keep lines reasonable (<= 100 recommended).
+- Module-level constants grouped at the top of the file.
+- Two blank lines between top-level functions/classes, one blank line between class methods.
+- **After modifying any Python file, run**:
+  ```bash
+  ruff format <modified_files>
+  ruff check <modified_files>
+  ```
+  Fix all ruff errors before considering work complete.
 
 ---
 
-## 5. Claude 工作注意事项
+## 5. Claude Work Rules
 
-1. **不要自行执行任何 git 写操作**: 包括但不限于 `git commit`、`git push`、`git rebase`、`git reset`、`git merge` 等. **除非用户显式说明要求提交**, 否则只能执行 `git status`、`git diff`、`git log` 等只读操作.
+1. **No autonomous git writes**: never run `git commit`, `git push`, `git rebase`, `git reset`, `git merge`, etc. unless the user **explicitly** requests it. Read-only git commands (`status`, `diff`, `log`) are fine.
 
-2. **不要修改旧包 `packages/ticket_router/`**: 该包为早期原型代码, 已被新的 monorepo 结构取代. 用户明确要求"不包括 packages/ticket_router".
+2. **Do not modify `packages/ticket_router/`**: the old package is an early prototype superseded by the monorepo structure. The user has explicitly excluded it.
 
-3. **保持 Protocol 兼容**: 任何新 Predictor 必须实现 `predict()` 方法, 返回类型严格为 `PredictionBatch`. 这是三种系统能够被统一评估的前提.
+3. **Maintain Protocol compatibility**: every new Predictor must implement `predict()` returning exactly `PredictionBatch`. This is the prerequisite for unified evaluation across all three systems.
 
-4. **数据隔离红线**: 任何评估、训练脚本只能使用 `train_set.jsonl` 作为训练数据. 禁止将 `test_set.jsonl` 或 `difficult_cases.jsonl` 用于训练.
+4. **Data isolation red line**: evaluation and training scripts may only use `train_set.jsonl` for training. Never use `test_set.jsonl` or `difficult_cases.jsonl` for training, hyperparameter tuning, or few-shot examples.
 
-5. **中文注释, 英文标点**: 代码注释使用中文, 但标点符号使用英文半角.
+5. **Output format**: batch results must be saved as JSONL under `outputs/` using `write_pred()` for unified formatting.
 
-6. **异常处理**: 仅在 IO、网络请求处使用 try-except. 业务逻辑错误用显式检查 + raise ValueError.
-
-7. **输出规范**: 批量运行结果必须保存到 `outputs/` 下 JSONL, 使用 `write_pred()` 统一格式.
-
-8. **当实现评估/报告时**: 应读取各系统已有的 JSONL 输出(`outputs/supervised/*.jsonl`, `outputs/goal_based/*.jsonl`), 不要重新运行模型推理.
+6. **When implementing evaluation/reporting**: read existing JSONL outputs (`outputs/supervised/*.jsonl`, `outputs/goal_based/*.jsonl`). Do not re-run model inference.
 
 ---
 
-## 6. 关键文件速查表
+## 6. Key File Reference
 
-| 目的               | 路径                                                                             |
-| ------------------ | -------------------------------------------------------------------------------- |
-| 核心类型/Enum      | `packages/ticket_router.base/src/ticket_router.base/types.py`                    |
-| 数据集路径配置     | `packages/ticket_router.base/src/ticket_router.base/config.py`                   |
-| Predictor Protocol | `packages/ticket_router.base/src/ticket_router.base/predictor.py`                |
-| 数据加载器         | `packages/ticket_router.base/src/ticket_router.base/data/loader.py`              |
-| 分层抽样/困难案例  | `packages/ticket_router.base/src/ticket_router.base/data/utils.py`               |
-| 评估指标           | `packages/ticket_router.base/src/ticket_router.base/eval/metrics.py`             |
-| 统一预测保存       | `packages/ticket_router.base/src/ticket_router.base/utils.py`                    |
-| LR/XGB 模型        | `packages/ticket_router.supervised/src/ticket_router.supervised/models/`         |
-| RemBERT 微调       | `packages/ticket_router.supervised/src/ticket_router.supervised/models/mbert.py` |
-| vLLM 推理          | `packages/ticket_router_agent/src/ticket_router_agent/infer.py`                  |
-| Prompt 构建        | `packages/ticket_router_agent/src/ticket_router_agent/prompt.py`                 |
-| just 任务          | `justfile`                                                                       |
-| 类型检查配置       | `pyrightconfig.json`                                                             |
+| Purpose | Path |
+|---|---|
+| Core types & enums | `packages/ticket_router.base/src/ticket_router.base/types.py` |
+| Dataset path config | `packages/ticket_router.base/src/ticket_router.base/config.py` |
+| Predictor Protocol | `packages/ticket_router.base/src/ticket_router.base/predictor.py` |
+| Data loader | `packages/ticket_router.base/src/ticket_router.base/data/loader.py` |
+| Stratified split / difficult cases | `packages/ticket_router.base/src/ticket_router.base/data/utils.py` |
+| Eval metrics | `packages/ticket_router.base/src/ticket_router.base/eval/metrics.py` |
+| Unified prediction save | `packages/ticket_router.base/src/ticket_router.base/utils.py` |
+| LR/XGBoost models | `packages/ticket_router.supervised/src/ticket_router.supervised/models/` |
+| RemBERT fine-tuning | `packages/ticket_router.supervised/src/ticket_router.supervised/models/mbert.py` |
+| vLLM inference | `packages/ticket_router_agent/src/ticket_router_agent/infer.py` |
+| Prompt builder | `packages/ticket_router_agent/src/ticket_router_agent/prompt.py` |
+| Just tasks | `justfile` |
+| Type check config | `pyrightconfig.json` |
