@@ -8,9 +8,9 @@ from ticket_router_base.config import MODEL_DIR as BASE_MODEL_DIR
 from ticket_router_base.data import get_dataset
 from ticket_router_base.predictor import Predictor
 
-from ticket_router_supervised.models import LRPredictor, XGBPredictor
-from ticket_router_supervised.models.mbert import MBERTPredictor
-from ticket_router_supervised.models.xlm_roberta import XLMRoBERTaPredictor
+from ticket_router.supervised.models import LRPredictor, XGBPredictor
+from ticket_router.supervised.models.mbert import MBERTPredictor
+from ticket_router.supervised.models.xlm_roberta import XLMRoBERTaPredictor
 from ticket_router_rule.predictor import RuleBasedPredictor
 
 from ticket_router_serve.config import DASHSCOPE_API_KEY
@@ -103,7 +103,7 @@ class ModelPool:
 
         # Load LR
         try:
-            from ticket_router_supervised.cfg import SupervisedCfg
+            from ticket_router.supervised.cfg import SupervisedCfg
 
             lr_models = _load_lr_models()
             if lr_models:
@@ -118,7 +118,7 @@ class ModelPool:
 
         # Load XGBoost
         try:
-            from ticket_router_supervised.cfg import SupervisedCfg
+            from ticket_router.supervised.cfg import SupervisedCfg
 
             xgb_models = _load_xgb_models()
             if xgb_models:

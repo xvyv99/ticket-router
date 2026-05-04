@@ -7,9 +7,9 @@ from ticket_router_base.data import get_dataset
 from ticket_router_base.config import OUTPUT_DIR, LOGGING_FORMAT
 from ticket_router_base.data.datasets import DATASET_REGISTRY
 
-from ticket_router_supervised.models import LRTrainer, XGBTrainer
-from ticket_router_supervised.cfg import SupervisedCfg
-from ticket_router_supervised.encoder import TEXT_ENCODERS
+from ticket_router.supervised.models import LRTrainer, XGBTrainer
+from ticket_router.supervised.cfg import SupervisedCfg
+from ticket_router.supervised.encoder import TEXT_ENCODERS
 
 logger = getLogger(__name__)
 

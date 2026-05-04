@@ -3,8 +3,8 @@ from logging import getLogger, basicConfig
 
 from ticket_router_base.data.base import BaseDataset
 from ticket_router_base.data.datasets import DATASET_REGISTRY, get_dataset
-from ticket_router_supervised.models.mbert import MBERTTrainer, MBERTPredictor
-from ticket_router_supervised.models.xlm_roberta import (
+from ticket_router.supervised.models.mbert import MBERTTrainer, MBERTPredictor
+from ticket_router.supervised.models.xlm_roberta import (
     XLMRoBERTaTrainer,
     XLMRoBERTaPredictor,
 )
@@ -30,7 +30,9 @@ def run_smoke_test(dataset: BaseDataset, trainer_cls):
 
 
 def run_full_training(dataset: BaseDataset, trainer_cls, epochs: int = 3):
-    logger.info(f"Full Training: 4k minus test_set ({trainer_cls.predictor_cls.name}), epochs={epochs}")
+    logger.info(
+        f"Full Training: 4k minus test_set ({trainer_cls.predictor_cls.name}), epochs={epochs}"
+    )
     df_train, _, df_val = dataset.load_train_test_split()
     train_split = dataset.df_to_records(df_train)
     val_split = dataset.df_to_records(df_val)

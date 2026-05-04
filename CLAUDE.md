@@ -1,4 +1,5 @@
 <!-- CLAUDE.md -->
+
 # CLAUDE.md — Ticket Router 工作上下文
 
 > 本文档为 Claude 专用. 提供项目核心上下文、当前状态、架构决策和编码速查, 帮助 Claude 在单次对话中快速进入状态.
@@ -19,18 +20,20 @@
 
 项目使用 **monorepo**, 子包位于 `packages/`, 各包独立 `pyproject.toml` + `uv.lock`:
 
-| 包名 | 职责 | 依赖重点 |
-|------|------|----------|
-| `ticket_router_base` | 共享类型、数据加载、评估指标、Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
-| `ticket_router_supervised` | LR, XGBoost, RemBERT 微调 | torch, transformers, xgboost, datasets, joblib |
-| `ticket_router_agent` | 本地 vLLM + SiliconFlow batch API | vllm, pydantic, llmcompressor |
-| `ticket_router_rule` | **当前为空**, 待实现 | - |
+| 包名                       | 职责                                                     | 依赖重点                                         |
+| -------------------------- | -------------------------------------------------------- | ------------------------------------------------ |
+| `ticket_router_base`       | 共享类型、数据加载、评估指标、Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
+| `ticket_router.supervised` | LR, XGBoost, RemBERT 微调                                | torch, transformers, xgboost, datasets, joblib   |
+| `ticket_router_agent`      | 本地 vLLM + SiliconFlow batch API                        | vllm, pydantic, llmcompressor                    |
+| `ticket_router_rule`       | **当前为空**, 待实现                                     | -                                                |
 
 **关键协议** (`ticket_router_base.predictor`):
+
 - `Predictor.predict(records) -> PredictionBatch`: 所有模型统一入口.
 - `Trainer.train(records, val_records) -> Predictor`: 训练器可选实现.
 
 **关键类型** (`ticket_router_base.types`):
+
 - `Queue` / `Priority` / `Language`: `StrEnum`.
 - `Record`: 输入, 含 `request_id`, `subject`, `body`, `language` + ground truth.
 - `Prediction`: 输出, 含 `queue`, `priority`, `tag_1`, `tag_2`, `answer`, `queue_confidence`, `priority_confidence`, `raw_output`, `error`.
@@ -58,13 +61,15 @@ test_set.jsonl  -> vLLM/Qwen3 推理    -> outputs/goal_based/*_predictions.json
 ## 3. 当前状态速览
 
 ### 已完成
+
 - [x] `ticket_router_base`: 类型系统、Pandera schema、数据加载、分层抽样、困难案例筛选、JSONL 日志、分类指标、一致性指标.
-- [x] `ticket_router_supervised`: LR + XGBoost 已实现并跑通全量测试集; RemBERT 训练/推理已实现.
+- [x] `ticket_router.supervised`: LR + XGBoost 已实现并跑通全量测试集; RemBERT 训练/推理已实现.
 - [x] `ticket_router_agent`: vLLM 本地推理(Qwen3 0.6B/1.7B/4B, 支持 AWQ 量化) + SiliconFlow batch API 请求生成.
 - [x] Qwen3 W8A8 量化脚本 (`llmcompressor`).
 - [x] 统一测试集、训练集、困难案例集已生成.
 
 ### 待实现 / 待完善
+
 - [ ] **Rule-Based 系统** (`packages/ticket_router_rule/`): 完全空白. 可参考旧包 `packages/ticket_router/rule_based/` 中的原型(关键词匹配 + 模板选择).
 - [ ] **Tags 预测启用**: LR 已训练 tag 模型但未在 `LRPredictor.predict()` 中启用; XGB 未训练 tag; RemBERT 未训练 tag.
 - [ ] **Preliminary answer 生成**: Supervised 系统目前只预测 queue + priority, 不生成 answer.
@@ -106,7 +111,7 @@ just run-mbert --infer  # RemBERT 推理
 just run-vllm <model>   # 本地 vLLM
 
 # 或直接用 uv run --project <包路径> <脚本路径>
-uv run --project packages/ticket_router_supervised packages/ticket_router_supervised/scripts/03_run_supervised_traditional.py
+uv run --project packages/ticket_router.supervised packages/ticket_router.supervised/scripts/03_run_supervised_traditional.py
 ```
 
 ### 4.3 环境管理
@@ -114,7 +119,7 @@ uv run --project packages/ticket_router_supervised packages/ticket_router_superv
 ```bash
 # 根项目无实质依赖, 不要在这里 uv add
 cd packages/ticket_router_base && uv sync
-cd packages/ticket_router_supervised && uv sync
+cd packages/ticket_router.supervised && uv sync
 cd packages/ticket_router_agent && uv sync
 
 # 添加依赖到指定包
@@ -124,6 +129,7 @@ uv add --project packages/ticket_router_agent <package>
 ### 4.4 类型检查
 
 项目配置了 `pyrightconfig.json`, 包含多包 `extraPaths`. 运行:
+
 ```bash
 pyright
 ```
@@ -152,18 +158,18 @@ pyright
 
 ## 6. 关键文件速查表
 
-| 目的 | 路径 |
-|------|------|
-| 核心类型/Enum | `packages/ticket_router_base/src/ticket_router_base/types.py` |
-| 数据集路径配置 | `packages/ticket_router_base/src/ticket_router_base/config.py` |
-| Predictor Protocol | `packages/ticket_router_base/src/ticket_router_base/predictor.py` |
-| 数据加载器 | `packages/ticket_router_base/src/ticket_router_base/data/loader.py` |
-| 分层抽样/困难案例 | `packages/ticket_router_base/src/ticket_router_base/data/utils.py` |
-| 评估指标 | `packages/ticket_router_base/src/ticket_router_base/eval/metrics.py` |
-| 统一预测保存 | `packages/ticket_router_base/src/ticket_router_base/utils.py` |
-| LR/XGB 模型 | `packages/ticket_router_supervised/src/ticket_router_supervised/models/` |
-| RemBERT 微调 | `packages/ticket_router_supervised/src/ticket_router_supervised/models/mbert.py` |
-| vLLM 推理 | `packages/ticket_router_agent/src/ticket_router_agent/infer.py` |
-| Prompt 构建 | `packages/ticket_router_agent/src/ticket_router_agent/prompt.py` |
-| just 任务 | `justfile` |
-| 类型检查配置 | `pyrightconfig.json` |
+| 目的               | 路径                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- |
+| 核心类型/Enum      | `packages/ticket_router_base/src/ticket_router_base/types.py`                    |
+| 数据集路径配置     | `packages/ticket_router_base/src/ticket_router_base/config.py`                   |
+| Predictor Protocol | `packages/ticket_router_base/src/ticket_router_base/predictor.py`                |
+| 数据加载器         | `packages/ticket_router_base/src/ticket_router_base/data/loader.py`              |
+| 分层抽样/困难案例  | `packages/ticket_router_base/src/ticket_router_base/data/utils.py`               |
+| 评估指标           | `packages/ticket_router_base/src/ticket_router_base/eval/metrics.py`             |
+| 统一预测保存       | `packages/ticket_router_base/src/ticket_router_base/utils.py`                    |
+| LR/XGB 模型        | `packages/ticket_router.supervised/src/ticket_router.supervised/models/`         |
+| RemBERT 微调       | `packages/ticket_router.supervised/src/ticket_router.supervised/models/mbert.py` |
+| vLLM 推理          | `packages/ticket_router_agent/src/ticket_router_agent/infer.py`                  |
+| Prompt 构建        | `packages/ticket_router_agent/src/ticket_router_agent/prompt.py`                 |
+| just 任务          | `justfile`                                                                       |
+| 类型检查配置       | `pyrightconfig.json`                                                             |

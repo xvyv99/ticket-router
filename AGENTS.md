@@ -1,4 +1,5 @@
 <!-- AGENTS.md -->
+
 # AGENTS.md — Ticket Router
 
 > 本文档面向 AI coding agent. 如果你刚接触到这个项目, 请先阅读本文件以了解项目背景、技术栈、代码组织方式以及开发规范.
@@ -21,22 +22,22 @@
 
 ## 2. 技术栈 (Technology Stack)
 
-| 层级         | 工具/库                                                               |
-| ------------ | --------------------------------------------------------------------- |
-| 语言与运行时 | **Python 3.13** (`.python-version` 锁定, `requires-python = ">=3.13, <3.14"`) |
-| 包管理器     | **uv** (monorepo, 各子包独立 `pyproject.toml` + `uv.lock`)            |
-| 构建后端     | `uv_build>=0.11.7`                                                    |
-| 数据处理     | `pandas>=3.0.2`, `numpy`, `pandera[pandas]` (schema 校验)             |
-| 可视化       | `matplotlib`, `seaborn`                                               |
-| 传统 ML      | `scikit-learn>=1.8.0` (TF-IDF, Logistic Regression), `xgboost>=3.2.0` |
-| 深度学习     | `torch>=2.10.0`, `transformers[torch]>=5.5.4`, `datasets>=4.8.4`      |
-| 量化压缩     | `llmcompressor>=0.10.0.1` (W8A8 AWQ, 用于本地 Qwen3 量化)             |
-| 本地 LLM 推理| `vllm>=0.19.0` (结构化输出, GPU 推理)                                 |
-| 公平性分析   | `aif360>=0.6.1`, `fairlearn>=0.13.0`                                  |
-| LLM API      | SiliconFlow batch API (DeepSeek-V3/R1, QwQ-32B 等)                    |
-| 评估指标     | `scikit-learn` metrics (Accuracy, Macro-F1, Confusion Matrix)         |
-| 类型检查     | `pyright` (配置见 `pyrightconfig.json`)                               |
-| 任务运行     | `just` (配置见 `justfile`)                                            |
+| 层级          | 工具/库                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| 语言与运行时  | **Python 3.13** (`.python-version` 锁定, `requires-python = ">=3.13, <3.14"`) |
+| 包管理器      | **uv** (monorepo, 各子包独立 `pyproject.toml` + `uv.lock`)                    |
+| 构建后端      | `uv_build>=0.11.7`                                                            |
+| 数据处理      | `pandas>=3.0.2`, `numpy`, `pandera[pandas]` (schema 校验)                     |
+| 可视化        | `matplotlib`, `seaborn`                                                       |
+| 传统 ML       | `scikit-learn>=1.8.0` (TF-IDF, Logistic Regression), `xgboost>=3.2.0`         |
+| 深度学习      | `torch>=2.10.0`, `transformers[torch]>=5.5.4`, `datasets>=4.8.4`              |
+| 量化压缩      | `llmcompressor>=0.10.0.1` (W8A8 AWQ, 用于本地 Qwen3 量化)                     |
+| 本地 LLM 推理 | `vllm>=0.19.0` (结构化输出, GPU 推理)                                         |
+| 公平性分析    | `aif360>=0.6.1`, `fairlearn>=0.13.0`                                          |
+| LLM API       | SiliconFlow batch API (DeepSeek-V3/R1, QwQ-32B 等)                            |
+| 评估指标      | `scikit-learn` metrics (Accuracy, Macro-F1, Confusion Matrix)                 |
+| 类型检查      | `pyright` (配置见 `pyrightconfig.json`)                                       |
+| 任务运行      | `just` (配置见 `justfile`)                                                    |
 
 **注意**: 根目录 `pyproject.toml` 的 `dependencies` 为空, 各子包在 `packages/*/pyproject.toml` 中声明自己的依赖. 添加新依赖时请在对应子包目录下使用 `uv add <package>`.
 
@@ -85,13 +86,13 @@
 │   │       └── eval/
 │   │           └── metrics.py  # 分类指标、一致性指标(Jaccard)
 │   │
-│   ├── ticket_router_supervised/   # 监督学习系统
+│   ├── ticket_router.supervised/   # 监督学习系统
 │   │   ├── pyproject.toml
 │   │   ├── scripts/
 │   │   │   ├── 01_build_test_set.py          # 构建统一测试集(1200条)+困难案例集(100条)
 │   │   │   ├── 03_run_supervised_traditional.py  # 训练 LR + XGBoost, 输出预测
 │   │   │   └── 04_run_mbert.py               # RemBERT 训练/推理 (smoke/train/infer 模式)
-│   │   └── src/ticket_router_supervised/
+│   │   └── src/ticket_router.supervised/
 │   │       ├── features.py     # TF-IDF + AdaptiveSVD + StandardScaler 管道
 │   │       ├── utils.py        # SKModel 包装器, save_model, create_datasets
 │   │       └── models/
@@ -138,6 +139,7 @@
 ```
 
 **当前状态**: 项目处于中期阶段.
+
 - 基础架构(`ticket_router_base`)已完成: 统一类型系统、数据加载器、训练/测试划分、评估指标、JSONL 日志.
 - 数据划分已完成: `test_set.jsonl`(1200条)、`train_set.jsonl`、`difficult_cases.jsonl`(100条)已生成.
 - Supervised 系统初版已完成: LR、XGBoost 已实现并产出预测; RemBERT 训练/推理已实现.
@@ -158,11 +160,11 @@ uv sync
 
 # 同步子包虚拟环境(推荐在工作目录下执行)
 cd packages/ticket_router_base && uv sync
-cd packages/ticket_router_supervised && uv sync
+cd packages/ticket_router.supervised && uv sync
 cd packages/ticket_router_agent && uv sync
 
 # 添加新依赖到指定子包
-uv add --project packages/ticket_router_supervised <package-name>
+uv add --project packages/ticket_router.supervised <package-name>
 ```
 
 ### 4.2 运行脚本 (via just)
@@ -198,13 +200,13 @@ just gen-batch
 python scripts/eda.py
 
 # 构建测试集
-uv run --project packages/ticket_router_supervised packages/ticket_router_supervised/scripts/01_build_test_set.py
+uv run --project packages/ticket_router.supervised packages/ticket_router.supervised/scripts/01_build_test_set.py
 
 # 传统 ML
-uv run --project packages/ticket_router_supervised packages/ticket_router_supervised/scripts/03_run_supervised_traditional.py
+uv run --project packages/ticket_router.supervised packages/ticket_router.supervised/scripts/03_run_supervised_traditional.py
 
 # RemBERT
-uv run --project packages/ticket_router_supervised packages/ticket_router_supervised/scripts/04_run_mbert.py
+uv run --project packages/ticket_router.supervised packages/ticket_router.supervised/scripts/04_run_mbert.py
 
 # vLLM 推理
 uv run --project packages/ticket_router_agent packages/ticket_router_agent/scripts/run_batch.py models/qwen3-0.6B-awq --sample-num 1200
@@ -233,7 +235,7 @@ pyright
 - **`eval/metrics.py`**: `compute_classification_metrics` (Accuracy, Macro-F1, Weighted-F1, per-class Recall, Confusion Matrix). `compute_consistency` (queue agreement, tag Jaccard, answer similarity).
 - **`utils.py`**: `JSONLLogger` 上下文管理器、`write_pred` 统一预测保存格式、`combine_texts` 拼接 subject+body.
 
-### 5.2 Supervised 层 (`ticket_router_supervised`)
+### 5.2 Supervised 层 (`ticket_router.supervised`)
 
 - **`features.py`**: `build_tfidf_pipeline` 返回 `TfidfVectorizer(ngram_range=(1,2)) -> AdaptiveSVD -> StandardScaler` 管道. `AdaptiveSVD` 会自动将 `n_components` 裁剪到不超过实际特征数.
 - **`utils.py`**: `SKModel` 包装器统一 sklearn/xgboost 模型的 `predict()` 接口, 支持 `LabelEncoder` 和 `MultiLabelBinarizer` 反编码. `create_datasets` 将 Record 转换为 HuggingFace `Dataset`.
@@ -318,13 +320,13 @@ pyright
 
 ### 7.3 各系统测试量 (当前实际运行状态)
 
-| 系统                    | 测试量          | 说明                         | 状态     |
-| ----------------------- | --------------- | ---------------------------- | -------- |
-| Rule-Based              | 1,200 条        | 全语言                       | 待实现   |
-| Supervised (LR/XGB)     | 1,200 条        | 全语言                       | 已完成   |
-| Supervised (RemBERT)    | 1,200 条        | 全语言                       | 已完成   |
-| Goal-Based (Qwen3 0.6B) | 1,200 条        | 本地 vLLM, few-shot          | 已完成   |
-| Goal-Based (DeepSeek等) | 1,200 条        | SiliconFlow batch API        | 待提交   |
+| 系统                    | 测试量   | 说明                  | 状态   |
+| ----------------------- | -------- | --------------------- | ------ |
+| Rule-Based              | 1,200 条 | 全语言                | 待实现 |
+| Supervised (LR/XGB)     | 1,200 条 | 全语言                | 已完成 |
+| Supervised (RemBERT)    | 1,200 条 | 全语言                | 已完成 |
+| Goal-Based (Qwen3 0.6B) | 1,200 条 | 本地 vLLM, few-shot   | 已完成 |
+| Goal-Based (DeepSeek等) | 1,200 条 | SiliconFlow batch API | 待提交 |
 
 ### 7.4 评估方式 (待完善)
 
