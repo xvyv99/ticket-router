@@ -7,9 +7,7 @@ name = "ticket-router"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
-dependencies = [
-
-]
+dependencies = []
 
 [dependency-groups]
 base = [
@@ -21,7 +19,7 @@ base = [
 ]
 
 eval = [
-    "ticket-router[base]",
+    {include-group = "base"},
     "aif360>=0.6.1",
     "fairlearn>=0.13.0",
     "textattack>=0.3.10",
@@ -31,7 +29,7 @@ eval = [
 ]
 
 supervised = [
-    "ticket-router[base]",
+    {include-group = "base"},
     "datasets>=4.8.4",
     "joblib>=1.5.3",
     "pandas>=3.0.2",
@@ -43,14 +41,14 @@ supervised = [
 ]
 
 agent = [
-    "ticket-router[base]",
+    {include-group = "base"},
     "torch>=2.10.0",
     "vllm==0.19.1",
     "bitsandbytes>=0.49.2",
 ]
 
 serve = [
-    "ticket-router[eval]",
+    {include-group = "eval"},
     "openai>=2.32.0",
     "fastapi[standard]>=0.136.1",
 ]
@@ -72,4 +70,4 @@ dev = [
 ]
 
 [tool.uv]
-default-groups = ["scripts", "supervised", "agent", "eval", "serve", "plot", "dev"]
+default-groups = ["scripts", "supervised", "agent", "serve", "plot", "dev"]
