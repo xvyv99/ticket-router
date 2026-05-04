@@ -8,7 +8,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 from ticket_router_base.config import OUTPUT_DIR
-from ticket_infer import infer_attributes
+from ticket_router.infer import infer_attributes
 
 
 def main():
