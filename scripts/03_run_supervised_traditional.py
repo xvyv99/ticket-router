@@ -7,7 +7,7 @@ from ticket_router.base.data import get_dataset
 from ticket_router.base.config import OUTPUT_DIR, LOGGING_FORMAT
 from ticket_router.base.data.datasets import DATASET_REGISTRY
 
-from ticket_router.supervised.models import LRTrainer, XGBTrainer
+from ticket_router.supervised.models import LRTrainer, XGBTrainer, SVMTrainer
 from ticket_router.supervised.cfg import SupervisedCfg
 from ticket_router.supervised.encoder import TEXT_ENCODERS
 
@@ -40,6 +40,12 @@ def main():
 
     cfg = SupervisedCfg(encoder_type=args.encoder)
 
+    # Train SVM models
+    logger.info("Training SVM models...")
+    svm_trainer = SVMTrainer(dataset=dataset, cfg=cfg)
+    svm_predictor = svm_trainer.train(train_split, val_split)
+    logger.info("SVM models trained successfully.")
+
     # Train LR models
     logger.info("Training LR models...")
     lr_trainer = LRTrainer(dataset=dataset, cfg=cfg)
@@ -53,6 +59,20 @@ def main():
     logger.info("XGBoost models trained successfully.")
 
     test_records = dataset.df_to_records(df_test, need_inject_inferred=True)
+
+    # SVM predictions
+    logger.info("Running SVM inference...")
+    svm_pred = svm_predictor.predict(test_records)
+    svm_predictor.save_pred_inst(
+        svm_pred,
+        test_records,
+    )
+
+    svm_predictor.save_pred_inst(
+        svm_pred,
+        test_records,
+    )
+    logger.info(f"SVM predictions: {len(svm_pred)} records")
 
     # LR predictions
     logger.info("Running LR inference...")
