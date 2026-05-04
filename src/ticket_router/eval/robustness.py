@@ -32,8 +32,8 @@ from textattack.transformations import (
 )
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import Record
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.types import Record
 
 from .custom_recipe import TextFoolerJin2019Torch
 
@@ -570,7 +570,9 @@ class WhiteBoxRobustnessEvaluator:
             if flipped:
                 adversarial_text = result.perturbed_text()
                 perturbed_output_id = result.perturbed_result.output
-                perturbed_pred_label = id2label.get(perturbed_output_id, str(perturbed_output_id))
+                perturbed_pred_label = id2label.get(
+                    perturbed_output_id, str(perturbed_output_id)
+                )
                 logger.info(
                     f"Original: {text} | Perturbed: {adversarial_text} | "
                     f"Flipped: {flipped}"

@@ -6,10 +6,10 @@ from datasets import Dataset
 import joblib
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 
-from ticket_router_base.config import MODEL_DIR
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import Record
-from ticket_router_base.utils import combine_texts
+from ticket_router.base.config import MODEL_DIR
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.types import Record
+from ticket_router.base.utils import combine_texts
 
 from .encoder import TextEncoder
 
@@ -77,7 +77,10 @@ def create_datasets(records: List[Record], dataset: BaseDataset) -> Dataset:
 
     for i, r in enumerate(records):
         row: dict[str, Any] = {"text": texts[i]}
-        for task in dataset.task_descriptor.classification_tasks + dataset.task_descriptor.ordinal_tasks:
+        for task in (
+            dataset.task_descriptor.classification_tasks
+            + dataset.task_descriptor.ordinal_tasks
+        ):
             label = r.labels.get(task.name, "")
             label2id = dataset.get_label2id(task.name)
             row[task.name] = label2id.get(label, -1)

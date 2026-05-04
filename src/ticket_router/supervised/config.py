@@ -1,4 +1,4 @@
-from ticket_router_base.config import OUTPUT_DIR
+from ticket_router.base.config import OUTPUT_DIR
 
 TORCH_DEVICE = "cuda:0"
 

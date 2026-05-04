@@ -2,9 +2,9 @@
 
 import pytest
 
-from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router.base.data import BaseDataset, ClassificationTask, TaskDescriptor
 from ticket_router.eval.evaluator import TaskEvaluator
-from ticket_router_base.types import (
+from ticket_router.base.types import (
     ErrorFlag,
     GroundRecord,
     PredSave,
@@ -56,8 +56,12 @@ class _FakeDataset(BaseDataset):
     body_column = "body"
     task_descriptor = TaskDescriptor(
         classification_tasks=[
-            ClassificationTask(name="queue", target_column="queue", labels=["A", "B", "C"]),
-            ClassificationTask(name="priority", target_column="priority", labels=["high", "low"]),
+            ClassificationTask(
+                name="queue", target_column="queue", labels=["A", "B", "C"]
+            ),
+            ClassificationTask(
+                name="priority", target_column="priority", labels=["high", "low"]
+            ),
         ],
     )
     sensitive_columns = ["language"]

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Literal, Type
 
-from ticket_router_base.types import Record
+from ticket_router.base.types import Record
 
 from .schema import AttributePrediction
 
@@ -86,7 +86,7 @@ class AttributeInferrer(ABC):
         Returns:
             List of Record objects.
         """
-        from ticket_router_base.data import get_dataset
+        from ticket_router.base.data import get_dataset
 
         dataset_type = get_dataset(self.dataset_name)
         dataset = dataset_type()

@@ -1,4 +1,4 @@
-"""Public exports for ticket_router_base."""
+"""Public exports for ticket_router.base."""
 
 from .config import (
     DATASET_DIR,

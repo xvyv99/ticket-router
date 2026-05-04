@@ -1,14 +1,14 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 
-from ticket_router_base.data.base import BaseDataset
-from ticket_router_base.data.datasets import DATASET_REGISTRY, get_dataset
+from ticket_router.base.data.base import BaseDataset
+from ticket_router.base.data.datasets import DATASET_REGISTRY, get_dataset
 from ticket_router.supervised.models.mbert import MBERTTrainer, MBERTPredictor
 from ticket_router.supervised.models.xlm_roberta import (
     XLMRoBERTaTrainer,
     XLMRoBERTaPredictor,
 )
-from ticket_router_base.config import LOGGING_FORMAT
+from ticket_router.base.config import LOGGING_FORMAT
 
 logger = getLogger(__name__)
 

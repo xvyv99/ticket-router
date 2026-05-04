@@ -1,9 +1,9 @@
 from argparse import ArgumentParser
 from logging import getLogger, basicConfig
 
-from ticket_router_base.data import get_dataset
-from ticket_router_base.config import LOGGING_FORMAT
-from ticket_router_base.data.datasets import DATASET_REGISTRY
+from ticket_router.base.data import get_dataset
+from ticket_router.base.config import LOGGING_FORMAT
+from ticket_router.base.data.datasets import DATASET_REGISTRY
 
 from ticket_router.agent.config import MODEL_CHOICES
 from ticket_router.agent.infer import vLLMPredictor

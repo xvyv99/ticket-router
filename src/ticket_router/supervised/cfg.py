@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from ticket_router_base.cfg import Cfg
+from ticket_router.base.cfg import Cfg
 
 from .encoder import get_encoder, TextEncoder
 
@@ -22,4 +22,3 @@ class SupervisedCfg(Cfg):
     def encoder(self) -> TextEncoder:
         """Get the TextEncoder instance corresponding to the encoder_type."""
         return get_encoder(self.encoder_type)
-    

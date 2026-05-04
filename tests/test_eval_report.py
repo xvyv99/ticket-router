@@ -3,10 +3,10 @@
 import json
 from pathlib import Path
 
-from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router.base.data import BaseDataset, ClassificationTask, TaskDescriptor
 from ticket_router.eval.evaluator import TaskEvaluator
 from ticket_router.eval.report import EvaluationReport
-from ticket_router_base.types import (
+from ticket_router.base.types import (
     ErrorFlag,
     GroundRecord,
     PredSave,
@@ -85,6 +85,7 @@ class TestEvaluationReport:
     def test_to_dict(self) -> None:
         """asdict() should return a fully nested dict."""
         from dataclasses import asdict
+
         report = self._build_report()
         d = asdict(report)
 
@@ -121,7 +122,9 @@ class TestEvaluationReport:
 
         report = self._build_report()
         out_path = tmp_path / "report.json"
-        out_path.write_text(json.dumps(asdict(report), default=_serialize), encoding="utf-8")
+        out_path.write_text(
+            json.dumps(asdict(report), default=_serialize), encoding="utf-8"
+        )
 
         assert out_path.exists()
         loaded = json.loads(out_path.read_text(encoding="utf-8"))

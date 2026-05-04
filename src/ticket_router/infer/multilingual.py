@@ -2,7 +2,7 @@
 
 import json
 
-from ticket_router_base.types import Record
+from ticket_router.base.types import Record
 
 from .base import AttributeInferrer, register_inferrer
 from .schema import AttributePrediction, TechProficiency, UserType

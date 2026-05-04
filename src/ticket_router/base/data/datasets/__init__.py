@@ -2,7 +2,7 @@
 
 from typing import Type, Dict, List
 
-from ticket_router_base.data.base import (
+from ticket_router.base.data.base import (
     BaseDataset,
 )
 from .multilingual_customer_support import (

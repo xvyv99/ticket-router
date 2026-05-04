@@ -32,8 +32,8 @@ from vllm import LLM
 
 # 3. 项目内部导入
 # 跨包: 绝对导入
-from ticket_router_base.types import Record, PredictionBatch
-from ticket_router_base.config import SEED
+from ticket_router.base.types import Record, PredictionBatch
+from ticket_router.base.config import SEED
 
 # 同包: 相对导入
 from .types import TicketOutput
@@ -188,7 +188,7 @@ except json.JSONDecodeError:
 
 ## 8. Monorepo 架构规范
 
-项目采用 `packages/` monorepo, 各包通过 `ticket_router_base` 共享基础设施.
+项目采用 `packages/` monorepo, 各包通过 `ticket_router.base` 共享基础设施.
 
 ### 8.1 包内模块职责
 
@@ -270,13 +270,13 @@ from pathlib import Path
 import pandas as pd
 from sklearn.metrics import accuracy_score
 
-from ticket_router_base.types import Record
-from ticket_router_base.config import SEED
+from ticket_router.base.types import Record
+from ticket_router.base.config import SEED
 
 # 错误: 导入未分组, 混合相对/绝对
 import pandas as pd
 from .types import Record
-from ticket_router_base.config import SEED
+from ticket_router.base.config import SEED
 from typing import List
 import json
 ```
@@ -359,7 +359,7 @@ def task2labels(task: Task) -> Dict[int, str]:
 
 ```python
 from dataclasses import asdict
-from ticket_router_base.utils import JSONLLogger
+from ticket_router.base.utils import JSONLLogger
 
 with JSONLLogger(save_path) as logger:
     for pred in predictions:
@@ -381,7 +381,7 @@ df["_strat"] = (
 ### 12.4 预测批量保存
 
 ```python
-from ticket_router_base.utils import write_pred
+from ticket_router.base.utils import write_pred
 
 write_pred(batch.predictions, df_test, OUTPUT_DIR / "predictions.jsonl")
 ```
