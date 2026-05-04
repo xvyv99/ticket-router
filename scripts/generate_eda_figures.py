@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""EDA 可视化脚本 — 数据集探索性分析图表.
+"""EDA visualizations for the multilingual customer support ticket dataset.
 
-基于 outputs/multilingual-customer-support_test_split.parquet 及
-outputs/infer_multilingual-customer-support_Qwen3-4B.jsonl 推导字段.
+Merges test_split.parquet with Qwen3-4B inferred attributes (JSONL).
 
 Usage:
     uv run python scripts/generate_eda_figures.py
@@ -18,17 +17,16 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.patches import Patch
 
 # ---------------------------------------------------------------------------
-# 路径
+# Paths
 # ---------------------------------------------------------------------------
 PARQUET_PATH = Path("outputs/multilingual-customer-support_test_split.parquet")
 JSONL_PATH = Path("outputs/infer_multilingual-customer-support_Qwen3-4B.jsonl")
 OUTPUT_DIR = Path("results/figures")
 
 # ---------------------------------------------------------------------------
-# 学术风格
+# Style — refined academic / modern
 # ---------------------------------------------------------------------------
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -45,13 +43,28 @@ plt.rcParams.update({
     "axes.spines.right": False,
 })
 sns.set_context("paper", font_scale=1.1)
-sns.set_palette("muted")
 
-# 调色板
-LANG_COLORS = {"en": "#2196f3", "de": "#4caf50", "es": "#ff9800", "fr": "#e91e63", "pt": "#9c27b0"}
-PRIORITY_COLORS = {"high": "#e53935", "medium": "#ff9800", "low": "#4caf50"}
-USER_TYPE_COLORS = {"enterprise": "#1565c0", "individual": "#66bb6a"}
-TECH_COLORS = {"high": "#e53935", "medium": "#ff9800", "low": "#4caf50"}
+# ---------------------------------------------------------------------------
+# Sophisticated colour palettes
+# ---------------------------------------------------------------------------
+# Language: desaturated jewel tones via "Set2" + manual tweaks
+LANG_PALETTE = sns.color_palette("Set2", n_colors=5)
+LANG_COLORS = {
+    "en": LANG_PALETTE[0],
+    "de": LANG_PALETTE[1],
+    "es": LANG_PALETTE[2],
+    "fr": LANG_PALETTE[3],
+    "pt": LANG_PALETTE[4],
+}
+
+# Priority: warm-cool diverging (high=warm, low=cool)
+PRIORITY_COLORS = {"high": "#d95f02", "medium": "#f2a340", "low": "#5ba3cf"}
+
+# User type: complementary teal / coral from the PuBuGn family
+USER_TYPE_COLORS = {"enterprise": "#276d86", "individual": "#cf7c46"}
+
+# Tech proficiency: three-step sequential blue
+TECH_COLORS = {"high": "#08519c", "medium": "#6baed6", "low": "#bdd7e7"}
 
 QUEUE_ORDER = [
     "Technical Support", "Product Support", "Customer Service",
@@ -60,16 +73,14 @@ QUEUE_ORDER = [
     "Human Resources", "General Inquiry",
 ]
 
-
 # ---------------------------------------------------------------------------
-# 数据加载 & 合并
+# Data loading & merging
 # ---------------------------------------------------------------------------
 
 def load_data() -> pd.DataFrame:
-    """加载 parquet 和 jsonl, 合并为统一的 EDA DataFrame."""
+    """Load parquet + JSONL and merge into a unified EDA DataFrame."""
     df = pd.read_parquet(PARQUET_PATH)
 
-    # 加载 JSONL 推导字段
     records: list[dict] = []
     with open(JSONL_PATH, encoding="utf-8") as f:
         for line in f:
@@ -78,10 +89,8 @@ def load_data() -> pd.DataFrame:
                 records.append(json.loads(line))
 
     infer_df = pd.DataFrame(records)
-    # request_id 格式: "multilingual-customer-support-XXXXXX", 索引即 parquet 行号
     infer_df["_idx"] = infer_df["request_id"].str.extract(r"-(\d+)$").astype(int)
 
-    # 合并: 按索引对齐
     df = df.reset_index(drop=True)
     df["_idx"] = df.index
     df = df.merge(
@@ -90,18 +99,15 @@ def load_data() -> pd.DataFrame:
     )
     df = df.drop(columns=["_idx"])
 
-    # 衍生字段
+    # Derived fields
     df["subject_len"] = df["subject"].str.len()
     df["body_len"] = df["body"].str.len()
     df["answer_len"] = df["answer"].str.len()
     df["has_tag1"] = df["tag_1"].notna()
     df["has_tag2"] = df["tag_2"].notna()
 
-    # 统一 tech_proficiency 大小写
     if "tech_proficiency" in df.columns:
         df["tech_proficiency"] = df["tech_proficiency"].str.lower()
-
-    # 统一 user_type
     if "user_type" in df.columns:
         df["user_type"] = df["user_type"].str.lower()
 
@@ -109,119 +115,131 @@ def load_data() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# Fig 1: Language + Queue + Priority 三合一分布
+# Fig 1 — Class distributions: Language, Queue, Priority (all bars, no pie)
 # ---------------------------------------------------------------------------
 
 def plot_class_distribution(df: pd.DataFrame) -> plt.Figure:
-    """三面板: 语言分布 / Queue 分布 / Priority 饼图."""
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    """Three-panel overview: Language, Queue, Priority — all as bar charts."""
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5))
 
-    # Panel A: Language
+    # --- Panel A: Language (Bold qualitative — deep muted jewel tones) ---
     ax = axes[0]
     lang_counts = df["language"].value_counts()
     lang_order = lang_counts.index.tolist()
-    colors_a = [LANG_COLORS.get(l, "#999") for l in lang_order]
-    bars = ax.bar(lang_order, lang_counts.values, color=colors_a, edgecolor="white", linewidth=0.5)
+    lang_hex = ["#4a6fa5", "#4fa17e", "#cd7b3e", "#b55b7a", "#7b6eaa"]
+    colors_a = dict(zip(lang_order, lang_hex))
+    bar_colors_a = [colors_a[l] for l in lang_order]
+    bars = ax.bar(lang_order, lang_counts.values, color=bar_colors_a,
+                  edgecolor="white", linewidth=0.6, width=0.55)
     for bar, val in zip(bars, lang_counts.values):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 3,
-                str(val), ha="center", fontsize=9, fontweight="bold")
+                str(val), ha="center", fontsize=9, fontweight="bold",
+                color="#333333")
     ax.set_ylabel("Count")
-    ax.set_title("(a) Language Distribution", fontweight="bold")
-    ax.set_ylim(0, lang_counts.max() * 1.15)
+    ax.set_ylim(0, lang_counts.max() * 1.18)
+    ax.tick_params(axis="x", pad=6)
+    sns.despine(ax=ax)
 
-    # Panel B: Queue
+    # --- Panel B: Queue (horizontal, "mako" colormap) ---
     ax = axes[1]
     queue_counts = df["queue"].value_counts()
     queue_sorted = [q for q in QUEUE_ORDER if q in queue_counts.index]
     counts_sorted = [queue_counts[q] for q in queue_sorted]
-    cmap_b = plt.cm.viridis
+    cmap_b = sns.color_palette("crest", as_cmap=True)
     norm_b = plt.Normalize(min(counts_sorted), max(counts_sorted))
     colors_b = [cmap_b(norm_b(v)) for v in counts_sorted]
     bars = ax.barh(queue_sorted[::-1], counts_sorted[::-1], color=colors_b[::-1],
-                   edgecolor="white", linewidth=0.5)
+                   edgecolor="white", linewidth=0.6, height=0.65)
     for bar, val in zip(bars, counts_sorted[::-1]):
         ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height() / 2,
-                str(val), va="center", fontsize=8, fontweight="bold")
+                str(val), va="center", fontsize=8, fontweight="bold",
+                color="#333333")
     ax.set_xlabel("Count")
-    ax.set_title("(b) Queue Distribution", fontweight="bold")
-    ax.set_xlim(0, max(counts_sorted) * 1.18)
+    ax.set_xlim(0, max(counts_sorted) * 1.20)
+    sns.despine(ax=ax)
 
-    # Panel C: Priority
+    # --- Panel C: Priority (horizontal bar, warm-cool gradient) ---
     ax = axes[2]
-    prio_counts = df["priority"].value_counts()
     prio_order = ["high", "medium", "low"]
+    prio_counts = df["priority"].value_counts()
     prio_vals = [prio_counts.get(p, 0) for p in prio_order]
-    colors_c = [PRIORITY_COLORS[p] for p in prio_order]
-    wedges, texts, autotexts = ax.pie(
-        prio_vals, labels=["High", "Medium", "Low"],
-        colors=colors_c, autopct="%1.1f%%",
-        startangle=90, pctdistance=0.6, explode=(0.02, 0.02, 0.02),
-    )
-    for at in autotexts:
-        at.set_fontsize(11)
-        at.set_fontweight("bold")
-    ax.set_title("(c) Priority Distribution", fontweight="bold")
+    prio_labels = ["High", "Medium", "Low"]
+    colors_c = ["#d95f02", "#f2a340", "#5ba3cf"]
+    bars = ax.barh(prio_labels[::-1], prio_vals[::-1], color=colors_c[::-1],
+                   edgecolor="white", linewidth=0.6, height=0.5)
+    for bar, val in zip(bars, prio_vals[::-1]):
+        ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height() / 2,
+                f"{val} ({val / sum(prio_vals) * 100:.1f}%)",
+                va="center", fontsize=9, fontweight="bold", color="#333333")
+    ax.set_xlabel("Count")
+    ax.set_xlim(0, max(prio_vals) * 1.35)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Dataset Overview: Language, Queue & Priority", fontweight="bold", fontsize=14)
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 2: Queue vs Priority 热力图
+# Fig 2 — Queue × Priority heatmap
 # ---------------------------------------------------------------------------
 
 def plot_queue_priority_heatmap(df: pd.DataFrame) -> plt.Figure:
-    """Queue × Priority 交叉表热力图."""
+    """Cross-tabulation heatmap: Queue × Priority."""
     ct = pd.crosstab(df["queue"], df["priority"])
-    # 按 queue 顺序排列
     queue_in_data = [q for q in QUEUE_ORDER if q in ct.index]
     ct = ct.loc[queue_in_data, ["high", "medium", "low"]]
 
     fig, ax = plt.subplots(figsize=(8, 7))
+    cmap = sns.cubehelix_palette(start=0.5, rot=-0.5, dark=0.15, light=0.92,
+                                 hue=0.15, as_cmap=True)
     sns.heatmap(
-        ct, annot=True, fmt="d", cmap="YlOrRd",
-        ax=ax, linewidths=0.5, cbar_kws={"label": "Count"},
+        ct, annot=True, fmt="d", cmap=cmap,
+        ax=ax, linewidths=0.6, linecolor="#f0f0f0",
+        cbar_kws={"label": "Count", "shrink": 0.8},
+        annot_kws={"fontsize": 10, "fontweight": "bold"},
     )
-    ax.set_title("Queue × Priority Cross-Tabulation", fontweight="bold", fontsize=13)
-    ax.set_xlabel("Priority")
-    ax.set_ylabel("Queue")
+    ax.set_title("Queue × Priority Cross-Tabulation", fontweight="bold",
+                 fontsize=13, color="#222", pad=12)
+    ax.set_xlabel("Priority", labelpad=8)
+    ax.set_ylabel("Queue", labelpad=8)
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 3: Language vs Queue 热力图 (按比例归一化)
+# Fig 3 — Language × Queue heatmap (row-normalized)
 # ---------------------------------------------------------------------------
 
 def plot_language_queue_heatmap(df: pd.DataFrame) -> plt.Figure:
-    """Language × Queue 交叉表, 按行归一化 (每个语言内各 queue 占比)."""
+    """Language × Queue cross-tab, row-normalized with count annotations."""
     ct = pd.crosstab(df["language"], df["queue"])
     queue_in_data = [q for q in QUEUE_ORDER if q in ct.columns]
     ct = ct[queue_in_data]
     ct_norm = ct.div(ct.sum(axis=1), axis=0)
 
-    fig, ax = plt.subplots(figsize=(12, 4.5))
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    cmap = sns.color_palette("crest", as_cmap=True)
     sns.heatmap(
         ct_norm, annot=ct.values, fmt="d",
-        cmap="YlGnBu", ax=ax, linewidths=0.5,
-        cbar_kws={"label": "Proportion"},
+        cmap=cmap, ax=ax, linewidths=0.6, linecolor="#f0f0f0",
+        cbar_kws={"label": "Proportion", "shrink": 0.7},
+        annot_kws={"fontsize": 9, "fontweight": "bold"},
         vmin=0, vmax=ct_norm.values.max(),
     )
-    ax.set_title("Language × Queue Distribution (row-normalized, count annotated)",
-                 fontweight="bold", fontsize=13)
-    ax.set_xlabel("Queue")
-    ax.set_ylabel("Language")
+    ax.set_title("Language × Queue Distribution  (row-normalized, count annotated)",
+                 fontweight="bold", fontsize=13, color="#222", pad=12)
+    ax.set_xlabel("Queue", labelpad=8)
+    ax.set_ylabel("Language", labelpad=8)
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 4: Priority 按 Language 分组堆叠柱状图
+# Fig 4 — Priority by Language (stacked bars)
 # ---------------------------------------------------------------------------
 
 def plot_priority_by_language(df: pd.DataFrame) -> plt.Figure:
-    """每种语言内 Priority 分布 (堆叠 + 百分比标注)."""
+    """Stacked bar: Priority distribution within each language (absolute + %)."""
     ct = pd.crosstab(df["language"], df["priority"])
     prio_order = ["high", "medium", "low"]
     ct = ct.reindex(columns=prio_order, fill_value=0)
@@ -229,403 +247,450 @@ def plot_priority_by_language(df: pd.DataFrame) -> plt.Figure:
 
     colors = [PRIORITY_COLORS[p] for p in prio_order]
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.2))
 
-    # Panel A: 绝对数量堆叠
+    # Panel A: absolute counts
     ax = axes[0]
-    ct.plot(kind="bar", stacked=True, color=colors, edgecolor="white", linewidth=0.5, ax=ax)
+    ct.plot(kind="bar", stacked=True, color=colors, edgecolor="white",
+            linewidth=0.6, width=0.6, ax=ax)
     for i, (lang, row) in enumerate(ct.iterrows()):
         cum = 0
-        for j, prio in enumerate(prio_order):
+        for prio in prio_order:
             val = row[prio]
-            if val > 0:
+            if val > 5:
                 ax.text(i, cum + val / 2, str(val), ha="center", va="center",
                         fontsize=8, fontweight="bold", color="white")
                 cum += val
-    ax.set_title("(a) Absolute Counts", fontweight="bold")
+    ax.set_title("(a) Absolute Counts", fontweight="bold", color="#222")
     ax.set_ylabel("Count")
     ax.set_xlabel("Language")
-    ax.legend(title="Priority")
+    ax.legend(title="Priority", frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
     ax.tick_params(axis="x", rotation=0)
+    sns.despine(ax=ax)
 
-    # Panel B: 百分比堆叠
+    # Panel B: percentage stacked
     ax = axes[1]
-    ct_pct.plot(kind="bar", stacked=True, color=colors, edgecolor="white", linewidth=0.5, ax=ax)
+    ct_pct.plot(kind="bar", stacked=True, color=colors, edgecolor="white",
+                linewidth=0.6, width=0.6, ax=ax)
     for i, (lang, row) in enumerate(ct_pct.iterrows()):
         cum = 0
-        for j, prio in enumerate(prio_order):
+        for prio in prio_order:
             val = row[prio]
-            if val > 2:
+            if val > 3:
                 ax.text(i, cum + val / 2, f"{val:.0f}%", ha="center", va="center",
                         fontsize=8, fontweight="bold", color="white")
                 cum += val
-    ax.set_title("(b) Percentage (normalized per language)", fontweight="bold")
+    ax.set_title("(b) Percentage (per language)", fontweight="bold", color="#222")
     ax.set_ylabel("Percentage (%)")
     ax.set_xlabel("Language")
-    ax.legend(title="Priority")
+    ax.legend(title="Priority", frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
     ax.tick_params(axis="x", rotation=0)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Priority Distribution by Language", fontweight="bold", fontsize=14)
+    fig.suptitle("Priority Distribution by Language", fontweight="bold",
+                 fontsize=14, color="#111", y=1.01)
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 5: Text Length Distributions
+# Fig 5 — Text length distributions
 # ---------------------------------------------------------------------------
 
 def plot_text_lengths(df: pd.DataFrame) -> plt.Figure:
-    """Subject / Body / Answer 长度分布 (直方图 + 箱线图)."""
+    """Text length by language: histograms, boxplot, and scatter."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # Panel A: Subject length histogram + KDE
+    # Panel A: Subject length histogram + KDE overlay
     ax = axes[0, 0]
     for lang, color in LANG_COLORS.items():
         sub = df[df["language"] == lang]["subject_len"]
-        if len(sub) > 0:
-            ax.hist(sub, bins=30, alpha=0.4, color=color, label=lang, density=True)
+        if len(sub) > 1:
+            sns.kdeplot(data=sub, ax=ax, color=color, label=lang,
+                        linewidth=2, fill=True, alpha=0.12)
     ax.set_xlabel("Subject Length (characters)")
     ax.set_ylabel("Density")
-    ax.set_title("(a) Subject Length by Language", fontweight="bold")
-    ax.legend(fontsize=7)
+    ax.set_title("(a) Subject Length by Language", fontweight="bold", color="#222")
+    ax.legend(fontsize=7.5, frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    sns.despine(ax=ax)
 
-    # Panel B: Body length histogram + KDE
+    # Panel B: Body length KDE
     ax = axes[0, 1]
     for lang, color in LANG_COLORS.items():
         sub = df[df["language"] == lang]["body_len"]
-        if len(sub) > 0:
-            ax.hist(sub, bins=30, alpha=0.4, color=color, label=lang, density=True)
+        if len(sub) > 1:
+            sns.kdeplot(data=sub, ax=ax, color=color, label=lang,
+                        linewidth=2, fill=True, alpha=0.12)
     ax.set_xlabel("Body Length (characters)")
     ax.set_ylabel("Density")
-    ax.set_title("(b) Body Length by Language", fontweight="bold")
-    ax.legend(fontsize=7)
+    ax.set_title("(b) Body Length by Language", fontweight="bold", color="#222")
+    ax.legend(fontsize=7.5, frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    sns.despine(ax=ax)
 
     # Panel C: Body length boxplot by language
     ax = axes[1, 0]
     lang_order = sorted(df["language"].unique())
-    box_data = [df[df["language"] == l]["body_len"].dropna().values for l in lang_order]
-    bp = ax.boxplot(box_data, tick_labels=lang_order, patch_artist=True, widths=0.5)
+    box_data = [df[df["language"] == l]["body_len"].dropna().values
+                for l in lang_order]
+    bp = ax.boxplot(box_data, tick_labels=lang_order, patch_artist=True,
+                    widths=0.45, medianprops={"color": "#333", "linewidth": 1.5},
+                    whiskerprops={"linewidth": 1},
+                    capprops={"linewidth": 1},
+                    boxprops={"linewidth": 0.8})
     for patch, lang in zip(bp["boxes"], lang_order):
         patch.set_facecolor(LANG_COLORS.get(lang, "#999"))
-        patch.set_alpha(0.6)
+        patch.set_alpha(0.55)
     ax.set_ylabel("Body Length (characters)")
-    ax.set_title("(c) Body Length Boxplot by Language", fontweight="bold")
+    ax.set_title("(c) Body Length Boxplot by Language", fontweight="bold", color="#222")
+    sns.despine(ax=ax)
 
     # Panel D: Subject vs Body scatter
     ax = axes[1, 1]
     for lang, color in LANG_COLORS.items():
         sub = df[df["language"] == lang]
-        ax.scatter(sub["subject_len"], sub["body_len"], alpha=0.4, s=10,
-                   color=color, label=lang, edgecolors="none")
-    ax.set_xlabel("Subject Length")
-    ax.set_ylabel("Body Length")
-    ax.set_title("(d) Subject vs Body Length", fontweight="bold")
-    ax.legend(fontsize=7)
+        ax.scatter(sub["subject_len"], sub["body_len"], alpha=0.35, s=12,
+                   color=color, label=lang, edgecolors="none", rasterized=True)
+    ax.set_xlabel("Subject Length (characters)")
+    ax.set_ylabel("Body Length (characters)")
+    ax.set_title("(d) Subject vs Body Length", fontweight="bold", color="#222")
+    ax.legend(fontsize=7.5, frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Text Length Distributions", fontweight="bold", fontsize=14)
+    fig.suptitle("Text Length Distributions", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 6: User Type & Tech Proficiency (from Qwen3-4B)
+# Fig 6 — Inferred attributes: user_type, tech_proficiency, industry
 # ---------------------------------------------------------------------------
 
 def plot_inferred_attributes(df: pd.DataFrame) -> plt.Figure:
-    """Qwen3-4B 推导字段: user_type, tech_proficiency, industry 分布."""
+    """Qwen3-4B inferred fields — all bars (no pie)."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # Panel A: User type pie
+    # --- Panel A: User type (horizontal bar, side-by-side with counts+%) ---
     ax = axes[0, 0]
     ut = df["user_type"].value_counts()
-    colors_ut = [USER_TYPE_COLORS.get(u, "#999") for u in ut.index]
-    wedges, texts, autotexts = ax.pie(
-        ut.values, labels=ut.index.str.capitalize(),
-        colors=colors_ut, autopct="%1.1f%%", startangle=90,
-        pctdistance=0.6, explode=(0.03, 0.03),
-    )
-    for at in autotexts:
-        at.set_fontsize(11)
-        at.set_fontweight("bold")
-    ax.set_title("(a) User Type", fontweight="bold")
+    ut = ut.reindex(index=["enterprise", "individual"], fill_value=0)
+    ut_labels = [s.capitalize() for s in ut.index]
+    ut_colors = [USER_TYPE_COLORS.get(s, "#999") for s in ut.index]
+    bars = ax.barh(ut_labels[::-1], ut.values[::-1], color=ut_colors[::-1],
+                   edgecolor="white", linewidth=0.6, height=0.45)
+    for bar, val, total in zip(bars, ut.values[::-1],
+                                [ut.sum()] * len(ut)):
+        pct = val / ut.sum() * 100
+        ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height() / 2,
+                f"{val} ({pct:.1f}%)", va="center",
+                fontsize=10, fontweight="bold", color="#333")
+    ax.set_xlabel("Count")
+    ax.set_title("(a) User Type", fontweight="bold", color="#222")
+    ax.set_xlim(0, ut.max() * 1.35)
+    sns.despine(ax=ax)
 
-    # Panel B: Tech proficiency bar
+    # --- Panel B: Tech Proficiency (horizontal bar) ---
     ax = axes[0, 1]
-    tp = df["tech_proficiency"].value_counts()
     tp_order = ["high", "medium", "low"]
+    tp_labels = ["High", "Medium", "Low"]
+    tp = df["tech_proficiency"].value_counts()
     tp_vals = [tp.get(p, 0) for p in tp_order]
-    colors_tp = [TECH_COLORS[p] for p in tp_order]
-    bars = ax.bar(["High", "Medium", "Low"], tp_vals, color=colors_tp,
-                  edgecolor="white", linewidth=0.5)
-    for bar, val in zip(bars, tp_vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 3,
-                str(val), ha="center", fontweight="bold", fontsize=10)
-    ax.set_ylabel("Count")
-    ax.set_title("(b) Tech Proficiency", fontweight="bold")
-    ax.set_ylim(0, max(tp_vals) * 1.15)
+    actual_order = [l for l, v in zip(tp_labels, tp_vals) if v > 0]
+    actual_vals = [v for v in tp_vals if v > 0]
+    actual_colors = [TECH_COLORS[p] for p in tp_order if tp.get(p, 0) > 0]
+    bars = ax.barh(actual_order[::-1], actual_vals[::-1],
+                   color=actual_colors[::-1],
+                   edgecolor="white", linewidth=0.6, height=0.45)
+    for bar, val in zip(bars, actual_vals[::-1]):
+        pct = val / sum(actual_vals) * 100
+        ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height() / 2,
+                f"{val} ({pct:.1f}%)", va="center",
+                fontsize=10, fontweight="bold", color="#333")
+    ax.set_xlabel("Count")
+    ax.set_title("(b) Tech Proficiency", fontweight="bold", color="#222")
+    ax.set_xlim(0, max(actual_vals) * 1.35)
+    sns.despine(ax=ax)
 
-    # Panel C: Industry horizontal bar
+    # --- Panel C: Top 15 Industries ---
     ax = axes[1, 0]
     ind = df["industry"].value_counts().head(15)
+    # Use a perceptually uniform sequential colormap
+    ind_cmap = sns.color_palette("vlag_r", n_colors=15)
     bars = ax.barh(ind.index.str[:30][::-1], ind.values[::-1],
-                   color="#5c6bc0", edgecolor="white", linewidth=0.5)
+                   color=ind_cmap, edgecolor="white", linewidth=0.6)
     for bar, val in zip(bars, ind.values[::-1]):
         ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-                str(val), va="center", fontsize=8, fontweight="bold")
+                str(val), va="center", fontsize=8, fontweight="bold",
+                color="#333")
     ax.set_xlabel("Count")
-    ax.set_title("(c) Top 15 Industries", fontweight="bold")
+    ax.set_title("(c) Top 15 Industries", fontweight="bold", color="#222")
+    sns.despine(ax=ax)
 
-    # Panel D: User type × Tech proficiency 堆叠
+    # --- Panel D: Tech Proficiency × User Type stacked bar ---
     ax = axes[1, 1]
     ct_ut_tp = pd.crosstab(df["tech_proficiency"], df["user_type"])
     ct_ut_tp = ct_ut_tp.reindex(index=tp_order, fill_value=0)
-    ct_ut_tp.plot(kind="bar", stacked=True, ax=ax,
-                  color=[USER_TYPE_COLORS.get(c, "#999") for c in ct_ut_tp.columns],
-                  edgecolor="white", linewidth=0.5)
-    for i, (tp_val, row) in enumerate(ct_ut_tp.iterrows()):
+    ct_ut_tp.index = ["High", "Medium", "Low"]
+    ut_cols_present = [c for c in ct_ut_tp.columns if c in USER_TYPE_COLORS]
+    ct_ut_tp.plot(
+        kind="bar", stacked=True, ax=ax,
+        color=[USER_TYPE_COLORS.get(c, "#999") for c in ct_ut_tp.columns],
+        edgecolor="white", linewidth=0.6, width=0.55,
+    )
+    for i, (idx_name, row) in enumerate(ct_ut_tp.iterrows()):
         cum = 0
-        for j, col in enumerate(ct_ut_tp.columns):
+        for col in ct_ut_tp.columns:
             val = row[col]
-            if val > 10:
+            if val > 15:
                 ax.text(i, cum + val / 2, str(val), ha="center", va="center",
                         fontsize=9, fontweight="bold", color="white")
                 cum += val
-    ax.set_title("(d) Tech Proficiency × User Type", fontweight="bold")
+    ax.set_title("(d) Tech Proficiency × User Type", fontweight="bold", color="#222")
     ax.set_ylabel("Count")
     ax.set_xlabel("Tech Proficiency")
     ax.tick_params(axis="x", rotation=0)
-    ax.legend(title="User Type")
+    ax.legend(title="User Type", frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Inferred Attributes from Qwen3-4B", fontweight="bold", fontsize=14)
+    fig.suptitle("Inferred Attributes  (Qwen3-4B)", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 7: Queue by User Type & Tech Proficiency
+# Fig 7 — Queue by User Type & Tech Proficiency
 # ---------------------------------------------------------------------------
 
 def plot_queue_by_attributes(df: pd.DataFrame) -> plt.Figure:
-    """Queue 分布在 user_type / tech_proficiency 维度上的分组对比."""
-    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+    """Queue composition by user_type and tech_proficiency (100% stacked)."""
+    fig, axes = plt.subplots(1, 2, figsize=(17, 7.5))
 
-    # Panel A: Queue by user_type (百分比堆叠)
+    queue_cmap = sns.color_palette("tab10", n_colors=10)
+
+    # Panel A: Queue by user_type
     ax = axes[0]
     ct_ut = pd.crosstab(df["queue"], df["user_type"])
     queue_in_data = [q for q in QUEUE_ORDER if q in ct_ut.index]
     ct_ut = ct_ut.loc[queue_in_data]
     ct_ut_pct = ct_ut.div(ct_ut.sum(axis=0), axis=1) * 100
-    ct_ut_pct.T.plot(kind="barh", stacked=True, ax=ax,
-                     colormap="tab10", edgecolor="white", linewidth=0.3)
-    ax.set_title("(a) Queue Composition by User Type (%)", fontweight="bold")
+    ct_ut_pct.T.plot(kind="barh", stacked=True, ax=ax, color=queue_cmap,
+                     edgecolor="white", linewidth=0.4, width=0.7)
+    ax.set_title("(a) Queue Composition by User Type (%)",
+                 fontweight="bold", color="#222")
     ax.set_xlabel("Percentage (%)")
-    ax.legend(title="Queue", bbox_to_anchor=(1.02, 1), fontsize=7)
+    ax.legend(title="Queue", bbox_to_anchor=(1.02, 1), fontsize=7.5,
+              frameon=True, facecolor="white", edgecolor="#ddd", fancybox=True)
+    ax.set_xlim(0, 100)
+    sns.despine(ax=ax)
 
-    # Panel B: Queue by tech_proficiency (百分比堆叠)
+    # Panel B: Queue by tech_proficiency
     ax = axes[1]
     ct_tp = pd.crosstab(df["queue"], df["tech_proficiency"])
     queue_in_data = [q for q in QUEUE_ORDER if q in ct_tp.index]
     ct_tp = ct_tp.loc[queue_in_data]
     ct_tp_pct = ct_tp.div(ct_tp.sum(axis=0), axis=1) * 100
-    tp_order_display = ["high", "medium", "low"]
+    tp_order_display = ["high", "low"]
+    tp_labels = ["High", "Low"]
     ct_tp_pct = ct_tp_pct.reindex(columns=tp_order_display, fill_value=0)
-    ct_tp_pct.T.plot(kind="barh", stacked=True, ax=ax,
-                     colormap="tab10", edgecolor="white", linewidth=0.3)
-    ax.set_title("(b) Queue Composition by Tech Proficiency (%)", fontweight="bold")
+    ct_tp_pct.columns = tp_labels
+    ct_tp_pct.T.plot(kind="barh", stacked=True, ax=ax, color=queue_cmap,
+                     edgecolor="white", linewidth=0.4, width=0.5)
+    ax.set_title("(b) Queue Composition by Tech Proficiency (%)",
+                 fontweight="bold", color="#222")
     ax.set_xlabel("Percentage (%)")
-    ax.legend(title="Queue", bbox_to_anchor=(1.02, 1), fontsize=7)
+    ax.legend(title="Queue", bbox_to_anchor=(1.02, 1), fontsize=7.5,
+              frameon=True, facecolor="white", edgecolor="#ddd", fancybox=True)
+    ax.set_xlim(0, 100)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Queue Distribution by Inferred Attributes", fontweight="bold", fontsize=14)
+    fig.suptitle("Queue Distribution by Inferred Attributes", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 8: Priority by Inferred Attributes
+# Fig 8 — Priority by Inferred Attributes
 # ---------------------------------------------------------------------------
 
 def plot_priority_by_attributes(df: pd.DataFrame) -> plt.Figure:
-    """Priority 在 user_type / tech_proficiency 维度上的分组对比."""
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    """Priority split by user_type and tech_proficiency (100% stacked bar)."""
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.2))
 
     prio_order = ["high", "medium", "low"]
+    prio_labels = ["High", "Medium", "Low"]
 
-    # Panel A: user_type
+    # Panel A: User Type
     ax = axes[0]
     ct_ut = pd.crosstab(df["user_type"], df["priority"])
-    ct_ut = ct_ut.reindex(index=["enterprise", "individual"], columns=prio_order, fill_value=0)
+    ct_ut = ct_ut.reindex(index=["enterprise", "individual"],
+                          columns=prio_order, fill_value=0)
+    ct_ut.index = ["Enterprise", "Individual"]
+    ct_ut.columns = prio_labels
     ct_ut_pct = ct_ut.div(ct_ut.sum(axis=1), axis=0) * 100
-    ct_ut_pct.plot(kind="bar", ax=ax, color=[PRIORITY_COLORS[p] for p in prio_order],
-                   edgecolor="white", linewidth=0.5)
-    for i, (idx, row) in enumerate(ct_ut_pct.iterrows()):
+    ct_ut_pct.plot(kind="bar", ax=ax,
+                   color=[PRIORITY_COLORS[p] for p in prio_order],
+                   edgecolor="white", linewidth=0.6, width=0.55)
+    for i, (idx_name, row) in enumerate(ct_ut_pct.iterrows()):
         cum = 0
-        for j, prio in enumerate(prio_order):
-            val = row[prio]
+        for prio in prio_order:
+            val = row[prio_labels[prio_order.index(prio)]]
             if val > 5:
-                ax.text(i, cum + val / 2, f"{val:.0f}%", ha="center", va="center",
-                        fontsize=9, fontweight="bold", color="white")
+                ax.text(i, cum + val / 2, f"{val:.0f}%", ha="center",
+                        va="center", fontsize=9, fontweight="bold", color="white")
                 cum += val
-    ax.set_title("(a) Priority by User Type (%)", fontweight="bold")
+    ax.set_title("(a) Priority by User Type (%)", fontweight="bold", color="#222")
     ax.set_ylabel("Percentage (%)")
-    ax.set_xlabel("User Type")
+    ax.set_xlabel("")
     ax.tick_params(axis="x", rotation=0)
-    ax.legend(title="Priority")
+    ax.legend(title="Priority", frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    ax.set_ylim(0, 105)
+    sns.despine(ax=ax)
 
-    # Panel B: tech_proficiency
+    # Panel B: Tech Proficiency
     ax = axes[1]
     ct_tp = pd.crosstab(df["tech_proficiency"], df["priority"])
-    ct_tp = ct_tp.reindex(index=["high", "medium", "low"], columns=prio_order, fill_value=0)
+    tp_in_data = [p for p in ["high", "medium", "low"]
+                  if p in ct_tp.index]
+    ct_tp = ct_tp.reindex(index=tp_in_data, columns=prio_order, fill_value=0)
+    ct_tp.index = [l.capitalize() for l in tp_in_data]
+    ct_tp.columns = prio_labels
     ct_tp_pct = ct_tp.div(ct_tp.sum(axis=1), axis=0) * 100
-    ct_tp_pct.plot(kind="bar", ax=ax, color=[PRIORITY_COLORS[p] for p in prio_order],
-                   edgecolor="white", linewidth=0.5)
-    for i, (idx, row) in enumerate(ct_tp_pct.iterrows()):
+    actual_colors = [PRIORITY_COLORS[p] for p in prio_order]
+    ct_tp_pct.plot(kind="bar", ax=ax, color=actual_colors,
+                   edgecolor="white", linewidth=0.6, width=0.55)
+    for i, (idx_name, row) in enumerate(ct_tp_pct.iterrows()):
         cum = 0
-        for j, prio in enumerate(prio_order):
-            val = row[prio]
+        for prio in prio_order:
+            val = row[prio_labels[prio_order.index(prio)]]
             if val > 5:
-                ax.text(i, cum + val / 2, f"{val:.0f}%", ha="center", va="center",
-                        fontsize=9, fontweight="bold", color="white")
+                ax.text(i, cum + val / 2, f"{val:.0f}%", ha="center",
+                        va="center", fontsize=9, fontweight="bold", color="white")
                 cum += val
-    ax.set_title("(b) Priority by Tech Proficiency (%)", fontweight="bold")
+    ax.set_title("(b) Priority by Tech Proficiency (%)",
+                 fontweight="bold", color="#222")
     ax.set_ylabel("Percentage (%)")
-    ax.set_xlabel("Tech Proficiency")
+    ax.set_xlabel("")
     ax.tick_params(axis="x", rotation=0)
-    ax.legend(title="Priority")
+    ax.legend(title="Priority", frameon=True, facecolor="white",
+              edgecolor="#ddd", fancybox=True)
+    ax.set_ylim(0, 105)
+    sns.despine(ax=ax)
 
-    fig.suptitle("Priority Distribution by Inferred Attributes", fontweight="bold", fontsize=14)
+    fig.suptitle("Priority Distribution by Inferred Attributes", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 9: Body Length vs Priority / Queue
+# Fig 9 — Body Length vs Priority / Queue
 # ---------------------------------------------------------------------------
 
 def plot_text_vs_label(df: pd.DataFrame) -> plt.Figure:
-    """Body 长度按 Priority 和 Queue 分组的箱线图."""
+    """Boxplots: body length split by Priority and Queue."""
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Panel A: Body length by priority
     ax = axes[0]
     prio_order = ["high", "medium", "low"]
-    bp_data = [df[df["priority"] == p]["body_len"].dropna().values for p in prio_order]
+    bp_data = [df[df["priority"] == p]["body_len"].dropna().values
+               for p in prio_order]
     bp = ax.boxplot(bp_data, tick_labels=["High", "Medium", "Low"],
-                    patch_artist=True, widths=0.5)
+                    patch_artist=True, widths=0.45,
+                    medianprops={"color": "#222", "linewidth": 1.5},
+                    whiskerprops={"linewidth": 1},
+                    capprops={"linewidth": 1},
+                    boxprops={"linewidth": 0.8})
     for patch, prio in zip(bp["boxes"], prio_order):
         patch.set_facecolor(PRIORITY_COLORS[prio])
-        patch.set_alpha(0.6)
+        patch.set_alpha(0.55)
     ax.set_ylabel("Body Length (characters)")
-    ax.set_title("(a) Body Length by Priority", fontweight="bold")
+    ax.set_title("(a) Body Length by Priority", fontweight="bold", color="#222")
+    sns.despine(ax=ax)
 
     # Panel B: Body length by queue
     ax = axes[1]
     queue_in_data = [q for q in QUEUE_ORDER if q in df["queue"].values]
-    bp_data_q = [df[df["queue"] == q]["body_len"].dropna().values for q in queue_in_data]
-    bp_q = ax.boxplot(bp_data_q, tick_labels=[q[:20] for q in queue_in_data],
-                      patch_artist=True, widths=0.5, vert=False)
-    for patch in bp_q["boxes"]:
-        patch.set_facecolor("#5c6bc0")
-        patch.set_alpha(0.5)
+    bp_data_q = [df[df["queue"] == q]["body_len"].dropna().values
+                 for q in queue_in_data]
+    queue_cmap = sns.color_palette("crest", n_colors=len(queue_in_data))
+    bp_q = ax.boxplot(bp_data_q, tick_labels=[q[:22] for q in queue_in_data],
+                      patch_artist=True, widths=0.45, vert=False,
+                      medianprops={"color": "#222", "linewidth": 1.2},
+                      whiskerprops={"linewidth": 1},
+                      capprops={"linewidth": 1},
+                      boxprops={"linewidth": 0.8})
+    for patch, color in zip(bp_q["boxes"], queue_cmap):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.55)
     ax.set_xlabel("Body Length (characters)")
-    ax.set_title("(b) Body Length by Queue", fontweight="bold")
+    ax.set_title("(b) Body Length by Queue", fontweight="bold", color="#222")
+    sns.despine(ax=ax)
 
-    fig.suptitle("Text Length vs Labels", fontweight="bold", fontsize=14)
+    fig.suptitle("Text Length vs Labels", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 10: Tag 覆盖分析
+# Fig 10 — Tag coverage analysis
 # ---------------------------------------------------------------------------
 
 def plot_tag_coverage(df: pd.DataFrame) -> plt.Figure:
-    """Tag 字段的非空率和 tag 值分布."""
+    """Tag column non-null rates and top tag_1 values."""
     tag_cols = [f"tag_{i}" for i in range(1, 10)]
     coverage = {col: df[col].notna().mean() * 100 for col in tag_cols}
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.2))
 
     # Panel A: Tag coverage rate
     ax = axes[0]
     labels = [f"tag_{i}" for i in range(1, 10)]
     values = [coverage[c] for c in tag_cols]
-    bars = ax.bar(labels, values, color="#5c6bc0", edgecolor="white", linewidth=0.5)
+    # Gradient from low to full coverage
+    cov_cmap = sns.color_palette("flare", n_colors=len(values))
+    bars = ax.bar(labels, values, color=cov_cmap, edgecolor="white",
+                  linewidth=0.6, width=0.6)
     for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                f"{val:.1f}%", ha="center", fontsize=8, fontweight="bold")
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1.5,
+                f"{val:.1f}%", ha="center", fontsize=9, fontweight="bold",
+                color="#333")
     ax.set_ylabel("Non-null Rate (%)")
-    ax.set_title("(a) Tag Column Coverage", fontweight="bold")
-    ax.set_ylim(0, 105)
+    ax.set_title("(a) Tag Column Coverage", fontweight="bold", color="#222")
+    ax.set_ylim(0, 108)
+    sns.despine(ax=ax)
 
-    # Panel B: Top tag_1 values
+    # Panel B: Top-15 tag_1 values
     ax = axes[1]
     tag1_counts = df["tag_1"].value_counts().head(15)
-    bars = ax.barh(tag1_counts.index.str[:30][::-1], tag1_counts.values[::-1],
-                   color="#26a69a", edgecolor="white", linewidth=0.5)
+    tag1_cmap = sns.color_palette("crest_r", n_colors=len(tag1_counts))
+    bars = ax.barh(tag1_counts.index.str[:35][::-1], tag1_counts.values[::-1],
+                   color=tag1_cmap, edgecolor="white", linewidth=0.6)
     for bar, val in zip(bars, tag1_counts.values[::-1]):
         ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-                str(val), va="center", fontsize=8, fontweight="bold")
+                str(val), va="center", fontsize=8, fontweight="bold", color="#333")
     ax.set_xlabel("Count")
-    ax.set_title("(b) Top 15 tag_1 Values", fontweight="bold")
+    ax.set_title("(b) Top 15 tag_1 Values", fontweight="bold", color="#222")
+    sns.despine(ax=ax)
 
-    fig.suptitle("Tag Coverage Analysis", fontweight="bold", fontsize=14)
+    fig.suptitle("Tag Coverage Analysis", fontweight="bold",
+                 fontsize=14, color="#111")
     plt.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Fig 11: 综合信息面板 (Summary Stats)
-# ---------------------------------------------------------------------------
-
-def plot_summary_stats(df: pd.DataFrame) -> plt.Figure:
-    """汇总统计表格."""
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.axis("off")
-
-    stats = [
-        ("Total Samples", f"{len(df):,}"),
-        ("Languages", f"{df['language'].nunique()} ({', '.join(sorted(df['language'].unique()))})"),
-        ("Queue Classes", str(df["queue"].nunique())),
-        ("Priority Classes", str(df["priority"].nunique())),
-        ("Avg Subject Length", f"{df['subject_len'].mean():.0f} ± {df['subject_len'].std():.0f}"),
-        ("Avg Body Length", f"{df['body_len'].mean():.0f} ± {df['body_len'].std():.0f}"),
-        ("Avg Answer Length", f"{df['answer_len'].mean():.0f} ± {df['answer_len'].std():.0f}"),
-        ("Unique Business Types", str(df["business_type"].nunique())),
-        ("User Type — Enterprise", f"{df['user_type'].value_counts().get('enterprise', 0)}"),
-        ("User Type — Individual", f"{df['user_type'].value_counts().get('individual', 0)}"),
-        ("Tech Proficiency — High/Medium/Low",
-         f"{df['tech_proficiency'].value_counts().get('high', 0)} / "
-         f"{df['tech_proficiency'].value_counts().get('medium', 0)} / "
-         f"{df['tech_proficiency'].value_counts().get('low', 0)}"),
-        ("Most Common Queue", f"{df['queue'].value_counts().index[0]} ({df['queue'].value_counts().iloc[0]})"),
-        ("Most Common Priority", f"{df['priority'].value_counts().index[0]} ({df['priority'].value_counts().iloc[0]})"),
-    ]
-
-    col_labels = ["Metric", "Value"]
-    table = ax.table(
-        cellText=stats, colLabels=col_labels,
-        cellLoc="left", loc="center",
-        colWidths=[0.45, 0.55],
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 1.8)
-
-    # Style header
-    for key, cell in table._cells.items():
-        if key[0] == 0:
-            cell.set_fontsize(11)
-            cell.set_text_props(fontweight="bold")
-            cell.set_facecolor("#e0e0e0")
-        else:
-            cell.set_facecolor("#fafafa" if key[0] % 2 == 0 else "#f0f0f0")
-
-    ax.set_title("Dataset Summary Statistics", fontweight="bold", fontsize=14, pad=20)
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# 主函数
+# Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
@@ -635,24 +700,21 @@ def main() -> None:
     df = load_data()
     print(f"Loaded {len(df)} rows, {len(df.columns)} columns")
 
-    # 数据摘要
     print(f"\nLanguage distribution:\n{df['language'].value_counts()}")
     print(f"\nUser type distribution:\n{df['user_type'].value_counts()}")
     print(f"\nTech proficiency distribution:\n{df['tech_proficiency'].value_counts()}")
 
-    # 生成图表
     figures: list[tuple[str, plt.Figure]] = [
-        ("eda_01_class_distribution.png", plot_class_distribution(df)),
+        ("eda_01_class_distribution.png",    plot_class_distribution(df)),
         ("eda_02_queue_priority_heatmap.png", plot_queue_priority_heatmap(df)),
         ("eda_03_language_queue_heatmap.png", plot_language_queue_heatmap(df)),
-        ("eda_04_priority_by_language.png", plot_priority_by_language(df)),
-        ("eda_05_text_lengths.png", plot_text_lengths(df)),
-        ("eda_06_inferred_attributes.png", plot_inferred_attributes(df)),
-        ("eda_07_queue_by_attributes.png", plot_queue_by_attributes(df)),
+        ("eda_04_priority_by_language.png",   plot_priority_by_language(df)),
+        ("eda_05_text_lengths.png",           plot_text_lengths(df)),
+        ("eda_06_inferred_attributes.png",    plot_inferred_attributes(df)),
+        ("eda_07_queue_by_attributes.png",    plot_queue_by_attributes(df)),
         ("eda_08_priority_by_attributes.png", plot_priority_by_attributes(df)),
-        ("eda_09_text_vs_label.png", plot_text_vs_label(df)),
-        ("eda_10_tag_coverage.png", plot_tag_coverage(df)),
-        ("eda_11_summary_stats.png", plot_summary_stats(df)),
+        ("eda_09_text_vs_label.png",          plot_text_vs_label(df)),
+        ("eda_10_tag_coverage.png",           plot_tag_coverage(df)),
     ]
 
     for filename, fig in figures:
@@ -661,7 +723,7 @@ def main() -> None:
         plt.close(fig)
         print(f"Saved: {path}")
 
-    print(f"\nAll {len(figures)} EDA figures generated in {OUTPUT_DIR}/")
+    print(f"\nDone — {len(figures)} figures saved to {OUTPUT_DIR}/")
 
 
 if __name__ == "__main__":
