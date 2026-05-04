@@ -2,7 +2,7 @@
 
 import pytest
 
-from ticket_router_eval.fairness_metrics import compute_fairness_metrics
+from ticket_router.eval.fairness_metrics import compute_fairness_metrics
 
 
 class TestComputeFairnessMetrics:

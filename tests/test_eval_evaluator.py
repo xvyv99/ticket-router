@@ -3,7 +3,7 @@
 import pytest
 
 from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
-from ticket_router_eval.evaluator import TaskEvaluator
+from ticket_router.eval.evaluator import TaskEvaluator
 from ticket_router_base.types import (
     ErrorFlag,
     GroundRecord,

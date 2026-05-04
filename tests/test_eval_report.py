@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
-from ticket_router_eval.evaluator import TaskEvaluator
-from ticket_router_eval.report import EvaluationReport
+from ticket_router.eval.evaluator import TaskEvaluator
+from ticket_router.eval.report import EvaluationReport
 from ticket_router_base.types import (
     ErrorFlag,
     GroundRecord,

@@ -29,7 +29,7 @@ from ticket_router_base.predictor import get_model
 
 from ticket_router.supervised.models import HFPredictor
 
-from ticket_router_eval.robustness import (
+from ticket_router.eval.robustness import (
     ATTACK_RECIPE_REGISTRY,
     BlackBoxRobustnessEvaluator,
     CharacterPerturbation,
@@ -37,7 +37,7 @@ from ticket_router_eval.robustness import (
     WhiteBoxRobustnessEvaluator,
     WordPerturbation,
 )
-from ticket_router_eval.robustness_report import (
+from ticket_router.eval.robustness_report import (
     print_robustness_report,
     save_adversarial_examples_to_jsonl,
     save_robustness_to_csv,

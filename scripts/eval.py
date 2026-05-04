@@ -16,14 +16,14 @@ import warnings
 
 from rich.console import Console
 
-from ticket_router_eval import (
+from ticket_router.eval import (
     evaluate_model_dataset,
     EvaluationReport,
     aggregate_reports,
 )
 from ticket_router_base.data import get_dataset, DATASET_REGISTRY
 from ticket_router_base.config import LOGGING_FORMAT, RESULTS_DIR
-from ticket_router_eval.report import (
+from ticket_router.eval.report import (
     print_overall_report,
     save_reports_to_csv,
     save_reports_to_excel,
