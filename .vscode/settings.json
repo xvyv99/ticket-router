@@ -1,8 +1,7 @@
 {
   "files.exclude": {
-    "packages/": true,
-    ".worktrees/": true,
     ".ruff_cache/": true,
+    ".pytest_cache": true,
     ".venv": true
   },
   "git.addAICoAuthor": "off"
