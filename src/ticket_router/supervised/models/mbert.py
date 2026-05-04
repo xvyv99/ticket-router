@@ -4,8 +4,8 @@ from logging import getLogger
 
 from transformers import TrainingArguments
 
-from ticket_router_base.config import SEED
-from ticket_router_base.predictor import register_model
+from ticket_router.base.config import SEED
+from ticket_router.base.predictor import register_model
 
 from .hf import HFPredictor, HFTrainer
 from ticket_router.supervised.config import SAVE_DIR

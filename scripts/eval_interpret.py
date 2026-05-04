@@ -15,9 +15,9 @@ from typing import List
 
 import pandas as pd
 
-from ticket_router_base.config import LOGGING_FORMAT, OUTPUT_DIR, SEED
-from ticket_router_base.data import get_dataset, DATASET_REGISTRY
-from ticket_router_base.predictor import get_model
+from ticket_router.base.config import LOGGING_FORMAT, OUTPUT_DIR, SEED
+from ticket_router.base.data import get_dataset, DATASET_REGISTRY
+from ticket_router.base.predictor import get_model
 
 from ticket_router.supervised.models import HFPredictor
 

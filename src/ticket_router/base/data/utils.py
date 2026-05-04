@@ -3,8 +3,8 @@
 from typing import List
 from logging import getLogger
 
-from ticket_router_base.data.base import BaseDataset
-from ticket_router_base.types import Record
+from ticket_router.base.data.base import BaseDataset
+from ticket_router.base.types import Record
 
 logger = getLogger(__name__)
 

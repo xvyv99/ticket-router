@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
-from ticket_router_base.types import Record
+from ticket_router.base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router.base.types import Record
 from ticket_router.eval.interpret import (
     ClassAttributionSummary,
     HFInterpretabilityEvaluator,
@@ -23,6 +23,7 @@ from ticket_router.eval.interpret import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class _FakeDataset(BaseDataset):
     """Minimal fake dataset for interpretability tests."""
@@ -56,7 +57,6 @@ class _FakeHFPredictor:
         self._model_paths = model_paths
 
 
-
 def _make_record(request_id: str, body: str, label: str) -> Record:
     return Record(
         request_id=request_id,
@@ -74,13 +74,14 @@ def _make_record(request_id: str, body: str, label: str) -> Record:
 # ClassAttributionSummary
 # ---------------------------------------------------------------------------
 
+
 class TestClassAttributionSummary:
     def test_top_tokens_sorts_by_mean_abs_score(self) -> None:
         summary = ClassAttributionSummary(class_label="A", sample_count=2)
         summary.token_scores = {
-            "refund": [0.8, 0.6],      # mean=0.7, abs=0.7
-            "urgent": [-0.9, -0.1],    # mean=-0.5, abs=0.5
-            "hello": [0.1, 0.1],       # mean=0.1, abs=0.1
+            "refund": [0.8, 0.6],  # mean=0.7, abs=0.7
+            "urgent": [-0.9, -0.1],  # mean=-0.5, abs=0.5
+            "hello": [0.1, 0.1],  # mean=0.1, abs=0.1
         }
         top = summary.top_tokens(k=2)
 
@@ -104,6 +105,7 @@ class TestClassAttributionSummary:
 # ---------------------------------------------------------------------------
 # Dataclass construction
 # ---------------------------------------------------------------------------
+
 
 class TestDataclasses:
     def test_token_attribution_immutable(self) -> None:
@@ -135,6 +137,7 @@ class TestDataclasses:
 # ---------------------------------------------------------------------------
 # HFInterpretabilityEvaluator (mocked, no real model loading)
 # ---------------------------------------------------------------------------
+
 
 class TestHFInterpretabilityEvaluator:
     def _setup_mocks(self) -> tuple[MagicMock, MagicMock, MagicMock]:

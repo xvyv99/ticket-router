@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from ticket_router_base.utils import load_pred
-from ticket_router_base.types import (
+from ticket_router.base.utils import load_pred
+from ticket_router.base.types import (
     ErrorFlag,
     PredSave,
 )

@@ -5,10 +5,14 @@ import uuid
 from logging import getLogger
 from typing import Any
 
-from ticket_router_base.types import Record, Language
+from ticket_router.base.types import Record, Language
 from ticket_router.eval.interpret import HFInterpretabilityEvaluator
 
-from ticket_router.serve.cache import get_cache_entry, update_cache_entry, set_cache_entry
+from ticket_router.serve.cache import (
+    get_cache_entry,
+    update_cache_entry,
+    set_cache_entry,
+)
 from ticket_router.serve.models import get_pool
 
 logger = getLogger(__name__)
@@ -77,7 +81,9 @@ def run_prediction(req_id: str, title: str | None, body: str, model: str) -> Non
             queue = pred.labels.get("queue", "Unknown")
             priority = pred.labels.get("priority", "Unknown")
             queue_conf = pred.confidences.get("queue", 0.0) if pred.confidences else 0.0
-            priority_conf = pred.confidences.get("priority", 0.0) if pred.confidences else 0.0
+            priority_conf = (
+                pred.confidences.get("priority", 0.0) if pred.confidences else 0.0
+            )
             answer = None
 
         result = {
@@ -109,7 +115,10 @@ def _call_qwen3_for_answer(title: str | None, body: str) -> str | None:
     pool = get_pool()
     user_prompt = f"Ticket subject: {title or 'N/A'}\n\nTicket body: {body}"
     messages = [
-        {"role": "system", "content": "You are a helpful customer support assistant. Based on the ticket, provide a brief preliminary answer."},
+        {
+            "role": "system",
+            "content": "You are a helpful customer support assistant. Based on the ticket, provide a brief preliminary answer.",
+        },
         {"role": "user", "content": user_prompt},
     ]
     try:
@@ -152,7 +161,7 @@ def run_attribution(req_id: str) -> None:
             sensitive_attributes={},
         )
 
-        from ticket_router_base.data import get_dataset
+        from ticket_router.base.data import get_dataset
 
         dataset = get_dataset("multilingual-customer-support")()
 
@@ -174,12 +183,10 @@ def run_attribution(req_id: str) -> None:
                 "predicted_label": sample.predicted_label,
                 "confidence": sample.confidence,
                 "top_positive": [
-                    {"token": t.token, "score": t.score}
-                    for t in sample.top_positive
+                    {"token": t.token, "score": t.score} for t in sample.top_positive
                 ],
                 "top_negative": [
-                    {"token": t.token, "score": t.score}
-                    for t in sample.top_negative
+                    {"token": t.token, "score": t.score} for t in sample.top_negative
                 ],
             }
 

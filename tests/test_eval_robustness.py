@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ticket_router_base.data import BaseDataset, ClassificationTask, TaskDescriptor
-from ticket_router_base.types import Language, Record
+from ticket_router.base.data import BaseDataset, ClassificationTask, TaskDescriptor
+from ticket_router.base.types import Language, Record
 from ticket_router.eval.robustness import (
     AdversarialExample,
     ATTACK_RECIPE_REGISTRY,
@@ -76,7 +76,7 @@ class _AllCorrectPredictor:
     """Predictor that always returns the ground-truth label."""
 
     def predict(self, records: List[Record], run_id: int = 0):
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         return [
             Prediction(
@@ -97,7 +97,7 @@ class _AlwaysWrongPredictor:
     """Predictor that always returns a wrong label."""
 
     def predict(self, records: List[Record], run_id: int = 0):
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         wrong_labels = {"queue": "WRONG", "priority": "WRONG"}
         return [
@@ -119,7 +119,7 @@ class _FlipsOnPerturbationPredictor:
     """Predictor that flips queue prediction when body contains 'perturbed'."""
 
     def predict(self, records: List[Record], run_id: int = 0):
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         preds = []
         for rec in records:
@@ -351,7 +351,7 @@ class TestWhiteBoxRobustnessEvaluator:
         )
 
         # Mock predictor.predict to return correct predictions
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         predictor.predict.return_value = [
             Prediction(
@@ -414,7 +414,7 @@ class TestWhiteBoxRobustnessEvaluator:
         dataset = _FakeDataset()
         predictor = self._make_fake_hf_predictor()
 
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         predictor.predict.return_value = [
             Prediction(
@@ -580,7 +580,9 @@ class TestAdversarialExampleCollection:
         evaluator = BlackBoxRobustnessEvaluator(predictor, dataset)
 
         records = [
-            _make_record("r1", "original text here", "low", Language.ENGLISH, queue="A"),
+            _make_record(
+                "r1", "original text here", "low", Language.ENGLISH, queue="A"
+            ),
         ]
         metrics = evaluator.evaluate(records, task_name="queue")
 
@@ -617,7 +619,7 @@ class TestAdversarialExampleCollection:
         predictor._model_paths = {"queue": Path("/fake/model")}
         predictor.name = "fake-hf"
 
-        from ticket_router_base.types import ErrorFlag, Prediction
+        from ticket_router.base.types import ErrorFlag, Prediction
 
         predictor.predict.return_value = [
             Prediction(

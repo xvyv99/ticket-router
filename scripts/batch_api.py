@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 from logging import basicConfig, getLogger
 from pathlib import Path
 
-from ticket_router_base.config import LOGGING_FORMAT
-from ticket_router_base.data import DATASET_REGISTRY, get_dataset
+from ticket_router.base.config import LOGGING_FORMAT
+from ticket_router.base.data import DATASET_REGISTRY, get_dataset
 
 from ticket_router.agent.batch_api import BatchAPIPredictor, ModelConfig
 

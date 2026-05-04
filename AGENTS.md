@@ -73,9 +73,9 @@
 │       └── README.md                                     # 数据集字段说明
 │
 ├── packages/                   # monorepo: 各子包独立管理依赖
-│   ├── ticket_router_base/     # 共享基础层: 类型、配置、数据加载、评估协议
+│   ├── ticket_router.base/     # 共享基础层: 类型、配置、数据加载、评估协议
 │   │   ├── pyproject.toml
-│   │   └── src/ticket_router_base/
+│   │   └── src/ticket_router.base/
 │   │       ├── config.py       # 路径、常量、数据集位置
 │   │       ├── types.py        # Queue/Priority/Language Enum, Record/Prediction dataclass, Pandera schema
 │   │       ├── predictor.py    # Predictor & Trainer Protocol 定义
@@ -140,7 +140,7 @@
 
 **当前状态**: 项目处于中期阶段.
 
-- 基础架构(`ticket_router_base`)已完成: 统一类型系统、数据加载器、训练/测试划分、评估指标、JSONL 日志.
+- 基础架构(`ticket_router.base`)已完成: 统一类型系统、数据加载器、训练/测试划分、评估指标、JSONL 日志.
 - 数据划分已完成: `test_set.jsonl`(1200条)、`train_set.jsonl`、`difficult_cases.jsonl`(100条)已生成.
 - Supervised 系统初版已完成: LR、XGBoost 已实现并产出预测; RemBERT 训练/推理已实现.
 - Goal-Based 系统初版已完成: 本地 vLLM 推理(Qwen3 量化模型)和 SiliconFlow batch API 请求生成已实现.
@@ -159,7 +159,7 @@
 uv sync
 
 # 同步子包虚拟环境(推荐在工作目录下执行)
-cd packages/ticket_router_base && uv sync
+cd packages/ticket_router.base && uv sync
 cd packages/ticket_router.supervised && uv sync
 cd packages/ticket_router_agent && uv sync
 
@@ -223,9 +223,9 @@ pyright
 
 ## 5. 代码组织与模块划分
 
-项目采用 **monorepo** 架构, 各子包通过 `ticket_router_base` 共享基础设施, 保持三种范式之间的隔离.
+项目采用 **monorepo** 架构, 各子包通过 `ticket_router.base` 共享基础设施, 保持三种范式之间的隔离.
 
-### 5.1 共享层 (`ticket_router_base`)
+### 5.1 共享层 (`ticket_router.base`)
 
 - **`types.py`**: 核心领域类型. `Queue` (10个), `Priority` (3个), `Language` (5个) 均为 `StrEnum`. `Record` / `Prediction` / `GroundRecord` 为 frozen dataclass. 包含 Pandera schema 用于 DataFrame 运行时校验.
 - **`config.py`**: 数据集路径、输出路径、随机种子、样本数量常量. 使用 `pathlib.Path` 并在导入时断言数据集存在.
@@ -291,7 +291,7 @@ pyright
 ### 6.4 输出规范
 
 - 所有批量运行结果必须输出到 `outputs/` 下的 JSONL 文件.
-- 预测保存统一使用 `ticket_router_base.utils.write_pred`, 格式为 `PredSave` (含 `request_id`, `language`, `predicted`, `ground_truth`).
+- 预测保存统一使用 `ticket_router.base.utils.write_pred`, 格式为 `PredSave` (含 `request_id`, `language`, `predicted`, `ground_truth`).
 - Goal-Based 系统同一请求多次运行时, 需记录输出方差(当前 vLLM 脚本每次独立运行, 一致性分析需后处理).
 - 对 JSON 解析失败的 LLM 输出, vLLM structured output 已大幅降低失败率; 若仍失败则标记为 `ErrorFlag.JSON_ERR`.
 
@@ -308,7 +308,7 @@ pyright
 ### 7.1 单元测试 (待建立)
 
 - 当前项目**尚未创建 `tests/` 目录**.
-- 计划为 `ticket_router_base` 的以下模块优先补充测试:
+- 计划为 `ticket_router.base` 的以下模块优先补充测试:
   - `data/utils.py`: 分层抽样的 strata 分布、困难案例的 heuristic 筛选逻辑.
   - `utils.py`: `JSONLLogger` 写入/读取、`combine_texts` 边界条件.
   - `eval/metrics.py`: 各指标在极端情况(全对、全错、单类)下的正确性.
@@ -370,7 +370,7 @@ pyright
 6. **查看已有输出**: `outputs/supervised/` 和 `outputs/goal_based/` 中已有预测结果, 可作为基准.
 7. **开始工作**:
    - 若实现 Rule-Based: 在 `packages/ticket_router_rule/` 下创建模块.
-   - 若实现评估/报告: 在根目录 `scripts/` 或 `packages/ticket_router_base/eval/` 下扩展.
+   - 若实现评估/报告: 在根目录 `scripts/` 或 `packages/ticket_router.base/eval/` 下扩展.
    - 若改进 Supervised/Agent: 在对应包下修改, 保持 Protocol 兼容.
 
 ---

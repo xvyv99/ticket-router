@@ -10,9 +10,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
-from ticket_router_base.data import get_dataset
-from ticket_router_base.data.datasets import DATASET_REGISTRY
-from ticket_router_base.types import Record
+from ticket_router.base.data import get_dataset
+from ticket_router.base.data.datasets import DATASET_REGISTRY
+from ticket_router.base.types import Record
 from ticket_router.agent.prompt import build_conversation
 
 OUTPUT_DIR = Path("outputs/goal_based")

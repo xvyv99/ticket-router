@@ -9,16 +9,16 @@ from logging import getLogger
 from vllm import SamplingParams, LLM
 from vllm.sampling_params import StructuredOutputsParams
 
-from ticket_router_base.config import SEED
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.data.desc import TaskDescriptor
-from ticket_router_base.predictor import Predictor, register_model
-from ticket_router_base.types import (
+from ticket_router.base.config import SEED
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.data.desc import TaskDescriptor
+from ticket_router.base.predictor import Predictor, register_model
+from ticket_router.base.types import (
     ErrorFlag,
     Record,
     Prediction,
 )
-from ticket_router_base.cfg import Cfg
+from ticket_router.base.cfg import Cfg
 
 from .config import MAX_TOKEN_LENGTH, SAVE_DIR
 from .prompt import build_conversation

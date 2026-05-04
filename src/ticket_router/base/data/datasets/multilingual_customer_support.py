@@ -1,14 +1,14 @@
 """Multilingual customer support tickets dataset."""
 
-from ticket_router_base.config import DATASET_DIR
-from ticket_router_base.data import (
+from ticket_router.base.config import DATASET_DIR
+from ticket_router.base.data import (
     DFDataset,
     ClassificationTask,
     GenerationTask,
     OrdinalTask,
 )
-from ticket_router_base.data.desc import PromptDescriptor, TaskDescriptor
-from ticket_router_base.types import GroundRecord, Language
+from ticket_router.base.data.desc import PromptDescriptor, TaskDescriptor
+from ticket_router.base.types import GroundRecord, Language
 
 DEFAULT_DATASET_PATH = (
     DATASET_DIR

@@ -6,14 +6,14 @@ from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Tuple
 
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.predictor import Predictor, register_model
-from ticket_router_base.types import (
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.predictor import Predictor, register_model
+from ticket_router.base.types import (
     ErrorFlag,
     Prediction,
     Record,
 )
-from ticket_router_base.utils import JSONLLogger
+from ticket_router.base.utils import JSONLLogger
 
 from .config import SAVE_DIR
 from .prompt import build_conversation

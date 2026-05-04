@@ -21,14 +21,14 @@ from ticket_router.eval import (
     EvaluationReport,
     aggregate_reports,
 )
-from ticket_router_base.data import get_dataset, DATASET_REGISTRY
-from ticket_router_base.config import LOGGING_FORMAT, RESULTS_DIR
+from ticket_router.base.data import get_dataset, DATASET_REGISTRY
+from ticket_router.base.config import LOGGING_FORMAT, RESULTS_DIR
 from ticket_router.eval.report import (
     print_overall_report,
     save_reports_to_csv,
     save_reports_to_excel,
 )
-from ticket_router_base.predictor import scan_pred_saves, get_model, load_index_json
+from ticket_router.base.predictor import scan_pred_saves, get_model, load_index_json
 
 warnings.filterwarnings("ignore")
 

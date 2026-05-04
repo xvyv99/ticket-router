@@ -5,8 +5,8 @@ from logging import getLogger
 
 from pydantic import BaseModel
 
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import PredSave
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.types import PredSave
 
 from .metrics import (
     ClassificationMetrics,

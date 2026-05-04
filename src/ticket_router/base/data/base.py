@@ -9,8 +9,8 @@ import json
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from ticket_router_base.config import SEED, OUTPUT_DIR, INFERRED_MODEL_CHOICE
-from ticket_router_base.types import Record, Language
+from ticket_router.base.config import SEED, OUTPUT_DIR, INFERRED_MODEL_CHOICE
+from ticket_router.base.types import Record, Language
 from .desc import PromptDescriptor, TaskDescriptor
 from .tasks import ClassificationTask, OrdinalTask
 

@@ -7,7 +7,7 @@ Delegates to ticket_infer package.
 from pathlib import Path
 from argparse import ArgumentParser
 
-from ticket_router_base.config import OUTPUT_DIR
+from ticket_router.base.config import OUTPUT_DIR
 from ticket_router.infer import infer_attributes
 
 

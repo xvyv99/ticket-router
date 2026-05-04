@@ -2,9 +2,9 @@
 
 from logging import getLogger
 
-from ticket_router_base.config import DATASET_DIR
-from ticket_router_base.data import DFDataset, ClassificationTask, GenerationTask
-from ticket_router_base.data.desc import TaskDescriptor
+from ticket_router.base.config import DATASET_DIR
+from ticket_router.base.data import DFDataset, ClassificationTask, GenerationTask
+from ticket_router.base.data.desc import TaskDescriptor
 
 DEFAULT_DATASET_PATH = DATASET_DIR / "complaints.parquet"
 

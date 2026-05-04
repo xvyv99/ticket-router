@@ -3,9 +3,9 @@
 import json
 from typing import Dict, List
 
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.data.desc import TaskDescriptor, PromptDescriptor
-from ticket_router_base.types import Record
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.data.desc import TaskDescriptor, PromptDescriptor
+from ticket_router.base.types import Record
 
 
 def _build_task_definitions(

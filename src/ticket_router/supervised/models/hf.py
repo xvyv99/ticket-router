@@ -17,15 +17,15 @@ from transformers import (
     TrainingArguments,
 )
 
-from ticket_router_base.config import MODEL_DIR as BASE_MODEL_DIR
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.predictor import Predictor, Trainer as TrainerProtocol
-from ticket_router_base.types import (
+from ticket_router.base.config import MODEL_DIR as BASE_MODEL_DIR
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.predictor import Predictor, Trainer as TrainerProtocol
+from ticket_router.base.types import (
     ErrorFlag,
     Prediction,
     Record,
 )
-from ticket_router_base.utils import combine_texts
+from ticket_router.base.utils import combine_texts
 
 from ticket_router.supervised.config import TORCH_DEVICE
 from ticket_router.supervised.utils import create_datasets

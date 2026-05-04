@@ -22,24 +22,24 @@
 
 | 包名                       | 职责                                                     | 依赖重点                                         |
 | -------------------------- | -------------------------------------------------------- | ------------------------------------------------ |
-| `ticket_router_base`       | 共享类型、数据加载、评估指标、Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
+| `ticket_router.base`       | 共享类型、数据加载、评估指标、Predictor/Trainer Protocol | pandas, pandera, scikit-learn, aif360, fairlearn |
 | `ticket_router.supervised` | LR, XGBoost, RemBERT 微调                                | torch, transformers, xgboost, datasets, joblib   |
 | `ticket_router_agent`      | 本地 vLLM + SiliconFlow batch API                        | vllm, pydantic, llmcompressor                    |
 | `ticket_router_rule`       | **当前为空**, 待实现                                     | -                                                |
 
-**关键协议** (`ticket_router_base.predictor`):
+**关键协议** (`ticket_router.base.predictor`):
 
 - `Predictor.predict(records) -> PredictionBatch`: 所有模型统一入口.
 - `Trainer.train(records, val_records) -> Predictor`: 训练器可选实现.
 
-**关键类型** (`ticket_router_base.types`):
+**关键类型** (`ticket_router.base.types`):
 
 - `Queue` / `Priority` / `Language`: `StrEnum`.
 - `Record`: 输入, 含 `request_id`, `subject`, `body`, `language` + ground truth.
 - `Prediction`: 输出, 含 `queue`, `priority`, `tag_1`, `tag_2`, `answer`, `queue_confidence`, `priority_confidence`, `raw_output`, `error`.
 - `ErrorFlag`: `IntFlag`, `SUCCESS=0`, 支持组合错误标记.
 
-统一保存: `ticket_router_base.utils.write_pred(predictions, records, path)` 输出标准 JSONL.
+统一保存: `ticket_router.base.utils.write_pred(predictions, records, path)` 输出标准 JSONL.
 
 ### 2.2 数据流
 
@@ -62,7 +62,7 @@ test_set.jsonl  -> vLLM/Qwen3 推理    -> outputs/goal_based/*_predictions.json
 
 ### 已完成
 
-- [x] `ticket_router_base`: 类型系统、Pandera schema、数据加载、分层抽样、困难案例筛选、JSONL 日志、分类指标、一致性指标.
+- [x] `ticket_router.base`: 类型系统、Pandera schema、数据加载、分层抽样、困难案例筛选、JSONL 日志、分类指标、一致性指标.
 - [x] `ticket_router.supervised`: LR + XGBoost 已实现并跑通全量测试集; RemBERT 训练/推理已实现.
 - [x] `ticket_router_agent`: vLLM 本地推理(Qwen3 0.6B/1.7B/4B, 支持 AWQ 量化) + SiliconFlow batch API 请求生成.
 - [x] Qwen3 W8A8 量化脚本 (`llmcompressor`).
@@ -73,7 +73,7 @@ test_set.jsonl  -> vLLM/Qwen3 推理    -> outputs/goal_based/*_predictions.json
 - [ ] **Rule-Based 系统** (`packages/ticket_router_rule/`): 完全空白. 可参考旧包 `packages/ticket_router/rule_based/` 中的原型(关键词匹配 + 模板选择).
 - [ ] **Tags 预测启用**: LR 已训练 tag 模型但未在 `LRPredictor.predict()` 中启用; XGB 未训练 tag; RemBERT 未训练 tag.
 - [ ] **Preliminary answer 生成**: Supervised 系统目前只预测 queue + priority, 不生成 answer.
-- [ ] **统一评估脚本**: 读取各系统 JSONL 输出, 计算对比指标, 生成报表. 计划放在根目录 `scripts/` 或 `packages/ticket_router_base/eval/`.
+- [ ] **统一评估脚本**: 读取各系统 JSONL 输出, 计算对比指标, 生成报表. 计划放在根目录 `scripts/` 或 `packages/ticket_router.base/eval/`.
 - [ ] **LLM-as-Judge**: 使用强模型对 answer 质量评分.
 - [ ] **公平性分析**: 使用 `aif360` / `fairlearn` 分析语言/queue 层面的偏差.
 - [ ] **测试目录**: `tests/` 尚未创建, 当前无 pytest 覆盖.
@@ -88,8 +88,8 @@ test_set.jsonl  -> vLLM/Qwen3 推理    -> outputs/goal_based/*_predictions.json
 若新增模型(如 Rule-Based 或新 LLM), 遵循以下模式:
 
 ```python
-from ticket_router_base.predictor import Predictor
-from ticket_router_base.types import Prediction, PredictionBatch, Queue, Priority, ErrorFlag
+from ticket_router.base.predictor import Predictor
+from ticket_router.base.types import Prediction, PredictionBatch, Queue, Priority, ErrorFlag
 
 class MyPredictor(Predictor):
     supports_tags: bool = False          # 是否支持 tag 预测
@@ -118,7 +118,7 @@ uv run --project packages/ticket_router.supervised packages/ticket_router.superv
 
 ```bash
 # 根项目无实质依赖, 不要在这里 uv add
-cd packages/ticket_router_base && uv sync
+cd packages/ticket_router.base && uv sync
 cd packages/ticket_router.supervised && uv sync
 cd packages/ticket_router_agent && uv sync
 
@@ -160,13 +160,13 @@ pyright
 
 | 目的               | 路径                                                                             |
 | ------------------ | -------------------------------------------------------------------------------- |
-| 核心类型/Enum      | `packages/ticket_router_base/src/ticket_router_base/types.py`                    |
-| 数据集路径配置     | `packages/ticket_router_base/src/ticket_router_base/config.py`                   |
-| Predictor Protocol | `packages/ticket_router_base/src/ticket_router_base/predictor.py`                |
-| 数据加载器         | `packages/ticket_router_base/src/ticket_router_base/data/loader.py`              |
-| 分层抽样/困难案例  | `packages/ticket_router_base/src/ticket_router_base/data/utils.py`               |
-| 评估指标           | `packages/ticket_router_base/src/ticket_router_base/eval/metrics.py`             |
-| 统一预测保存       | `packages/ticket_router_base/src/ticket_router_base/utils.py`                    |
+| 核心类型/Enum      | `packages/ticket_router.base/src/ticket_router.base/types.py`                    |
+| 数据集路径配置     | `packages/ticket_router.base/src/ticket_router.base/config.py`                   |
+| Predictor Protocol | `packages/ticket_router.base/src/ticket_router.base/predictor.py`                |
+| 数据加载器         | `packages/ticket_router.base/src/ticket_router.base/data/loader.py`              |
+| 分层抽样/困难案例  | `packages/ticket_router.base/src/ticket_router.base/data/utils.py`               |
+| 评估指标           | `packages/ticket_router.base/src/ticket_router.base/eval/metrics.py`             |
+| 统一预测保存       | `packages/ticket_router.base/src/ticket_router.base/utils.py`                    |
 | LR/XGB 模型        | `packages/ticket_router.supervised/src/ticket_router.supervised/models/`         |
 | RemBERT 微调       | `packages/ticket_router.supervised/src/ticket_router.supervised/models/mbert.py` |
 | vLLM 推理          | `packages/ticket_router_agent/src/ticket_router_agent/infer.py`                  |

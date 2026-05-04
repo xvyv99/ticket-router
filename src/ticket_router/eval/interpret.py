@@ -16,9 +16,9 @@ from tqdm import tqdm
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers_interpret import SequenceClassificationExplainer
 
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import Record
-from ticket_router_base.utils import combine_texts
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.types import Record
+from ticket_router.base.utils import combine_texts
 from ticket_router.supervised.config import TORCH_DEVICE
 
 logger = getLogger(__name__)
@@ -83,7 +83,7 @@ class HFInterpretabilityEvaluator:
     Usage:
         from ticket_router_eval.interpretability import HFInterpretabilityEvaluator
         from ticket_router.supervised import MBERTPredictor
-        from ticket_router_base.data import get_dataset
+        from ticket_router.base.data import get_dataset
 
         dataset = get_dataset("multilingual-customer-support")()
         predictor = MBERTPredictor.load_model(dataset)

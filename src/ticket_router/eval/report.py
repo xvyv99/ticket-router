@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 
-from ticket_router_base.data import BaseDataset
+from ticket_router.base.data import BaseDataset
 
 from .evaluator import TaskEvaluationResult
 
@@ -120,7 +120,11 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
 
                 val = getattr(task.performance, metric_key, None)
                 std_task = get_std_task(r, task_name)
-                std = getattr(std_task.performance, metric_key, None) if std_task is not None else None
+                std = (
+                    getattr(std_task.performance, metric_key, None)
+                    if std_task is not None
+                    else None
+                )
                 row.append(format_metric(val, std))
 
             table.add_row(*row)
@@ -152,8 +156,14 @@ def print_overall_report(reports: List[EvaluationReport]) -> None:
 
                     val = getattr(fm, field_name, None)
                     std_task = get_std_task(r, task_name)
-                    std_fm = std_task.fairness.get(key) if std_task is not None else None
-                    std = getattr(std_fm, field_name, None) if std_fm is not None else None
+                    std_fm = (
+                        std_task.fairness.get(key) if std_task is not None else None
+                    )
+                    std = (
+                        getattr(std_fm, field_name, None)
+                        if std_fm is not None
+                        else None
+                    )
                     row.append(format_metric(val, std))
 
                 table.add_row(*row)
@@ -200,7 +210,9 @@ def _get_task(report: EvaluationReport, task_name: str) -> TaskEvaluationResult 
     )
 
 
-def _get_std_task(report: EvaluationReport, task_name: str) -> TaskEvaluationResult | None:
+def _get_std_task(
+    report: EvaluationReport, task_name: str
+) -> TaskEvaluationResult | None:
     if not report.task_stds:
         return None
     return next(
@@ -241,19 +253,29 @@ def _build_tidy_rows(reports: List[EvaluationReport]) -> List[Dict[str, Any]]:
                     continue
 
                 std_task = _get_std_task(r, task_name)
-                std = getattr(std_task.performance, attr_name, None) if std_task is not None else None
+                std = (
+                    getattr(std_task.performance, attr_name, None)
+                    if std_task is not None
+                    else None
+                )
 
-                rows.append({
-                    "task_name": task_name,
-                    "model_name": r.model_name,
-                    "cfg": json.dumps(r.cfg_info, ensure_ascii=False, sort_keys=True) if r.cfg_info else "",
-                    "n_runs": r.n_runs,
-                    "metric_category": "performance",
-                    "metric_name": metric_name,
-                    "sensitive_attr": "",
-                    "value": val,
-                    "std": std if std is not None else "",
-                })
+                rows.append(
+                    {
+                        "task_name": task_name,
+                        "model_name": r.model_name,
+                        "cfg": json.dumps(
+                            r.cfg_info, ensure_ascii=False, sort_keys=True
+                        )
+                        if r.cfg_info
+                        else "",
+                        "n_runs": r.n_runs,
+                        "metric_category": "performance",
+                        "metric_name": metric_name,
+                        "sensitive_attr": "",
+                        "value": val,
+                        "std": std if std is not None else "",
+                    }
+                )
 
         fairness_fields = [
             ("accuracy_gap", "accuracy_gap"),
@@ -279,21 +301,33 @@ def _build_tidy_rows(reports: List[EvaluationReport]) -> List[Dict[str, Any]]:
                         continue
 
                     std_task = _get_std_task(r, task_name)
-                    std_fm = std_task.fairness.get(sensitive_attr) if std_task is not None else None
-                    std = getattr(std_fm, attr_name, None) if std_fm is not None else None
+                    std_fm = (
+                        std_task.fairness.get(sensitive_attr)
+                        if std_task is not None
+                        else None
+                    )
+                    std = (
+                        getattr(std_fm, attr_name, None) if std_fm is not None else None
+                    )
 
-                    rows.append({
-                        "task_name": task_name,
-                        "model_name": r.model_name,
-                        "cfg": json.dumps(r.cfg_info, ensure_ascii=False, sort_keys=True) if r.cfg_info else "",
-                        "n_runs": r.n_runs,
-                        "metric_category": "fairness",
-                        "metric_name": metric_name,
-                        "sensitive_attr": sensitive_attr,
-                        "pair": "",
-                        "value": val,
-                        "std": std if std is not None else "",
-                    })
+                    rows.append(
+                        {
+                            "task_name": task_name,
+                            "model_name": r.model_name,
+                            "cfg": json.dumps(
+                                r.cfg_info, ensure_ascii=False, sort_keys=True
+                            )
+                            if r.cfg_info
+                            else "",
+                            "n_runs": r.n_runs,
+                            "metric_category": "fairness",
+                            "metric_name": metric_name,
+                            "sensitive_attr": sensitive_attr,
+                            "pair": "",
+                            "value": val,
+                            "std": std if std is not None else "",
+                        }
+                    )
 
             # Per-pair fairness metrics
             pair_fields = [
@@ -313,18 +347,24 @@ def _build_tidy_rows(reports: List[EvaluationReport]) -> List[Dict[str, Any]]:
                         val = getattr(pair_fm, attr_name, None)
                         if val is None:
                             continue
-                        rows.append({
-                            "task_name": task_name,
-                            "model_name": r.model_name,
-                            "cfg": json.dumps(r.cfg_info, ensure_ascii=False, sort_keys=True) if r.cfg_info else "",
-                            "n_runs": r.n_runs,
-                            "metric_category": "fairness_pairwise",
-                            "metric_name": metric_name,
-                            "sensitive_attr": sensitive_attr,
-                            "pair": pair_key,
-                            "value": val,
-                            "std": "",
-                        })
+                        rows.append(
+                            {
+                                "task_name": task_name,
+                                "model_name": r.model_name,
+                                "cfg": json.dumps(
+                                    r.cfg_info, ensure_ascii=False, sort_keys=True
+                                )
+                                if r.cfg_info
+                                else "",
+                                "n_runs": r.n_runs,
+                                "metric_category": "fairness_pairwise",
+                                "metric_name": metric_name,
+                                "sensitive_attr": sensitive_attr,
+                                "pair": pair_key,
+                                "value": val,
+                                "std": "",
+                            }
+                        )
 
     return rows
 
@@ -394,15 +434,16 @@ def _write_overview_sheet(
             if reports[col_idx - 2].model_name != current_model:
                 if col_idx - 1 > start_col:
                     ws.merge_cells(
-                        start_row=1, start_column=start_col,
-                        end_row=1, end_column=col_idx - 1
+                        start_row=1,
+                        start_column=start_col,
+                        end_row=1,
+                        end_column=col_idx - 1,
                     )
                 start_col = col_idx
                 current_model = reports[col_idx - 2].model_name
         if n_reports + 1 > start_col:
             ws.merge_cells(
-                start_row=1, start_column=start_col,
-                end_row=1, end_column=n_reports + 1
+                start_row=1, start_column=start_col, end_row=1, end_column=n_reports + 1
             )
 
     # Style header rows
@@ -433,7 +474,11 @@ def _write_overview_sheet(
                 continue
             val = getattr(task.performance, attr_name, None)
             std_task = _get_std_task(r, task_name)
-            std = getattr(std_task.performance, attr_name, None) if std_task is not None else None
+            std = (
+                getattr(std_task.performance, attr_name, None)
+                if std_task is not None
+                else None
+            )
             values.append(_format_metric(val, std))
         metric_rows.append((metric_label, values))
 
@@ -461,7 +506,11 @@ def _write_overview_sheet(
                     continue
                 val = getattr(fm, attr_name, None)
                 std_task = _get_std_task(r, task_name)
-                std_fm = std_task.fairness.get(sensitive_attr) if std_task is not None else None
+                std_fm = (
+                    std_task.fairness.get(sensitive_attr)
+                    if std_task is not None
+                    else None
+                )
                 std = getattr(std_fm, attr_name, None) if std_fm is not None else None
                 values.append(_format_metric(val, std))
             metric_rows.append((f"{sensitive_attr} {metric_label}", values))
@@ -497,7 +546,9 @@ def _write_overview_sheet(
                             continue
                         val = getattr(_pair_fm, attr_name, None)
                         values.append(_format_metric(val, None))
-                    metric_rows.append((f"  {sensitive_attr} {pair_key} {metric_label}", values))
+                    metric_rows.append(
+                        (f"  {sensitive_attr} {pair_key} {metric_label}", values)
+                    )
 
     for row_offset, (metric_label, values) in enumerate(metric_rows, start=1):
         row_idx = header_offset + row_offset

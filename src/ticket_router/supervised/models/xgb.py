@@ -5,15 +5,15 @@ from typing import Dict, List
 from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 
-from ticket_router_base.config import SEED
-from ticket_router_base.data import BaseDataset
-from ticket_router_base.types import (
+from ticket_router.base.config import SEED
+from ticket_router.base.data import BaseDataset
+from ticket_router.base.types import (
     Record,
     Prediction,
     ErrorFlag,
 )
-from ticket_router_base.utils import combine_texts
-from ticket_router_base.predictor import Predictor, Trainer, register_model
+from ticket_router.base.utils import combine_texts
+from ticket_router.base.predictor import Predictor, Trainer, register_model
 
 from ticket_router.supervised.utils import save_model, SKModel
 from ticket_router.supervised.config import SAVE_DIR

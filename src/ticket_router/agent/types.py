@@ -2,7 +2,7 @@
 
 from typing import Dict, Any
 
-from ticket_router_base.data.desc import TaskDescriptor
+from ticket_router.base.data.desc import TaskDescriptor
 
 
 def build_ticket_schema(task_descriptor: TaskDescriptor) -> Dict[str, Any]:
