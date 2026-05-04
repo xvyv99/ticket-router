@@ -42,3 +42,7 @@ run-vllm *ARGS:
 
 llm-batch *ARGS:
     uv run ./scripts/batch_api.py {{ARGS}}
+
+# Serving
+serve PORT="8000" *ARGS:
+    uv run uvicorn ticket_router.serve.main:app --reload --port {{PORT}} {{ARGS}}

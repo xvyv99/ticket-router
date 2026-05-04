@@ -14,17 +14,17 @@ HEADERS = {"X-API-Key": API_KEY}
 @pytest.fixture
 def client(monkeypatch):
     """Create test client with mocked startup (skip model loading)."""
-    import ticket_router_serve.deps
+    import ticket_router.serve.deps
 
     # Patch API_KEYS so verify_api_key accepts our test key
-    monkeypatch.setattr(ticket_router_serve.deps, "API_KEYS", {API_KEY})
+    monkeypatch.setattr(ticket_router.serve.deps, "API_KEYS", {API_KEY})
 
     # Patch model pool initialization to skip loading real models
     with patch("ticket_router_serve.main.get_pool") as mock_get_pool:
         mock_instance = MagicMock()
         mock_instance.initialize = MagicMock()
         mock_get_pool.return_value = mock_instance
-        from ticket_router_serve.main import app
+        from ticket_router.serve.main import app
 
         with TestClient(app, raise_server_exceptions=True) as test_client:
             yield test_client
