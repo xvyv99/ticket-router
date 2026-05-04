@@ -13,7 +13,7 @@ from ticket_router.supervised.models.mbert import MBERTPredictor
 from ticket_router.supervised.models.xlm_roberta import XLMRoBERTaPredictor
 from ticket_router_rule.predictor import RuleBasedPredictor
 
-from ticket_router_serve.config import DASHSCOPE_API_KEY
+from ticket_router.serve.config import DASHSCOPE_API_KEY
 
 logger = getLogger(__name__)
 

@@ -8,8 +8,8 @@ from typing import Any
 from ticket_router_base.types import Record, Language
 from ticket_router_eval.interpret import HFInterpretabilityEvaluator
 
-from ticket_router_serve.cache import get_cache_entry, update_cache_entry, set_cache_entry
-from ticket_router_serve.models import get_pool
+from ticket_router.serve.cache import get_cache_entry, update_cache_entry, set_cache_entry
+from ticket_router.serve.models import get_pool
 
 logger = getLogger(__name__)
 

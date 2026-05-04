@@ -2,15 +2,15 @@
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 
-from ticket_router_serve.cache import (
+from ticket_router.serve.cache import (
     compute_fingerprint,
     find_by_fingerprint,
     get_cache_entry,
     save_fingerprint,
 )
-from ticket_router_serve.deps import verify_api_key
-from ticket_router_serve.models import get_pool, SUPPORTED_MODELS
-from ticket_router_serve.schemas import (
+from ticket_router.serve.deps import verify_api_key
+from ticket_router.serve.models import get_pool, SUPPORTED_MODELS
+from ticket_router.serve.schemas import (
     AttributionResponse,
     ErrorResponse,
     HealthResponse,
@@ -19,7 +19,7 @@ from ticket_router_serve.schemas import (
     ResultResponse,
     TaskStatus,
 )
-from ticket_router_serve.tasks import submit_attribution, submit_task
+from ticket_router.serve.tasks import submit_attribution, submit_task
 from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------------------------------------------------------
